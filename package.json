@@ -9,9 +9,15 @@
     "server": "node server/server.js",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "node server/server.js"
+    "start": "node server/server.js",
+    "cap:build": "npm run build && npx cap sync",
+    "cap:android": "npx cap open android",
+    "cap:sync": "npx cap sync"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
     "cors": "^2.8.5",

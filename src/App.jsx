@@ -7,6 +7,7 @@ import { YouthChat } from './components/YouthChat';
 import { DonationModal } from './components/DonationModal';
 import { AdminModal } from './components/AdminModal';
 import { MobileNav } from './components/MobileNav';
+import { InstallAppBanner } from './components/InstallAppBanner';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SocketProvider, useSocket } from './context/SocketContext';
 import { api } from './services/api';
@@ -219,6 +220,9 @@ function MainApp() {
         settings={settings}
         onRefreshSettings={fetchData}
       />
+
+      {/* 1-Tap Mobile App Install Banner */}
+      <InstallAppBanner />
 
       {/* Mobile App Navigation Bar */}
       <MobileNav

@@ -1,0 +1,17 @@
+{
+  "appId": "org.vijayacolony.ganesh",
+  "appName": "Vijaya Colony Ganesha Youth",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "backgroundColor": "#170602",
+      "showSpinner": false
+    }
+  }
+}

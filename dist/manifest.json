@@ -1,0 +1,26 @@
+{
+  "name": "విజయ కాలనీ గణేష్ యూత్ • Vijaya Colony Ganesha Youth",
+  "short_name": "Ganesha Youth",
+  "description": "Official Ganesh Chaturthi Utsav 2026 Donation Collection, Event Schedule & Youth Chat",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#140502",
+  "theme_color": "#1a0803",
+  "lang": "te",
+  "icons": [
+    {
+      "src": "/colony_logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/colony_logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["events", "community", "devotional"]
+}
