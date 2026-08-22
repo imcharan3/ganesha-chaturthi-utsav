@@ -118,14 +118,26 @@ export const HeroSection = ({ stats, settings, onOpenDonation, setActiveTab }) =
               </button>
             </div>
 
-            {/* Social Share Link */}
-            <div className="flex items-center justify-center lg:justify-start gap-3 pt-1">
+            {/* Quick Actions Strip */}
+            <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4 pt-1 text-xs">
               <button
                 onClick={handleShare}
-                className="text-xs text-amber-400/80 hover:text-amber-200 flex items-center gap-1.5 transition-colors"
+                className="text-amber-400/80 hover:text-amber-200 flex items-center gap-1.5 transition-colors"
               >
                 <Share2 className="w-3.5 h-3.5" />
-                <span>Share Mandapam Page on WhatsApp</span>
+                <span>Share Mandapam on WhatsApp</span>
+              </button>
+
+              <span className="text-amber-500/40 hidden sm:inline">•</span>
+
+              <button
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('open-install-modal'));
+                }}
+                className="text-amber-300 hover:text-amber-100 flex items-center gap-1.5 transition-colors font-semibold"
+              >
+                <span>📲</span>
+                <span className="underline">Install Mobile App (యాప్ డౌన్‌లోడ్)</span>
               </button>
             </div>
           </div>
