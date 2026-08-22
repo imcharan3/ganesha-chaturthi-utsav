@@ -1,0 +1,242 @@
+import React, { useState, useEffect } from 'react';
+import { Navbar } from './components/Navbar';
+import { HeroSection } from './components/HeroSection';
+import { DonorsList } from './components/DonorsList';
+import { EventsTimeline } from './components/EventsTimeline';
+import { YouthChat } from './components/YouthChat';
+import { DonationModal } from './components/DonationModal';
+import { AdminModal } from './components/AdminModal';
+import { MobileNav } from './components/MobileNav';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { SocketProvider, useSocket } from './context/SocketContext';
+import { api } from './services/api';
+import { playTempleBell } from './utils/audio';
+
+function MainApp() {
+  const [activeTab, setActiveTab] = useState('home');
+  const [isDonationOpen, setIsDonationOpen] = useState(false);
+  const { isAdminModalOpen, setIsAdminModalOpen } = useAuth();
+  const { socket } = useSocket();
+
+  // Data States
+  const [settings, setSettings] = useState(null);
+  const [donors, setDonors] = useState([]);
+  const [stats, setStats] = useState({ totalDonors: 0, totalAmount: 0, targetAmount: 70000 });
+  const [events, setEvents] = useState([]);
+  const [messages, setMessages] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch initial data
+  const fetchData = async () => {
+    try {
+      const [settingsRes, donorsRes, eventsRes, messagesRes] = await Promise.all([
+        api.getSettings().catch(() => ({})),
+        api.getDonors().catch(() => ({ donors: [], stats: {} })),
+        api.getEvents().catch(() => ([])),
+        api.getMessages().catch(() => ([]))
+      ]);
+
+      setSettings(settingsRes);
+      setDonors(donorsRes.donors || []);
+      setStats(donorsRes.stats || { totalDonors: 0, totalAmount: 0, targetAmount: 70000 });
+      setEvents(eventsRes || []);
+      setMessages(messagesRes || []);
+    } catch (err) {
+      console.error('Error loading data:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // Real-time Socket.io Subscriptions
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on('donor:created', (data) => {
+      setDonors(prev => [data.newDonor, ...prev]);
+      if (data.stats) setStats(data.stats);
+    });
+
+    socket.on('donor:updated', (data) => {
+      setDonors(prev => prev.map(d => d.id === data.donor.id ? data.donor : d));
+      if (data.stats) setStats(data.stats);
+    });
+
+    socket.on('donor:deleted', (data) => {
+      setDonors(prev => prev.filter(d => d.id !== data.id));
+      if (data.stats) setStats(data.stats);
+    });
+
+    socket.on('message:new', (msg) => {
+      setMessages(prev => [...prev, msg]);
+    });
+
+    socket.on('message:reaction', ({ id, reactions }) => {
+      setMessages(prev => prev.map(m => m.id === id ? { ...m, reactions } : m));
+    });
+
+    socket.on('message:deleted', ({ id }) => {
+      setMessages(prev => prev.filter(m => m.id !== id));
+    });
+
+    socket.on('event:updated', (updatedEvt) => {
+      setEvents(prev => prev.map(e => e.id === updatedEvt.id ? updatedEvt : e));
+    });
+
+    socket.on('settings:updated', (updatedSet) => {
+      setSettings(updatedSet);
+    });
+
+    return () => {
+      socket.off('donor:created');
+      socket.off('donor:updated');
+      socket.off('donor:deleted');
+      socket.off('message:new');
+      socket.off('message:reaction');
+      socket.off('message:deleted');
+      socket.off('event:updated');
+      socket.off('settings:updated');
+    };
+  }, [socket]);
+
+  return (
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-[#140602] via-[#200c06] to-[#100402] text-amber-50 selection:bg-amber-500 selection:text-amber-950 pb-20 md:pb-10">
+      
+      {/* Top Devotional Header */}
+      <Navbar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onOpenDonation={() => setIsDonationOpen(true)}
+        settings={settings}
+      />
+
+      {/* Main Tab Content */}
+      <main className="flex-1">
+        {activeTab === 'home' && (
+          <div className="space-y-4">
+            <HeroSection
+              stats={stats}
+              settings={settings}
+              onOpenDonation={() => setIsDonationOpen(true)}
+              setActiveTab={setActiveTab}
+            />
+
+            {/* Quick Preview Sections */}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 pb-8">
+              
+              {/* 4-Day Events Preview Teaser */}
+              <div className="temple-card p-6 rounded-3xl border border-amber-500/30">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-devotional text-lg sm:text-xl font-bold gold-gradient-text">
+                    4-Day Celebrations Overview (ఉత్సవ వివరాలు)
+                  </h3>
+                  <button
+                    onClick={() => setActiveTab('events')}
+                    className="text-xs text-amber-400 hover:text-amber-200 font-semibold underline"
+                  >
+                    View All Details →
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {events.map((evt) => (
+                    <div 
+                      key={evt.id}
+                      onClick={() => setActiveTab('events')}
+                      className="bg-[#1c0803] p-4 rounded-2xl border border-amber-500/20 hover:border-amber-400/60 cursor-pointer transition-all space-y-1.5"
+                    >
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-bold text-amber-400 bg-black/40 px-2 py-0.5 rounded-full">Day {evt.dayNumber}</span>
+                        <span className="text-amber-300/70 text-[11px]">{evt.time}</span>
+                      </div>
+                      <h4 className="font-bold text-sm text-amber-100 line-clamp-1">{evt.title}</h4>
+                      <p className="text-xs text-amber-200/70 line-clamp-2">{evt.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'donors' && (
+          <DonorsList
+            donors={donors}
+            stats={stats}
+            onOpenDonation={() => setIsDonationOpen(true)}
+            onRefreshDonors={fetchData}
+          />
+        )}
+
+        {activeTab === 'events' && (
+          <EventsTimeline
+            events={events}
+            settings={settings}
+            onRefreshEvents={fetchData}
+          />
+        )}
+
+        {activeTab === 'chat' && (
+          <YouthChat
+            messages={messages}
+            onRefreshMessages={fetchData}
+          />
+        )}
+      </main>
+
+      {/* Devotional Footer */}
+      <footer className="mt-auto border-t border-amber-500/20 bg-[#120401] py-8 px-4 text-center text-xs text-amber-300/70 space-y-2">
+        <div className="flex items-center justify-center gap-2 text-amber-400 font-semibold text-sm">
+          <span>🕉️</span>
+          <span>{settings?.utsavName || 'శ్రీ వరసిద్ధి వినాయక ఉత్సవ కమిటీ'}</span>
+          <span>🕉️</span>
+        </div>
+        <p className="max-w-xl mx-auto text-amber-200/60">
+          "సర్వ మంగళ మాంగళ్యే శివే సర్వార్థ సాధికే | శరణ్యే త్ర్యంబకే గౌరీ నారాయణి నమోస్తుతే ||"
+        </p>
+        <p className="text-[11px] text-amber-500/50 pt-2">
+          Designed for Ganesh Chaturthi 2026 • Real-time Donations & Youth Community Platform
+        </p>
+      </footer>
+
+      {/* Donation Modal */}
+      <DonationModal
+        isOpen={isDonationOpen}
+        onClose={() => setIsDonationOpen(false)}
+        settings={settings}
+        onDonationSuccess={() => fetchData()}
+      />
+
+      {/* Admin PIN & Configuration Modal */}
+      <AdminModal
+        isOpen={isAdminModalOpen}
+        onClose={() => setIsAdminModalOpen(false)}
+        settings={settings}
+        onRefreshSettings={fetchData}
+      />
+
+      {/* Mobile App Navigation Bar */}
+      <MobileNav
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onOpenDonation={() => setIsDonationOpen(true)}
+      />
+
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <SocketProvider>
+        <MainApp />
+      </SocketProvider>
+    </AuthProvider>
+  );
+}

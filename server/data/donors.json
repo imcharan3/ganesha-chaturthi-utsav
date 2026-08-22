@@ -1,0 +1,15 @@
+[
+  {
+    "id": "dn-sample-1",
+    "name": "విజయ కాలనీ భక్తులు (Sample Record)",
+    "gotram": "Shiva",
+    "amount": 101,
+    "paymentMode": "UPI",
+    "referenceNo": "SAMPLE-001",
+    "status": "Verified",
+    "message": "శ్రీ వరసిద్ధి వినాయక స్వామి కృపాకటాక్షాలు అందరిపై ఉండాలి! 🙏🌺",
+    "phone": "",
+    "isSample": true,
+    "createdAt": "2026-08-22T08:00:00.000Z"
+  }
+]

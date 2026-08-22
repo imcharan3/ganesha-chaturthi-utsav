@@ -1,0 +1,62 @@
+[
+  {
+    "id": "evt-day-1",
+    "dayNumber": 1,
+    "title": "Vigraha Pratisthapana & Ganapathi Homam",
+    "titleTelugu": "విగ్రహ ప్రతిష్టాపన & మహా గణపతి హోమం",
+    "time": "Morning 08:00 AM",
+    "description": "Auspicious installation of Lord Varasiddhi Vinayaka idol followed by Kalasha Sthapana, Ganapathi Homam & First Maha Mangala Harathi with full devotion.",
+    "highlights": [
+      "08:00 AM - Vigraha Sthapana",
+      "09:30 AM - Ganapathi Homam",
+      "11:00 AM - First Maha Harathi & Modak Teertha Prasadam"
+    ],
+    "status": "Upcoming",
+    "icon": "Flame"
+  },
+  {
+    "id": "evt-day-2",
+    "dayNumber": 2,
+    "title": "Maha Annadanam (మహా అన్నదానం)",
+    "titleTelugu": "మహా అన్నదాన సమారాధన",
+    "time": "Afternoon 12:00 PM",
+    "description": "Grand community feast (Maha Annadanam) for all devotees and villagers with variety rice, curries, payasam, and pulihora blessings.",
+    "highlights": [
+      "10:30 AM - Special Sahasranama Archana",
+      "12:00 PM - Maha Annadanam Commences",
+      "07:30 PM - Evening Bhajans & Keerthanas"
+    ],
+    "status": "Upcoming",
+    "icon": "Utensils"
+  },
+  {
+    "id": "evt-day-3",
+    "dayNumber": 3,
+    "title": "Vutti Sambaram & Grand Laddu Auction",
+    "titleTelugu": "ఉట్టి సంబరాలు & మహా లడ్డూ వేలం పాట",
+    "time": "3:00 PM & 7:00 PM",
+    "description": "Traditional energetic Vutti breaking competition for youth in the afternoon, followed by the highly prestigious sacred Laddu Prasadam Auction in the evening.",
+    "highlights": [
+      "03:00 PM - Youth Vutti Breaking Games & Dappu Beats",
+      "06:00 PM - Devotional Cultural Dance by Kids",
+      "07:00 PM - Grand Laddu Auction (మహా లడ్డూ వేలం పాట)"
+    ],
+    "status": "Upcoming",
+    "icon": "Trophy"
+  },
+  {
+    "id": "evt-day-4",
+    "dayNumber": 4,
+    "title": "Grand Ratha Yatra & Shobha Yatra Nimajjanam",
+    "titleTelugu": "ఘన రథయాత్ర & శోభాయాత్ర నిమజ్జనం",
+    "time": "Evening 04:00 PM Onwards",
+    "description": "Magnificent farewell procession with DJ sound, traditional Teenmaar beats, colorful fireworks, gulal celebrations, and holy water immersion.",
+    "highlights": [
+      "03:00 PM - Special Farewell Harathi",
+      "04:00 PM - Shobha Yatra Procession begins across main streets",
+      "09:00 PM - Holy Jal Nimajjanam with fireworks"
+    ],
+    "status": "Upcoming",
+    "icon": "Sparkles"
+  }
+]
