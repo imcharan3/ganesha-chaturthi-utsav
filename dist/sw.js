@@ -1,18 +1,7 @@
-const CACHE_NAME = 'ganesha-utsav-v1';
-const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/colony_logo.jpg',
-  '/upi_scanner.png',
-  '/manifest.json'
-];
+// Service Worker with network-first safety strategy
+const CACHE_NAME = 'ganesha-utsav-v2';
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
-  );
   self.skipWaiting();
 });
 
@@ -32,21 +21,10 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Only cache GET requests for static assets, bypass API calls to allow live data
-  if (event.request.method !== 'GET' || event.request.url.includes('/api/') || event.request.url.includes('/socket.io/')) {
-    return;
-  }
-
+  // Always allow fresh network requests for all assets and APIs
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request).catch(() => {
-        if (event.request.headers.get('accept')?.includes('text/html')) {
-          return caches.match('/index.html');
-        }
-      });
+    fetch(event.request).catch(() => {
+      return caches.match(event.request);
     })
   );
 });
