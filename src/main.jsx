@@ -13,7 +13,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 );
 
 // Register PWA Service Worker
-if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch((err) => {
       console.log('SW registration error:', err);
