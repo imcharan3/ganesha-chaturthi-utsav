@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bell, Heart, Shield, Lock, Unlock, Calendar, Users, MessageSquare, Flame, Trophy } from 'lucide-react';
+import { Sparkles, Heart, Bell, Shield, Lock, Trophy, Calendar, MessageSquare, Instagram } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { playTempleBell } from '../utils/audio';
 
@@ -10,11 +10,11 @@ export const Navbar = ({ activeTab, setActiveTab, onOpenDonation, settings }) =>
   const handleBellClick = () => {
     setBellRinging(true);
     playTempleBell();
-    setTimeout(() => setBellRinging(false), 1200);
+    setTimeout(() => setBellRinging(false), 800);
   };
 
   const navItems = [
-    { id: 'home', label: 'Home', icon: Flame, telugu: 'ప్రారంభం' },
+    { id: 'home', label: 'Home', icon: Sparkles, telugu: 'ప్రారంభం' },
     { id: 'donors', label: 'Donors', icon: Heart, telugu: 'విరాళాలు' },
     { id: 'auction', label: 'Laddu Auction 🏆', icon: Trophy, telugu: 'లడ్డూ వేలం' },
     { id: 'events', label: 'Events', icon: Calendar, telugu: 'కార్యక్రమాలు' },
@@ -22,12 +22,23 @@ export const Navbar = ({ activeTab, setActiveTab, onOpenDonation, settings }) =>
   ];
 
   return (
-    <header className="sticky top-0 z-40 bg-[#1a0803]/90 backdrop-blur-md border-b border-amber-500/20 shadow-lg shadow-black/40">
-      {/* Top Auspicious Marquee / Shloka Bar */}
-      <div className="bg-gradient-to-r from-crimson-900 via-saffron-700 to-crimson-900 text-amber-200 text-xs py-1 px-4 text-center font-medium tracking-wider border-b border-amber-500/30 flex items-center justify-center gap-3 overflow-hidden">
-        <span className="hidden sm:inline">🕉️ శ్రీ మహాగణాధిపతయే నమః 🕉️</span>
-        <span className="animate-pulse">✨ వినాయక చవితి 2026 వేడుకలకు స్వాగతం ✨</span>
-        <span className="hidden sm:inline">🚩 గణపతి బప్పా మోరియా 🚩</span>
+    <header className="sticky top-0 z-40 bg-[#160602]/95 backdrop-blur-md border-b border-amber-500/30 shadow-2xl transition-all">
+      {/* Top Auspicious Gold Border Bar */}
+      <div className="h-1 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500"></div>
+      
+      {/* Sub-header Announcement Bar */}
+      <div className="bg-gradient-to-r from-[#24081c] via-[#240e06] to-[#24081c] py-1 px-4 text-center text-[11px] sm:text-xs text-amber-200 border-b border-amber-500/20 flex items-center justify-center gap-2">
+        <span>🚩 గణపతి బప్పా మోరియా 🚩</span>
+        <span className="text-amber-500/40 hidden sm:inline">•</span>
+        <a 
+          href="https://instagram.com/vijayacolony_ganesha_diaries" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="text-pink-400 hover:text-pink-300 font-bold flex items-center gap-1 underline"
+        >
+          <Instagram className="w-3.5 h-3.5" />
+          <span>Follow @vijayacolony_ganesha_diaries for Daily Updates & Live Photos</span>
+        </a>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -42,7 +53,7 @@ export const Navbar = ({ activeTab, setActiveTab, onOpenDonation, settings }) =>
               <div className="w-full h-full rounded-full bg-[#122818] flex items-center justify-center overflow-hidden">
                 <img 
                   src="/colony_logo.jpg" 
-                  alt="Vijaya Colony Ganesha Youth" 
+                  alt="Vijaya Colony Ganesha Diaries" 
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -53,10 +64,10 @@ export const Navbar = ({ activeTab, setActiveTab, onOpenDonation, settings }) =>
 
             <div>
               <h1 className="font-devotional text-base sm:text-lg font-bold tracking-wide gold-gradient-text leading-tight group-hover:brightness-110">
-                {settings?.utsavName || 'విజయ కాలనీ గణేష్ యూత్'}
+                {settings?.utsavName || 'విజయ కాలనీ గణేష్ డైరీస్'}
               </h1>
               <p className="text-[10px] sm:text-xs text-amber-300/80 font-medium tracking-wider">
-                Vijaya Colony Ganesha Youth • 2026
+                Vijaya Colony Ganesha Diaries • 2026
               </p>
             </div>
           </div>
@@ -86,6 +97,18 @@ export const Navbar = ({ activeTab, setActiveTab, onOpenDonation, settings }) =>
           {/* Right Action Bar */}
           <div className="flex items-center gap-2 sm:gap-3">
             
+            {/* Instagram Quick Link Button */}
+            <a
+              href="https://instagram.com/vijayacolony_ganesha_diaries"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Official Instagram Page: @vijayacolony_ganesha_diaries"
+              className="p-2 sm:p-2.5 rounded-xl bg-gradient-to-br from-pink-950/80 via-[#2e0921] to-purple-950/80 border border-pink-500/40 text-pink-300 hover:text-white hover:border-pink-400 transition-all flex items-center gap-1 shadow-sm group"
+            >
+              <Instagram className="w-4 h-4 text-pink-400 group-hover:scale-110 transition-transform" />
+              <span className="hidden xl:inline text-xs font-semibold">@vijayacolony_ganesha_diaries</span>
+            </a>
+
             {/* Temple Bell Audio Chime */}
             <button
               onClick={handleBellClick}

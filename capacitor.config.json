@@ -1,6 +1,6 @@
 {
   "appId": "org.vijayacolony.ganesh",
-  "appName": "Vijaya Colony Ganesha Youth",
+  "appName": "Vijaya Colony Ganesha Diaries",
   "webDir": "dist",
   "bundledWebRuntime": false,
   "server": {

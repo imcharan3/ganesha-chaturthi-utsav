@@ -218,17 +218,32 @@ function MainApp() {
       </main>
 
       {/* Devotional Footer */}
-      <footer className="mt-auto border-t border-amber-500/20 bg-[#120401] py-8 px-4 text-center text-xs text-amber-300/70 space-y-2">
-        <div className="flex items-center justify-center gap-2 text-amber-400 font-semibold text-sm">
+      <footer className="mt-auto border-t border-amber-500/20 bg-[#120401] py-8 px-4 text-center text-xs text-amber-300/70 space-y-3">
+        <div className="flex items-center justify-center gap-2 text-amber-300 font-bold text-sm sm:text-base">
           <span>🕉️</span>
-          <span>{settings?.utsavName || 'శ్రీ వరసిద్ధి వినాయక ఉత్సవ కమిటీ'}</span>
+          <span>{settings?.utsavName || 'విజయ కాలనీ గణేష్ డైరీస్'}</span>
           <span>🕉️</span>
         </div>
-        <p className="max-w-xl mx-auto text-amber-200/60">
+        
+        <p className="max-w-xl mx-auto text-amber-200/70 italic text-[11px] sm:text-xs">
           "సర్వ మంగళ మాంగళ్యే శివే సర్వార్థ సాధికే | శరణ్యే త్ర్యంబకే గౌరీ నారాయణి నమోస్తుతే ||"
         </p>
-        <p className="text-[11px] text-amber-500/50 pt-2">
-          Designed for Ganesh Chaturthi 2026 • Real-time Donations & Youth Community Platform
+
+        {/* Instagram Link Strip */}
+        <div className="pt-1 flex items-center justify-center gap-2">
+          <a
+            href="https://instagram.com/vijayacolony_ganesha_diaries"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-pink-950/70 via-[#2a091d] to-purple-950/70 border border-pink-500/40 text-pink-300 hover:text-white text-xs font-semibold shadow-sm transition-all"
+          >
+            <span>📸</span>
+            <span>Follow @vijayacolony_ganesha_diaries on Instagram</span>
+          </a>
+        </div>
+
+        <p className="text-[11px] text-amber-500/50 pt-1">
+          Vijaya Colony Ganesha Diaries 2026 • Live Donations, Laddu Auction & Community Platform
         </p>
       </footer>
 

@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Vijaya Colony Ganesha Youth</string>
-    <string name="title_activity_main">Vijaya Colony Ganesha Youth</string>
+    <string name="app_name">Vijaya Colony Ganesha Diaries</string>
+    <string name="title_activity_main">Vijaya Colony Ganesha Diaries</string>
     <string name="package_name">org.vijayacolony.ganesh</string>
     <string name="custom_url_scheme">org.vijayacolony.ganesh</string>
 </resources>

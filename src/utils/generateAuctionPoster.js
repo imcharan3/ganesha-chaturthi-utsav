@@ -86,11 +86,11 @@ export const generateAuctionPoster = async (winnerData, settings) => {
   // 5. Title & Organization
   ctx.fillStyle = '#fef3c7';
   ctx.font = 'bold 44px "Noto Sans Telugu", Outfit, sans-serif';
-  ctx.fillText(settings?.utsavName || 'విజయ కాలనీ గణేష్ యూత్', width / 2, 310);
+  ctx.fillText(settings?.utsavName || 'విజయ కాలనీ గణేష్ డైరీస్', width / 2, 310);
 
   ctx.fillStyle = '#fbbf24';
   ctx.font = '600 24px Outfit, sans-serif';
-  ctx.fillText('VIJAYA COLONY • VINAYAKA CHAVITHI UTSAV 2026', width / 2, 350);
+  ctx.fillText('VIJAYA COLONY GANESHA DIARIES • VINAYAKA CHAVITHI 2026', width / 2, 350);
 
   // Decorative Horizontal Ribbon
   const ribbonGrad = ctx.createLinearGradient(120, 0, width - 120, 0);
@@ -186,11 +186,15 @@ export const generateAuctionPoster = async (winnerData, settings) => {
 
   ctx.fillStyle = '#f59e0b';
   ctx.font = 'bold 22px "Noto Sans Telugu", Outfit, sans-serif';
-  ctx.fillText(`తేదీ: ${dateStr} • విజయ కాలనీ గణేష్ ఉత్సవ కమిటీ 🚩`, width / 2, 1140);
+  ctx.fillText(`తేదీ: ${dateStr} • విజయ కాలనీ గణేష్ డైరీస్ 🚩`, width / 2, 1140);
+
+  ctx.fillStyle = '#f43f5e';
+  ctx.font = 'bold 16px Outfit, sans-serif';
+  ctx.fillText('📸 Instagram: @vijayacolony_ganesha_diaries', width / 2, 1175);
 
   ctx.fillStyle = '#d97706';
-  ctx.font = '16px Outfit, sans-serif';
-  ctx.fillText('Official Portal: https://ganesha-chaturthi-utsav.onrender.com', width / 2, 1180);
+  ctx.font = '14px Outfit, sans-serif';
+  ctx.fillText('Official Portal: https://ganesha-chaturthi-utsav.onrender.com', width / 2, 1205);
 
   return canvas;
 };
@@ -213,7 +217,7 @@ export const downloadAuctionPoster = (canvas, filename = 'Vijaya_Colony_Ganesha_
 export const shareAuctionPoster = async (canvas, winnerData, settings) => {
   const winnerName = winnerData?.name || 'మహా భక్తుడు';
   const amount = Number(winnerData?.winningBid || 0).toLocaleString('en-IN');
-  const caption = `🌺 *శ్రీ వినాయక చవితి 2026 - మహా లడ్డూ వేలం పాట విజేత* 🌺\n\n🏆 *విజేత:* ${winnerName}\n🚩 *గోత్రం:* ${winnerData?.gotram || 'శివ గోత్రం'}\n💰 *గెలుచుకున్న మొత్తం:* ₹${amount}/-\n\nశ్రీ వరసిద్ధి వినాయక స్వామి అనుగ్రహం అందరిపై ఉండుగాక! 🙏🚩\n\n- *విజయ కాలనీ గణేష్ యూత్*\n🌐 https://ganesha-chaturthi-utsav.onrender.com/`;
+  const caption = `🌺 *శ్రీ వినాయక చవితి 2026 - మహా లడ్డూ వేలం పాట విజేత* 🌺\n\n🏆 *విజేత:* ${winnerName}\n🚩 *గోత్రం:* ${winnerData?.gotram || 'శివ గోత్రం'}\n💰 *గెలుచుకున్న మొత్తం:* ₹${amount}/-\n\nశ్రీ వరసిద్ధి వినాయక స్వామి అనుగ్రహం అందరిపై ఉండుగాక! 🙏🚩\n\n- *విజయ కాలనీ గణేష్ డైరీస్*\n📸 *Instagram:* @vijayacolony_ganesha_diaries\n🌐 https://ganesha-chaturthi-utsav.onrender.com/`;
 
   try {
     if (navigator.canShare) {

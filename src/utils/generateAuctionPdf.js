@@ -60,11 +60,11 @@ export const generateAuctionPdf = async (auction, settings) => {
     // Colony Title
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 36px "Noto Sans Telugu", Outfit, sans-serif';
-    ctx.fillText(settings?.utsavName || 'విజయ కాలనీ గణేష్ యూత్', width / 2, 115);
+    ctx.fillText(settings?.utsavName || 'విజయ కాలనీ గణేష్ డైరీస్', width / 2, 115);
 
     ctx.fillStyle = '#f59e0b';
     ctx.font = '600 18px Outfit, sans-serif';
-    ctx.fillText('VINAYAKA CHAVITHI 2026 • OFFICIAL MAHA LADDU AUCTION REPORT', width / 2, 148);
+    ctx.fillText('VINAYAKA CHAVITHI 2026 • VIJAYA COLONY GANESHA DIARIES REPORT', width / 2, 148);
 
     // 4. Laddu Specifications Summary Box
     const specsY = 195;
@@ -206,7 +206,7 @@ export const generateAuctionPdf = async (auction, settings) => {
     ctx.fillStyle = '#92400e';
     ctx.font = 'bold 15px "Noto Sans Telugu", Outfit, sans-serif';
     const genDate = new Date().toLocaleString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    ctx.fillText(`తేదీ: ${genDate} • విజయ కాలనీ గణేష్ ఉత్సవ కమిటీ 2026 🚩`, width / 2, footerY + 30);
+    ctx.fillText(`తేదీ: ${genDate} • విజయ కాలనీ గణేష్ డైరీస్ 2026 🚩 (Instagram: @vijayacolony_ganesha_diaries)`, width / 2, footerY + 30);
 
     // 8. Convert High-Res Canvas into PDF using jsPDF
     const pdf = new jsPDF({

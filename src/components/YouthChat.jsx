@@ -346,6 +346,20 @@ export const YouthChat = ({ messages, onRefreshMessages }) => {
       {/* Main Messages Inbox Container */}
       <div className="temple-card rounded-3xl border border-amber-500/30 shadow-2xl overflow-hidden flex flex-col h-[520px]">
         
+        {/* Instagram Announcement Banner */}
+        <a
+          href="https://instagram.com/vijayacolony_ganesha_diaries"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="bg-gradient-to-r from-pink-950/70 via-[#2a091d] to-purple-950/70 p-2.5 px-4 border-b border-pink-500/30 flex items-center justify-between text-xs text-pink-200 hover:text-white transition-all shrink-0"
+        >
+          <div className="flex items-center gap-2">
+            <span>📸</span>
+            <span>Official Darshan & Reels: <strong>@vijayacolony_ganesha_diaries</strong></span>
+          </div>
+          <span className="text-[11px] text-pink-300 font-bold underline">Follow Page ➔</span>
+        </a>
+
         {/* Messages Feed */}
         <div className="flex-1 p-4 overflow-y-auto space-y-4 custom-scrollbar">
           {(!messages || messages.length === 0) ? (
