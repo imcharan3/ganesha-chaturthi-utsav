@@ -290,11 +290,11 @@ export const HeroSection = ({ stats, settings, auction, onOpenDonation, setActiv
               <div className="absolute inset-4 sm:inset-6 rounded-full bg-gradient-to-b from-amber-500/10 via-saffron-600/20 to-crimson-900/30 blur-md"></div>
               
               {/* Center Ganesha & Colony Logo Artwork */}
-              <div className="relative z-10 w-40 h-40 sm:w-60 sm:h-60 rounded-full bg-gradient-to-br from-[#1b3d22] to-[#0a180d] border-2 border-amber-400 p-1 shadow-divine flex items-center justify-center overflow-hidden">
+              <div className="relative z-10 w-44 h-44 sm:w-64 sm:h-64 flex items-center justify-center">
                 <img 
-                  src="/colony_logo.jpg" 
+                  src="/colony_logo.png" 
                   alt="Vijaya Colony Ganesha Diaries" 
-                  className="w-full h-full object-cover rounded-full filter drop-shadow-[0_4px_12px_rgba(255,215,0,0.7)]"
+                  className="w-full h-full object-contain filter drop-shadow-[0_0_25px_rgba(245,158,11,0.7)]"
                 />
               </div>
 
@@ -406,7 +406,7 @@ export const HeroSection = ({ stats, settings, auction, onOpenDonation, setActiv
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-left">
               <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 p-[3px] shadow-lg shrink-0 animate-pulse">
                 <div className="w-full h-full rounded-[13px] bg-[#1a0703] p-1 flex items-center justify-center overflow-hidden">
-                  <img src="/colony_logo.jpg" alt="Vijaya Colony Ganesha Diaries" className="w-full h-full object-cover rounded-xl" />
+                  <img src="/colony_logo.png" alt="Vijaya Colony Ganesha Diaries" className="w-full h-full object-contain" />
                 </div>
               </div>
 

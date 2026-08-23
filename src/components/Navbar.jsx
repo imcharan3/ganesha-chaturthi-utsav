@@ -50,11 +50,11 @@ export const Navbar = ({ activeTab, setActiveTab, onOpenDonation, settings }) =>
             onClick={() => setActiveTab('home')}
           >
             <div className="relative w-11 h-11 sm:w-13 sm:h-13 rounded-full bg-gradient-to-br from-amber-400 via-saffron-500 to-crimson-700 p-[2px] shadow-gold group-hover:scale-105 transition-transform duration-300">
-              <div className="w-full h-full rounded-full bg-[#122818] flex items-center justify-center overflow-hidden">
+              <div className="w-full h-full rounded-full bg-[#1b0803] flex items-center justify-center overflow-hidden p-1">
                 <img 
-                  src="/colony_logo.jpg" 
+                  src="/colony_logo.png" 
                   alt="Vijaya Colony Ganesha Diaries" 
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                 />
               </div>
               <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-amber-400 rounded-full flex items-center justify-center text-[10px] text-amber-950 font-bold">

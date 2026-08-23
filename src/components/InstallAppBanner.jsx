@@ -78,7 +78,7 @@ export const InstallAppBanner = () => {
             
             <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => setShowInstallModal(true)}>
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-saffron-600 p-0.5 shadow-gold shrink-0">
-                <img src="/colony_logo.jpg" alt="Vijaya Colony Logo" className="w-full h-full object-cover rounded-[10px]" />
+                <img src="/colony_logo.png" alt="Vijaya Colony Logo" className="w-full h-full object-contain rounded-[10px]" />
               </div>
               <div>
                 <div className="flex items-center gap-1">
@@ -133,13 +133,13 @@ export const InstallAppBanner = () => {
                 <X className="w-5 h-5" />
               </button>
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-saffron-600 p-0.5 shadow-gold mx-auto mb-2">
-                <img src="/colony_logo.jpg" alt="Logo" className="w-full h-full object-cover rounded-[14px]" />
+                <img src="/colony_logo.png" alt="Logo" className="w-full h-full object-contain rounded-[14px]" />
               </div>
               <h3 className="font-devotional text-lg font-bold gold-gradient-text">
                 గణేష్ మొబైల్ యాప్ ఇన్‌స్టాలేషన్
               </h3>
               <p className="text-xs text-amber-200/80">
-                Install Vijaya Colony Ganesha Youth App on your phone
+                Install Vijaya Colony Ganesha Diaries App on your phone
               </p>
             </div>
 

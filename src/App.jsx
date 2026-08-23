@@ -9,6 +9,7 @@ import { DonationModal } from './components/DonationModal';
 import { AdminModal } from './components/AdminModal';
 import { MobileNav } from './components/MobileNav';
 import { InstallAppBanner } from './components/InstallAppBanner';
+import { AppSplashScreen } from './components/AppSplashScreen';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SocketProvider, useSocket } from './context/SocketContext';
 import { api } from './services/api';
@@ -126,6 +127,9 @@ function MainApp() {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-[#140602] via-[#200c06] to-[#100402] text-amber-50 selection:bg-amber-500 selection:text-amber-950 pb-20 md:pb-10">
       
+      {/* App Opening Screen with Transparent PNG Logo */}
+      <AppSplashScreen isReady={!isLoading} />
+
       {/* Top Devotional Header */}
       <Navbar
         activeTab={activeTab}
