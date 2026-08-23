@@ -145,6 +145,20 @@ export const api = {
     return data;
   },
 
+  updateAuctionBidder: async (bidderId, bidderData, token) => {
+    const res = await fetch(`${API_BASE}/admin/auction/bidders/${bidderId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(bidderData)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to update bidder');
+    return data;
+  },
+
   deleteAuctionBidder: async (bidderId, token) => {
     const res = await fetch(`${API_BASE}/admin/auction/bidders/${bidderId}`, {
       method: 'DELETE',

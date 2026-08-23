@@ -260,6 +260,46 @@ export const db = {
     db.saveAuction(auction);
     return newBidder;
   },
+  updateRegisteredBidder: (id, { name, gotram, phone }) => {
+    const auction = db.getAuction();
+    if (!auction.registeredBidders) return null;
+    const bidder = auction.registeredBidders.find(b => b.id === id);
+    if (!bidder) return null;
+
+    const oldName = bidder.name;
+    bidder.name = name.trim();
+    if (gotram !== undefined) bidder.gotram = gotram.trim();
+    if (phone !== undefined) bidder.phone = phone.trim();
+
+    // Propagate corrected name/gotram/phone to existing bidsHistory
+    if (auction.bidsHistory) {
+      auction.bidsHistory.forEach(b => {
+        if (b.bidderName.trim().toLowerCase() === oldName.trim().toLowerCase()) {
+          b.bidderName = bidder.name;
+          if (bidder.gotram) b.gotram = bidder.gotram;
+          if (bidder.phone) b.phone = bidder.phone;
+        }
+      });
+    }
+
+    // Propagate to current highest bidder if matching
+    if (auction.highestBidderName && auction.highestBidderName.trim().toLowerCase() === oldName.trim().toLowerCase()) {
+      auction.highestBidderName = bidder.name;
+      if (bidder.gotram) auction.highestBidderGotram = bidder.gotram;
+      if (bidder.phone) auction.highestBidderPhone = bidder.phone;
+    }
+
+    // Propagate to winner if matching
+    if (auction.winner && auction.winner.name && auction.winner.name.trim().toLowerCase() === oldName.trim().toLowerCase()) {
+      auction.winner.name = bidder.name;
+      if (bidder.gotram) auction.winner.gotram = bidder.gotram;
+      if (bidder.phone) auction.winner.phone = bidder.phone;
+    }
+
+    auction.updatedAt = new Date().toISOString();
+    db.saveAuction(auction);
+    return { bidder, auction };
+  },
   deleteRegisteredBidder: (id) => {
     const auction = db.getAuction();
     if (!auction.registeredBidders) return false;

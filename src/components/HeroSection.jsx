@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Heart, Calendar, MessageSquare, MapPin, Sparkles, Trophy, 
-  Users, ShieldCheck, ChevronRight, Share2, Crown, Download, Flame, ArrowRight 
+  Users, ShieldCheck, ChevronRight, Share2, Crown, Download, Flame, ArrowRight, FileText 
 } from 'lucide-react';
 import { generateAuctionPoster, downloadAuctionPoster, shareAuctionPoster } from '../utils/generateAuctionPoster';
+import { generateAuctionPdf } from '../utils/generateAuctionPdf';
 
 export const HeroSection = ({ stats, settings, auction, onOpenDonation, setActiveTab }) => {
   const [isGeneratingPoster, setIsGeneratingPoster] = useState(false);
@@ -60,7 +61,7 @@ export const HeroSection = ({ stats, settings, auction, onOpenDonation, setActiv
     if (!auction?.winner) return;
     setIsGeneratingPoster(true);
     try {
-      const canvas = await generateAuctionPoster(auction.winner, settings);
+      const canvas = await generateAuctionPoster({ ...auction.winner, ladduWeight: auction.ladduWeight || '21 KG' }, settings);
       downloadAuctionPoster(canvas, `Ganesha_Laddu_Winner_${auction.winner.name.replace(/\s+/g, '_')}.png`);
     } catch (e) {
       alert('Error generating poster');
@@ -73,12 +74,20 @@ export const HeroSection = ({ stats, settings, auction, onOpenDonation, setActiv
     if (!auction?.winner) return;
     setIsGeneratingPoster(true);
     try {
-      const canvas = await generateAuctionPoster(auction.winner, settings);
-      await shareAuctionPoster(canvas, auction.winner, settings);
+      const canvas = await generateAuctionPoster({ ...auction.winner, ladduWeight: auction.ladduWeight || '21 KG' }, settings);
+      await shareAuctionPoster(canvas, { ...auction.winner, ladduWeight: auction.ladduWeight || '21 KG' }, settings);
     } catch (e) {
       alert('Error sharing poster');
     } finally {
       setIsGeneratingPoster(false);
+    }
+  };
+
+  const handleDownloadPdf = () => {
+    try {
+      generateAuctionPdf(auction, settings);
+    } catch (e) {
+      alert('Failed to generate PDF');
     }
   };
 
@@ -137,11 +146,11 @@ export const HeroSection = ({ stats, settings, auction, onOpenDonation, setActiv
                 {auction.winner.name}
               </h3>
               <p className="text-xs sm:text-sm font-semibold text-amber-300">
-                గోత్రం: <span className="text-amber-100">{auction.winner.gotram || 'శివ గోత్రం'}</span> • గెలుచుకున్న మొత్తం: <strong className="text-amber-300 font-mono text-base sm:text-xl font-black">₹{Number(auction.winner.winningBid).toLocaleString('en-IN')}</strong>
+                గోత్రం: <span className="text-amber-100">{auction.winner.gotram || 'శివ గోత్రం'}</span> • లడ్డూ బరువు: <strong className="text-amber-200">{auction.ladduWeight || '21 KG'}</strong> • గెలుచుకున్న మొత్తం: <strong className="text-amber-300 font-mono text-base sm:text-xl font-black">₹{Number(auction.winner.winningBid).toLocaleString('en-IN')}</strong>
               </p>
             </div>
 
-            {/* Poster Actions */}
+            {/* Poster & PDF Actions */}
             <div className="flex flex-wrap items-center justify-center gap-2.5 pt-1">
               <button
                 onClick={handleShareWinnerPoster}
@@ -159,6 +168,14 @@ export const HeroSection = ({ stats, settings, auction, onOpenDonation, setActiv
               >
                 <Download className="w-3.5 h-3.5 text-amber-400" />
                 <span>Download Poster (PNG)</span>
+              </button>
+
+              <button
+                onClick={handleDownloadPdf}
+                className="px-4 py-2 rounded-xl bg-amber-600/30 hover:bg-amber-600/50 border border-amber-400/50 text-amber-100 font-bold text-xs shadow-sm transition-all flex items-center gap-1.5"
+              >
+                <FileText className="w-3.5 h-3.5 text-amber-300" />
+                <span>Download PDF Report</span>
               </button>
 
               <button

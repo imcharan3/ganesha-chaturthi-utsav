@@ -253,6 +253,20 @@ app.post('/api/admin/auction/bidders', verifyAdmin, (req, res) => {
   res.json({ success: true, bidder: newBidder, auction: updated });
 });
 
+app.put('/api/admin/auction/bidders/:id', verifyAdmin, (req, res) => {
+  const { id } = req.params;
+  const { name, gotram, phone } = req.body;
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: 'Bidder name is required' });
+  }
+  const result = db.updateRegisteredBidder(id, { name, gotram, phone });
+  if (!result) {
+    return res.status(404).json({ error: 'Bidder not found' });
+  }
+  io.emit('auction:updated', result.auction);
+  res.json({ success: true, bidder: result.bidder, auction: result.auction });
+});
+
 app.delete('/api/admin/auction/bidders/:id', verifyAdmin, (req, res) => {
   const { id } = req.params;
   const success = db.deleteRegisteredBidder(id);
