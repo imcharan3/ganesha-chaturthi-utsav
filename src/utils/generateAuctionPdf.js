@@ -1,157 +1,237 @@
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 
 /**
- * Generates and downloads a high-quality PDF Report of the entire Laddu Auction
- * Accessible to all devotees and committee members.
+ * Generates and downloads a high-definition, devotional A4 PDF report of the entire Laddu Auction
+ * Supports full Telugu typography, royal borders, Winner Showcase, and complete Bids History.
  */
-export const generateAuctionPdf = (auction, settings) => {
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4'
-  });
+export const generateAuctionPdf = async (auction, settings) => {
+  try {
+    const canvas = document.createElement('canvas');
+    const width = 1240;
+    const minHeight = 1754; // A4 ratio (1240 x 1754)
+    
+    const bids = auction?.bidsHistory || [];
+    // Dynamic height calculation if many bids exist
+    const rowsCount = Math.max(bids.length, 1);
+    const rowHeight = 46;
+    const tableHeaderY = 620;
+    const tableTotalHeight = 60 + (rowsCount * rowHeight);
+    const requiredHeight = Math.max(minHeight, tableHeaderY + tableTotalHeight + 140);
+    
+    canvas.width = width;
+    canvas.height = requiredHeight;
+    const ctx = canvas.getContext('2d');
 
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
+    // 1. Background Fill (Parchment Ivory with subtle gradient)
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, requiredHeight);
+    bgGrad.addColorStop(0, '#fefce8');
+    bgGrad.addColorStop(0.5, '#fffbeb');
+    bgGrad.addColorStop(1, '#fef3c7');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, width, requiredHeight);
 
-  // 1. Top Border & Header Background
-  doc.setFillColor(36, 14, 6); // Deep Temple Maroon
-  doc.rect(0, 0, pageWidth, 28, 'F');
+    // 2. Ornate Maroon & Gold Page Border
+    ctx.strokeStyle = '#78350f';
+    ctx.lineWidth = 8;
+    ctx.strokeRect(20, 20, width - 40, requiredHeight - 40);
 
-  // Gold accent bar below header
-  doc.setFillColor(245, 158, 11);
-  doc.rect(0, 28, pageWidth, 2, 'F');
+    ctx.strokeStyle = '#d97706';
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(32, 32, width - 64, requiredHeight - 64);
 
-  // Header Text
-  doc.setTextColor(254, 243, 199);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
-  doc.text(settings?.utsavName || 'VIJAYA COLONY GANESHA YOUTH', pageWidth / 2, 12, { align: 'center' });
+    // 3. Royal Header Banner (Maroon)
+    const headerH = 140;
+    const headerGrad = ctx.createLinearGradient(0, 36, 0, 36 + headerH);
+    headerGrad.addColorStop(0, '#381207');
+    headerGrad.addColorStop(1, '#1e0803');
+    ctx.fillStyle = headerGrad;
+    ctx.fillRect(36, 36, width - 72, headerH);
 
-  doc.setFontSize(11);
-  doc.setTextColor(251, 191, 36);
-  doc.text('VINAYAKA CHAVITHI UTSAV 2026 • MAHA LADDU AUCTION REPORT', pageWidth / 2, 19, { align: 'center' });
+    // Header Golden Border Line
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillRect(36, 36 + headerH, width - 72, 4);
 
-  doc.setFontSize(8);
-  doc.setTextColor(253, 230, 138);
-  const printedDate = new Date().toLocaleString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-  doc.text(`Official Document • Generated on: ${printedDate}`, pageWidth / 2, 25, { align: 'center' });
+    // Top Invocations
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#fde68a';
+    ctx.font = 'bold 20px "Noto Sans Telugu", Outfit, sans-serif';
+    ctx.fillText('॥ శ్రీ వరసిద్ధి వినాయక ప్రసన్నః • గణపతి బప్పా మోరియా ॥', width / 2, 70);
 
-  // 2. Laddu Item Specifications Box
-  doc.setDrawColor(245, 158, 11);
-  doc.setFillColor(254, 243, 199);
-  doc.roundedRect(14, 34, pageWidth - 28, 22, 3, 3, 'FD');
+    // Colony Title
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 36px "Noto Sans Telugu", Outfit, sans-serif';
+    ctx.fillText(settings?.utsavName || 'విజయ కాలనీ గణేష్ యూత్', width / 2, 115);
 
-  doc.setTextColor(40, 15, 7);
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-  doc.text(`Prasadam: ${auction?.itemTitleEnglish || auction?.itemTitle || 'Lord Ganesha Sacred Maha Laddu Prasadam'}`, 18, 41);
+    ctx.fillStyle = '#f59e0b';
+    ctx.font = '600 18px Outfit, sans-serif';
+    ctx.fillText('VINAYAKA CHAVITHI 2026 • OFFICIAL MAHA LADDU AUCTION REPORT', width / 2, 148);
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.text(`Weight: ${auction?.ladduWeight || '21 KG'} Pure Ghee`, 18, 47);
-  doc.text(`Starting Base Bid: Rs. ${Number(auction?.startingBid || 5001).toLocaleString('en-IN')}`, 80, 47);
-  doc.text(`Total Bids Placed: ${auction?.bidsCount || auction?.bidsHistory?.length || 0}`, 150, 47);
-  doc.text(`Status: ${auction?.status === 'completed' ? 'Concluded (Winner Crowned)' : 'In Progress'}`, 18, 52);
+    // 4. Laddu Specifications Summary Box
+    const specsY = 195;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.roundRect(50, specsY, width - 100, 100, 16);
+    ctx.fill();
+    ctx.strokeStyle = '#e5e7eb';
+    ctx.lineWidth = 2;
+    ctx.stroke();
 
-  // 3. Grand Winner Spotlight Card (If completed or winner exists)
-  let nextY = 62;
-  if (auction?.winner && auction?.winner?.name) {
-    doc.setFillColor(254, 240, 138); // Warm Gold
-    doc.setDrawColor(217, 119, 6);
-    doc.roundedRect(14, nextY, pageWidth - 28, 28, 4, 4, 'FD');
+    // Inner Spec Columns
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#78350f';
+    ctx.font = 'bold 20px "Noto Sans Telugu", Outfit, sans-serif';
+    ctx.fillText(`ప్రసాదం: ${auction?.itemTitle || 'శ్రీ వినాయక మహా లడ్డూ ప్రసాదం'}`, 75, specsY + 38);
 
-    doc.setTextColor(120, 53, 15);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text('★ GRAND LADDU AUCTION WINNER (విజేత) ★', pageWidth / 2, nextY + 7, { align: 'center' });
+    ctx.font = '600 16px "Noto Sans Telugu", Outfit, sans-serif';
+    ctx.fillStyle = '#451a03';
+    ctx.fillText(`బరువు: ${auction?.ladduWeight || '21 KG'} (Pure Ghee)`, 75, specsY + 74);
+    ctx.fillText(`ప్రారంభ ధర: ₹${Number(auction?.startingBid || 5001).toLocaleString('en-IN')}`, 420, specsY + 74);
+    ctx.fillText(`మొత్తం బిడ్లు: ${bids.length}`, 760, specsY + 74);
 
-    doc.setFontSize(14);
-    doc.setTextColor(24, 8, 3);
-    doc.text(auction.winner.name, pageWidth / 2, nextY + 14, { align: 'center' });
+    const statusText = auction?.status === 'completed' ? 'వేలం ముగిసింది (Concluded)' : 'ప్రక్రియలో ఉంది (In Progress)';
+    ctx.fillText(`స్థితి: ${statusText}`, 940, specsY + 38);
 
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(180, 83, 9);
-    doc.text(`Winning Bid: Rs. ${Number(auction.winner.winningBid).toLocaleString('en-IN')} /-`, pageWidth / 2, nextY + 20, { align: 'center' });
+    // 5. Grand Winner Showcase Card
+    let nextY = specsY + 120;
+    if (auction?.winner && auction?.winner?.name) {
+      const winnerH = 150;
+      const winnerGrad = ctx.createLinearGradient(0, nextY, 0, nextY + winnerH);
+      winnerGrad.addColorStop(0, '#fef3c7');
+      winnerGrad.addColorStop(1, '#fde68a');
+      ctx.fillStyle = winnerGrad;
+      ctx.beginPath();
+      ctx.roundRect(50, nextY, width - 100, winnerH, 20);
+      ctx.fill();
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 3;
+      ctx.stroke();
 
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'italic');
-    doc.setTextColor(110, 40, 10);
-    const winnerDate = new Date(auction.winner.declaredAt || Date.now()).toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#92400e';
+      ctx.font = 'bold 20px "Noto Sans Telugu", Outfit, sans-serif';
+      ctx.fillText('👑 మహా లడ్డూ ప్రసాద విజేత (Grand Auction Winner) 👑', width / 2, nextY + 38);
+
+      ctx.fillStyle = '#1e0803';
+      ctx.font = 'bold 38px "Noto Sans Telugu", Outfit, sans-serif';
+      ctx.fillText(auction.winner.name, width / 2, nextY + 84);
+
+      ctx.fillStyle = '#78350f';
+      ctx.font = '600 20px "Noto Sans Telugu", Outfit, sans-serif';
+      const winnerGotram = auction.winner.gotram || 'శివ గోత్రం';
+      const winnerAmount = Number(auction.winner.winningBid).toLocaleString('en-IN');
+      ctx.fillText(`గోత్రం: ${winnerGotram}   |   గెలుచుకున్న మొత్తం: ₹${winnerAmount}/-`, width / 2, nextY + 122);
+
+      nextY += winnerH + 25;
+    }
+
+    // 6. Complete Bids History Table
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#1c1917';
+    ctx.font = 'bold 22px "Noto Sans Telugu", Outfit, sans-serif';
+    ctx.fillText('📊 ప్రత్యక్ష వేలం పాట వివరాలు (Complete Bids History):', 50, nextY + 28);
+
+    const tableTop = nextY + 45;
+    const colX = [50, 130, 520, 830, 1050]; // S.No, Name, Gotram, Amount, Time
+    const colW = [80, 390, 310, 220, 140];
+
+    // Table Header Row
+    ctx.fillStyle = '#381207';
+    ctx.beginPath();
+    ctx.roundRect(50, tableTop, width - 100, 48, 8);
+    ctx.fill();
+
+    ctx.fillStyle = '#fef3c7';
+    ctx.font = 'bold 16px "Noto Sans Telugu", Outfit, sans-serif';
+    ctx.fillText('#', colX[0] + 25, tableTop + 30);
+    ctx.fillText('భక్తుని పేరు (Bidder Name)', colX[1] + 15, tableTop + 30);
+    ctx.fillText('గోత్రం (Gotram)', colX[2] + 15, tableTop + 30);
+    ctx.fillText('బిడ్ మొత్తం (Amount)', colX[3] + 15, tableTop + 30);
+    ctx.fillText('సమయం (Time)', colX[4] + 10, tableTop + 30);
+
+    // Table Body Rows
+    let curY = tableTop + 48;
+    if (bids.length === 0) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(50, curY, width - 100, 50);
+      ctx.strokeStyle = '#e5e7eb';
+      ctx.strokeRect(50, curY, width - 100, 50);
+
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '16px "Noto Sans Telugu", Outfit, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('వేలం వివరాలు నమోదు కాలేదు (No bids recorded).', width / 2, curY + 32);
+      curY += 50;
+    } else {
+      bids.forEach((bid, idx) => {
+        const isHighest = idx === 0;
+        ctx.fillStyle = isHighest ? '#fef3c7' : (idx % 2 === 0 ? '#ffffff' : '#f9fafb');
+        ctx.fillRect(50, curY, width - 100, rowHeight);
+        ctx.strokeStyle = '#e5e7eb';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(50, curY, width - 100, rowHeight);
+
+        // Row Text
+        ctx.textAlign = 'left';
+        ctx.fillStyle = isHighest ? '#92400e' : '#1f2937';
+        ctx.font = isHighest ? 'bold 16px Outfit, sans-serif' : '15px Outfit, sans-serif';
+        ctx.fillText(`#${bids.length - idx}`, colX[0] + 20, curY + 29);
+
+        ctx.font = isHighest ? 'bold 17px "Noto Sans Telugu", Outfit, sans-serif' : '16px "Noto Sans Telugu", Outfit, sans-serif';
+        ctx.fillText(bid.bidderName, colX[1] + 15, curY + 29);
+
+        ctx.font = '15px "Noto Sans Telugu", Outfit, sans-serif';
+        ctx.fillStyle = '#4b5563';
+        ctx.fillText(bid.gotram || 'శివ గోత్రం', colX[2] + 15, curY + 29);
+
+        ctx.font = 'bold 17px Outfit, sans-serif';
+        ctx.fillStyle = isHighest ? '#b45309' : '#047857';
+        ctx.fillText(`₹ ${Number(bid.amount).toLocaleString('en-IN')}`, colX[3] + 15, curY + 29);
+
+        ctx.font = '14px Outfit, sans-serif';
+        ctx.fillStyle = '#6b7280';
+        const timeStr = new Date(bid.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+        ctx.fillText(timeStr, colX[4] + 10, curY + 29);
+
+        curY += rowHeight;
+      });
+    }
+
+    // 7. Footer & Blessings
+    const footerY = requiredHeight - 75;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#78350f';
+    ctx.font = 'italic 18px "Noto Sans Telugu", Outfit, sans-serif';
+    ctx.fillText('“సర్వేజనాః సుఖినోభవంతు • శ్రీ వరసిద్ధి వినాయక స్వామి దివ్య అనుగ్రహం మీ కుటుంబంపై ఉండుగాక”', width / 2, footerY);
+
+    ctx.fillStyle = '#92400e';
+    ctx.font = 'bold 15px "Noto Sans Telugu", Outfit, sans-serif';
+    const genDate = new Date().toLocaleString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    ctx.fillText(`తేదీ: ${genDate} • విజయ కాలనీ గణేష్ ఉత్సవ కమిటీ 2026 🚩`, width / 2, footerY + 30);
+
+    // 8. Convert High-Res Canvas into PDF using jsPDF
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
     });
-    doc.text(`Gotram: ${auction.winner.gotram || 'Shiva Gotram'} • Declared On: ${winnerDate}`, pageWidth / 2, nextY + 25, { align: 'center' });
 
-    nextY += 34;
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+    // Handle single or multi-page A4
+    if (pdfHeight <= 297) {
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+    } else {
+      // If height exceeds 1 page, slice or fit neatly
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, 297);
+    }
+
+    const filename = `Vijaya_Colony_Ganesha_Laddu_Auction_Report_${Date.now()}.pdf`;
+    pdf.save(filename);
+    return true;
+  } catch (err) {
+    console.error('Error generating PDF report:', err);
+    throw err;
   }
-
-  // 4. Complete Bids History Table
-  const tableData = (auction?.bidsHistory && auction.bidsHistory.length > 0)
-    ? auction.bidsHistory.map((bid, index) => [
-        (auction.bidsHistory.length - index).toString(),
-        bid.bidderName,
-        bid.gotram || 'శివ గోత్రం',
-        `Rs. ${Number(bid.amount).toLocaleString('en-IN')}`,
-        new Date(bid.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-      ])
-    : [
-        ['1', auction?.winner?.name || 'Winner', auction?.winner?.gotram || 'శివ గోత్రం', `Rs. ${Number(auction?.currentHighestBid || 5001).toLocaleString('en-IN')}`, 'Final']
-      ];
-
-  doc.autoTable({
-    startY: nextY,
-    head: [['#', 'Bidder Name (బిడ్డర్)', 'Gotram (గోత్రం)', 'Bid Amount (మొత్తం)', 'Timestamp (సమయం)']],
-    body: tableData,
-    theme: 'grid',
-    headStyles: {
-      fillColor: [36, 14, 6],
-      textColor: [254, 243, 199],
-      fontStyle: 'bold',
-      fontSize: 9,
-      halign: 'center'
-    },
-    bodyStyles: {
-      fontSize: 8.5,
-      textColor: [30, 10, 5]
-    },
-    columnStyles: {
-      0: { halign: 'center', cellWidth: 12 },
-      1: { fontStyle: 'bold', cellWidth: 60 },
-      2: { cellWidth: 40 },
-      3: { halign: 'right', fontStyle: 'bold', textColor: [180, 83, 9], cellWidth: 38 },
-      4: { halign: 'center', cellWidth: 32 }
-    },
-    alternateRowStyles: {
-      fillColor: [254, 249, 235]
-    },
-    margin: { left: 14, right: 14 }
-  });
-
-  // 5. Footer & Blessings
-  const finalY = doc.lastAutoTable?.finalY || nextY + 40;
-  const footerY = Math.min(finalY + 12, pageHeight - 20);
-
-  doc.setTextColor(180, 83, 9);
-  doc.setFont('helvetica', 'italic');
-  doc.setFontSize(8.5);
-  doc.text('"Sarve Jana Sukhino Bhavantu • Sri Varasiddhi Vinayaka Swamy Divine Blessings"', pageWidth / 2, footerY, { align: 'center' });
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(40, 15, 7);
-  doc.text('Vijaya Colony Ganesha Utsav Committee 2026 • Mandapam Office', pageWidth / 2, footerY + 5, { align: 'center' });
-
-  // Download PDF
-  const filename = `Vijaya_Colony_Ganesha_Laddu_Auction_Report_${Date.now()}.pdf`;
-  doc.save(filename);
 };

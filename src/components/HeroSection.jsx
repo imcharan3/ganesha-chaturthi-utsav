@@ -83,11 +83,17 @@ export const HeroSection = ({ stats, settings, auction, onOpenDonation, setActiv
     }
   };
 
-  const handleDownloadPdf = () => {
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    setIsGeneratingPdf(true);
     try {
-      generateAuctionPdf(auction, settings);
+      await generateAuctionPdf(auction, settings);
     } catch (e) {
-      alert('Failed to generate PDF');
+      console.error(e);
+      alert('Failed to generate PDF report');
+    } finally {
+      setIsGeneratingPdf(false);
     }
   };
 

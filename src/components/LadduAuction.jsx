@@ -320,12 +320,17 @@ export const LadduAuction = ({ onOpenDonation }) => {
     }
   };
 
-  const handleDownloadAuctionPdf = () => {
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  const handleDownloadAuctionPdf = async () => {
+    setIsGeneratingPdf(true);
     try {
-      generateAuctionPdf(auction, settings);
+      await generateAuctionPdf(auction, settings);
     } catch (e) {
       console.error(e);
-      alert('Failed to generate PDF');
+      alert('Failed to generate PDF report');
+    } finally {
+      setIsGeneratingPdf(false);
     }
   };
 
