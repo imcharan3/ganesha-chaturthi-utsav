@@ -82,7 +82,7 @@ export const InstallAppBanner = () => {
               </div>
               <div>
                 <div className="flex items-center gap-1">
-                  <h4 className="text-xs font-extrabold text-amber-100 gold-gradient-text">గణేష్ యాప్ ఇన్‌స్టాల్ చేసుకోండి</h4>
+                  <h4 className="text-xs font-extrabold text-amber-100 gold-gradient-text">విజయ కాలనీ గణేష్ డైరీస్ యాప్</h4>
                   <Sparkles className="w-3 h-3 text-amber-400 animate-pulse" />
                 </div>
                 <p className="text-[10px] text-amber-300/80">
@@ -135,8 +135,8 @@ export const InstallAppBanner = () => {
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-saffron-600 p-0.5 shadow-gold mx-auto mb-2">
                 <img src="/colony_logo.png" alt="Logo" className="w-full h-full object-contain rounded-[14px]" />
               </div>
-              <h3 className="font-devotional text-lg font-bold gold-gradient-text">
-                గణేష్ మొబైల్ యాప్ ఇన్‌స్టాలేషన్
+              <h3 className="font-devotional text-base sm:text-lg font-bold gold-gradient-text">
+                విజయ కాలనీ గణేష్ డైరీస్ యాప్ ఇన్‌స్టాలేషన్
               </h3>
               <p className="text-xs text-amber-200/80">
                 Install Vijaya Colony Ganesha Diaries App on your phone

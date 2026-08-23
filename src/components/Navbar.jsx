@@ -7,12 +7,6 @@ export const Navbar = ({ activeTab, setActiveTab, onOpenDonation, settings }) =>
   const { isAdmin, setIsAdminModalOpen, logout } = useAuth();
   const [bellRinging, setBellRinging] = useState(false);
 
-  const handleBellClick = () => {
-    setBellRinging(true);
-    playTempleBell();
-    setTimeout(() => setBellRinging(false), 800);
-  };
-
   const navItems = [
     { id: 'home', label: 'Home', icon: Sparkles, telugu: 'ప్రారంభం' },
     { id: 'donors', label: 'Donors', icon: Heart, telugu: 'విరాళాలు' },
@@ -21,53 +15,59 @@ export const Navbar = ({ activeTab, setActiveTab, onOpenDonation, settings }) =>
     { id: 'chat', label: 'Youth Chat', icon: MessageSquare, telugu: 'యువజన చర్చ' }
   ];
 
+  const handleBellClick = () => {
+    setBellRinging(true);
+    playTempleBell();
+    setTimeout(() => setBellRinging(false), 800);
+  };
+
   return (
     <header className="sticky top-0 z-40 bg-[#160602]/95 backdrop-blur-md border-b border-amber-500/30 shadow-2xl transition-all">
       {/* Top Auspicious Gold Border Bar */}
       <div className="h-1 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500"></div>
       
       {/* Sub-header Announcement Bar */}
-      <div className="bg-gradient-to-r from-[#24081c] via-[#240e06] to-[#24081c] py-1 px-4 text-center text-[11px] sm:text-xs text-amber-200 border-b border-amber-500/20 flex items-center justify-center gap-2">
-        <span>🚩 గణపతి బప్పా మోరియా 🚩</span>
+      <div className="bg-gradient-to-r from-[#24081c] via-[#240e06] to-[#24081c] py-1 px-3 text-center text-[10px] sm:text-xs text-amber-200 border-b border-amber-500/20 flex items-center justify-between sm:justify-center gap-2 overflow-hidden whitespace-nowrap">
+        <span className="font-semibold shrink-0">🚩 గణపతి బప్పా మోరియా</span>
         <span className="text-amber-500/40 hidden sm:inline">•</span>
         <a 
           href="https://instagram.com/vijayacolony_ganesha_diaries" 
           target="_blank" 
           rel="noopener noreferrer"
-          className="text-pink-400 hover:text-pink-300 font-bold flex items-center gap-1 underline"
+          className="text-pink-400 hover:text-pink-300 font-bold inline-flex items-center gap-1 underline truncate text-[10px] sm:text-xs"
         >
-          <Instagram className="w-3.5 h-3.5" />
-          <span>Follow @vijayacolony_ganesha_diaries for Daily Updates & Live Photos</span>
+          <Instagram className="w-3 h-3 shrink-0" />
+          <span className="truncate">@vijayacolony_ganesha_diaries</span>
         </a>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 sm:h-20">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-14 sm:h-20 gap-2">
           
-          {/* Logo & Brand */}
+          {/* Logo & Brand (Cleanly aligned and non-overflowing on mobile) */}
           <div 
-            className="flex items-center gap-3 cursor-pointer group"
+            className="flex items-center gap-2 sm:gap-3 cursor-pointer group min-w-0 flex-1"
             onClick={() => setActiveTab('home')}
           >
-            <div className="relative w-11 h-11 sm:w-13 sm:h-13 rounded-full bg-gradient-to-br from-amber-400 via-saffron-500 to-crimson-700 p-[2px] shadow-gold group-hover:scale-105 transition-transform duration-300">
-              <div className="w-full h-full rounded-full bg-[#1b0803] flex items-center justify-center overflow-hidden p-1">
+            <div className="relative w-9 h-9 sm:w-12 sm:h-12 shrink-0 rounded-full bg-gradient-to-br from-amber-400 via-saffron-500 to-crimson-700 p-[2px] shadow-gold group-hover:scale-105 transition-transform duration-300">
+              <div className="w-full h-full rounded-full bg-[#1b0803] flex items-center justify-center overflow-hidden p-0.5">
                 <img 
                   src="/colony_logo.png" 
                   alt="Vijaya Colony Ganesha Diaries" 
                   className="w-full h-full object-contain"
                 />
               </div>
-              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-amber-400 rounded-full flex items-center justify-center text-[10px] text-amber-950 font-bold">
+              <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 sm:w-4 sm:h-4 bg-amber-400 rounded-full flex items-center justify-center text-[8px] sm:text-[10px] text-amber-950 font-bold">
                 ॐ
               </div>
             </div>
 
-            <div>
-              <h1 className="font-devotional text-base sm:text-lg font-bold tracking-wide gold-gradient-text leading-tight group-hover:brightness-110">
+            <div className="min-w-0 flex-1">
+              <h1 className="font-devotional text-[13px] sm:text-lg font-extrabold tracking-tight sm:tracking-wide gold-gradient-text leading-tight group-hover:brightness-110 truncate">
                 {settings?.utsavName || 'విజయ కాలనీ గణేష్ డైరీస్'}
               </h1>
-              <p className="text-[10px] sm:text-xs text-amber-300/80 font-medium tracking-wider">
-                Vijaya Colony Ganesha Diaries • 2026
+              <p className="text-[9px] sm:text-xs text-amber-300/80 font-medium tracking-tight sm:tracking-wider truncate">
+                Vijaya Colony Ganesha Diaries
               </p>
             </div>
           </div>
@@ -95,15 +95,15 @@ export const Navbar = ({ activeTab, setActiveTab, onOpenDonation, settings }) =>
           </nav>
 
           {/* Right Action Bar */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             
-            {/* Instagram Quick Link Button */}
+            {/* Instagram Quick Link Button (Desktop & Tablet) */}
             <a
               href="https://instagram.com/vijayacolony_ganesha_diaries"
               target="_blank"
               rel="noopener noreferrer"
               title="Official Instagram Page: @vijayacolony_ganesha_diaries"
-              className="p-2 sm:p-2.5 rounded-xl bg-gradient-to-br from-pink-950/80 via-[#2e0921] to-purple-950/80 border border-pink-500/40 text-pink-300 hover:text-white hover:border-pink-400 transition-all flex items-center gap-1 shadow-sm group"
+              className="hidden sm:flex p-2 rounded-xl bg-gradient-to-br from-pink-950/80 via-[#2e0921] to-purple-950/80 border border-pink-500/40 text-pink-300 hover:text-white hover:border-pink-400 transition-all items-center gap-1 shadow-sm group"
             >
               <Instagram className="w-4 h-4 text-pink-400 group-hover:scale-110 transition-transform" />
               <span className="hidden xl:inline text-xs font-semibold">@vijayacolony_ganesha_diaries</span>
@@ -114,34 +114,29 @@ export const Navbar = ({ activeTab, setActiveTab, onOpenDonation, settings }) =>
               onClick={handleBellClick}
               title="Ring Temple Bell (దేవాలయ ఘంటానాదం)"
               aria-label="Ring Temple Bell"
-              className={`p-2 sm:p-2.5 rounded-full bg-gradient-to-br from-amber-900/60 to-saffron-950/80 border border-amber-500/40 text-amber-300 hover:text-amber-100 hover:border-amber-400 transition-all ${
+              className={`p-1.5 sm:p-2.5 rounded-full bg-gradient-to-br from-amber-900/60 to-saffron-950/80 border border-amber-500/40 text-amber-300 hover:text-amber-100 hover:border-amber-400 transition-all shrink-0 ${
                 bellRinging ? 'scale-125 rotate-12 text-yellow-300 shadow-gold' : ''
               }`}
             >
-              <Bell className={`w-4 h-4 sm:w-5 sm:h-5 ${bellRinging ? 'animate-wiggle' : ''}`} />
+              <Bell className={`w-3.5 h-3.5 sm:w-4.5 sm:h-4.5 ${bellRinging ? 'animate-wiggle' : ''}`} />
             </button>
 
             {/* Donate Quick CTA */}
             <button
               onClick={onOpenDonation}
-              className="relative group overflow-hidden px-3.5 sm:px-5 py-2 rounded-xl font-bold text-xs sm:text-sm bg-gradient-to-r from-amber-500 via-saffron-500 to-amber-500 text-amber-950 shadow-divine hover:brightness-110 active:scale-95 transition-all duration-200 flex items-center gap-1.5"
+              className="relative group overflow-hidden px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-xl font-bold text-xs sm:text-sm bg-gradient-to-r from-amber-500 via-saffron-500 to-amber-500 text-amber-950 shadow-divine hover:brightness-110 active:scale-95 transition-all duration-200 flex items-center gap-1 shrink-0"
             >
-              <span className="relative z-10 flex items-center gap-1.5 font-bold">
-                <Heart className="w-4 h-4 text-crimson-800 fill-crimson-800 animate-pulse" />
-                <span className="hidden sm:inline">Donate Now</span>
-                <span className="sm:hidden">Donate</span>
-              </span>
-              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+              <Heart className="w-3.5 h-3.5 text-crimson-800 fill-crimson-800 animate-pulse" />
+              <span className="font-bold">Donate</span>
             </button>
 
             {/* Admin Login / Status */}
             {isAdmin ? (
-              <div className="flex items-center gap-1.5 bg-emerald-950/70 border border-emerald-500/40 px-2.5 py-1.5 rounded-xl">
-                <Shield className="w-4 h-4 text-emerald-400" />
-                <span className="hidden lg:inline text-xs font-semibold text-emerald-300">Admin Active</span>
+              <div className="flex items-center gap-1 bg-emerald-950/70 border border-emerald-500/40 px-2 py-1 rounded-xl shrink-0">
+                <Shield className="w-3.5 h-3.5 text-emerald-400" />
                 <button
                   onClick={logout}
-                  className="text-[11px] text-amber-300 hover:text-red-300 ml-1 underline"
+                  className="text-[10px] text-amber-300 hover:text-red-300 underline"
                   title="Logout Admin"
                 >
                   Exit
@@ -150,11 +145,10 @@ export const Navbar = ({ activeTab, setActiveTab, onOpenDonation, settings }) =>
             ) : (
               <button
                 onClick={() => setIsAdminModalOpen(true)}
-                className="p-2 sm:p-2.5 rounded-xl bg-[#2b1008] border border-amber-500/30 text-amber-300/80 hover:text-amber-100 hover:border-amber-400 transition-all text-xs flex items-center gap-1"
+                className="p-1.5 sm:p-2 rounded-xl bg-[#2b1008] border border-amber-500/30 text-amber-300/80 hover:text-amber-100 hover:border-amber-400 transition-all text-xs flex items-center shrink-0"
                 title="Committee Admin Login"
               >
-                <Lock className="w-4 h-4 text-amber-400" />
-                <span className="hidden xl:inline font-medium">Admin</span>
+                <Lock className="w-3.5 h-3.5 text-amber-400" />
               </button>
             )}
 

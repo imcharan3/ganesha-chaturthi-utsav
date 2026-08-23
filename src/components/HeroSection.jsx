@@ -275,7 +275,7 @@ export const HeroSection = ({ stats, settings, auction, onOpenDonation, setActiv
                 className="text-amber-300 hover:text-amber-100 flex items-center gap-1.5 transition-colors font-semibold"
               >
                 <span>📲</span>
-                <span className="underline">Install Mobile App (యాప్ డౌన్‌లోడ్)</span>
+                <span className="underline">Install App (విజయ కాలనీ గణేష్ డైరీస్ యాప్)</span>
               </button>
             </div>
           </div>
