@@ -24,6 +24,13 @@ export const LadduAuction = ({ onOpenDonation }) => {
   const [isPlacingBid, setIsPlacingBid] = useState(false);
   const [showAddBidderModal, setShowAddBidderModal] = useState(false);
   const [showDeclareWinnerModal, setShowDeclareWinnerModal] = useState(false);
+  const [showSetupModal, setShowSetupModal] = useState(false);
+  const [setupForm, setSetupForm] = useState({
+    startingBid: 5001,
+    ladduWeight: '21 KG',
+    minIncrement: 0,
+    itemTitle: 'శ్రీ వినాయక మహా లడ్డూ ప్రసాదం'
+  });
   const [newBidderForm, setNewBidderForm] = useState({ name: '', gotram: 'శివ గోత్రం', phone: '' });
   const [isGeneratingPoster, setIsGeneratingPoster] = useState(false);
   const [settings, setSettings] = useState(null);
@@ -37,9 +44,14 @@ export const LadduAuction = ({ onOpenDonation }) => {
       ]);
       setAuction(auctionData);
       setSettings(settingsData);
-      // Initialize bid amount to next recommended step
       if (auctionData) {
-        const nextStep = (Number(auctionData.currentHighestBid) || 5001) + (Number(auctionData.minIncrement) || 500);
+        setSetupForm({
+          startingBid: auctionData.startingBid || 5001,
+          ladduWeight: auctionData.ladduWeight || '21 KG',
+          minIncrement: auctionData.minIncrement || 0,
+          itemTitle: auctionData.itemTitle || 'శ్రీ వినాయక మహా లడ్డూ ప్రసాదం'
+        });
+        const nextStep = (Number(auctionData.currentHighestBid) || 5001) + (Number(auctionData.minIncrement) || 100);
         setBidAmount(nextStep.toString());
       }
     } catch (err) {
@@ -60,7 +72,13 @@ export const LadduAuction = ({ onOpenDonation }) => {
     const handleAuctionUpdated = (updatedAuction) => {
       setAuction(updatedAuction);
       if (updatedAuction) {
-        const nextStep = (Number(updatedAuction.currentHighestBid) || 5001) + (Number(updatedAuction.minIncrement) || 500);
+        setSetupForm({
+          startingBid: updatedAuction.startingBid || 5001,
+          ladduWeight: updatedAuction.ladduWeight || '21 KG',
+          minIncrement: updatedAuction.minIncrement || 0,
+          itemTitle: updatedAuction.itemTitle || 'శ్రీ వినాయక మహా లడ్డూ ప్రసాదం'
+        });
+        const nextStep = (Number(updatedAuction.currentHighestBid) || 5001) + (Number(updatedAuction.minIncrement) || 100);
         setBidAmount(nextStep.toString());
       }
     };
@@ -69,7 +87,7 @@ export const LadduAuction = ({ onOpenDonation }) => {
       setAuction(updatedAuction);
       playTempleBell();
       if (updatedAuction) {
-        const nextStep = (Number(updatedAuction.currentHighestBid) || 5001) + (Number(updatedAuction.minIncrement) || 500);
+        const nextStep = (Number(updatedAuction.currentHighestBid) || 5001) + (Number(updatedAuction.minIncrement) || 100);
         setBidAmount(nextStep.toString());
       }
     };
@@ -103,6 +121,22 @@ export const LadduAuction = ({ onOpenDonation }) => {
       setAuction(res.auction);
     } catch (err) {
       alert(err.message || 'Failed to update status');
+    }
+  };
+
+  const handleSaveSetup = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await api.updateAuctionStatus({
+        startingBid: Number(setupForm.startingBid),
+        ladduWeight: setupForm.ladduWeight.trim(),
+        minIncrement: Number(setupForm.minIncrement) || 0,
+        itemTitle: setupForm.itemTitle.trim()
+      }, adminToken);
+      setAuction(res.auction);
+      setShowSetupModal(false);
+    } catch (err) {
+      alert(err.message || 'Failed to save setup');
     }
   };
 
@@ -190,6 +224,7 @@ export const LadduAuction = ({ onOpenDonation }) => {
     const winnerName = auction?.highestBidderName;
     const winningBid = auction?.currentHighestBid;
     const gotram = auction?.highestBidderGotram;
+    const ladduWeight = auction?.ladduWeight || '21 KG';
 
     if (!winnerName || !winningBid) {
       alert('No bids placed yet to declare a winner');
@@ -202,7 +237,8 @@ export const LadduAuction = ({ onOpenDonation }) => {
       const res = await api.declareAuctionWinner({
         winnerName,
         gotram,
-        winningBid
+        winningBid,
+        ladduWeight
       }, adminToken);
       setAuction(res.auction);
       setShowDeclareWinnerModal(false);
@@ -232,7 +268,7 @@ export const LadduAuction = ({ onOpenDonation }) => {
     if (!auction?.winner) return;
     setIsGeneratingPoster(true);
     try {
-      const canvas = await generateAuctionPoster(auction.winner, settings);
+      const canvas = await generateAuctionPoster({ ...auction.winner, ladduWeight: auction.ladduWeight || '21 KG' }, settings);
       downloadAuctionPoster(canvas, `Ganesha_Laddu_Winner_${auction.winner.name.replace(/\s+/g, '_')}.png`);
     } catch (e) {
       alert('Error generating poster');
@@ -245,8 +281,8 @@ export const LadduAuction = ({ onOpenDonation }) => {
     if (!auction?.winner) return;
     setIsGeneratingPoster(true);
     try {
-      const canvas = await generateAuctionPoster(auction.winner, settings);
-      await shareAuctionPoster(canvas, auction.winner, settings);
+      const canvas = await generateAuctionPoster({ ...auction.winner, ladduWeight: auction.ladduWeight || '21 KG' }, settings);
+      await shareAuctionPoster(canvas, { ...auction.winner, ladduWeight: auction.ladduWeight || '21 KG' }, settings);
     } catch (e) {
       alert('Error sharing poster');
     } finally {
@@ -300,25 +336,35 @@ export const LadduAuction = ({ onOpenDonation }) => {
             శ్రీ వినాయక మహా లడ్డూ వేలం పాట
           </h2>
           <p className="text-xs sm:text-sm text-amber-200/80 max-w-xl">
-            21 కేజీల పవిత్ర మహా లడ్డూ ప్రసాదం ప్రత్యక్ష వేలం. స్వామివారి దివ్య ఆశీస్సులు పొందేందుకు వేలంలో పాల్గొనండి!
+            {auction?.ladduWeight || '21 KG'} పవిత్ర మహా లడ్డూ ప్రసాదం ప్రత్యక్ష వేలం. స్వామివారి దివ్య ఆశీస్సులు పొందేందుకు వేలంలో పాల్గొనండి!
           </p>
         </div>
 
-        {/* Right Header: Admin State Controls */}
+        {/* Right Header: Admin State Controls & Setup */}
         <div className="flex flex-col sm:flex-row items-center gap-2 relative z-10">
           {isAdmin ? (
-            <div className="bg-black/50 p-2 rounded-2xl border border-amber-500/30 flex items-center gap-2">
+            <div className="bg-black/50 p-2 rounded-2xl border border-amber-500/30 flex flex-wrap items-center gap-1.5">
               <span className="text-[11px] font-bold text-amber-300 px-2 flex items-center gap-1">
                 <Shield className="w-3.5 h-3.5 text-amber-400" />
                 <span>Admin:</span>
               </span>
+
+              {/* Setup Modal Trigger Button */}
+              <button
+                onClick={() => setShowSetupModal(true)}
+                className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-bold border border-amber-500/30 flex items-center gap-1"
+                title="Configure Starting Bid, Laddu Weight & Increment"
+              >
+                <span>⚙️ Setup</span>
+              </button>
+
               {isUpcoming && (
                 <button
                   onClick={() => handleUpdateStatus('live')}
                   className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center gap-1 shadow-md"
                 >
                   <Play className="w-3.5 h-3.5" />
-                  <span>Start Live Auction</span>
+                  <span>Start Live</span>
                 </button>
               )}
               {isLive && (
@@ -391,7 +437,7 @@ export const LadduAuction = ({ onOpenDonation }) => {
               {auction.winner.name}
             </h3>
             <p className="text-sm sm:text-base font-semibold text-amber-300">
-              గోత్రం: <span className="text-amber-100">{auction.winner.gotram || 'శివ గోత్రం'}</span>
+              గోత్రం: <span className="text-amber-100">{auction.winner.gotram || 'శివ గోత్రం'}</span> • లడ్డూ బరువు: <strong className="text-amber-200">{auction.ladduWeight || '21 KG'}</strong>
             </p>
           </div>
 
@@ -480,11 +526,13 @@ export const LadduAuction = ({ onOpenDonation }) => {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs text-center">
               <div className="bg-black/30 p-2.5 rounded-xl border border-amber-500/20">
                 <span className="text-[10px] text-amber-400/70 block">Prasadam Weight</span>
-                <strong className="text-amber-200 font-bold">21 KG Pure Ghee</strong>
+                <strong className="text-amber-200 font-bold">{auction?.ladduWeight || '21 KG'} Pure Ghee</strong>
               </div>
               <div className="bg-black/30 p-2.5 rounded-xl border border-amber-500/20">
                 <span className="text-[10px] text-amber-400/70 block">Min Increment</span>
-                <strong className="text-amber-200 font-bold">₹{auction?.minIncrement || 500}</strong>
+                <strong className="text-amber-200 font-bold">
+                  {Number(auction?.minIncrement) > 0 ? `₹${auction.minIncrement}` : 'None (ఎంతైనా బిడ్ చేయవచ్చు)'}
+                </strong>
               </div>
               <div className="bg-black/30 p-2.5 rounded-xl border border-amber-500/20 col-span-2 sm:col-span-1">
                 <span className="text-[10px] text-amber-400/70 block">Bidding Mode</span>
@@ -655,18 +703,18 @@ export const LadduAuction = ({ onOpenDonation }) => {
                   </div>
                 )}
 
-                {/* 3. Bid Increment Quick Buttons */}
+                {/* 3. Bid Increment Quick Buttons: 100, 200, 300, 400, 500, 1000 */}
                 <div className="space-y-1.5">
                   <label className="font-bold text-amber-300 block text-[11px]">Quick Increments (త్వరిత పెరుగుదల):</label>
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {[500, 1000, 2000, 5000].map((inc) => (
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                    {[100, 200, 300, 400, 500, 1000].map((inc) => (
                       <button
                         key={inc}
                         type="button"
                         onClick={() => handleQuickIncrement(inc)}
-                        className="py-1.5 rounded-lg bg-[#280e06] hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold text-xs transition-all active:scale-95"
+                        className="py-1.5 rounded-lg bg-[#280e06] hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold text-xs transition-all active:scale-95 text-center"
                       >
-                        +₹{inc.toLocaleString('en-IN')}
+                        +₹{inc}
                       </button>
                     ))}
                   </div>
@@ -713,7 +761,7 @@ export const LadduAuction = ({ onOpenDonation }) => {
               <ul className="text-xs text-amber-200/80 space-y-2 text-left bg-black/30 p-3.5 rounded-2xl border border-amber-500/20">
                 <li className="flex items-start gap-1.5">
                   <span className="text-amber-400 font-bold">1.</span>
-                  <span>ప్రారంభ వేలం పాట ధర <strong>₹{Number(auction?.startingBid || 5001).toLocaleString('en-IN')}</strong>.</span>
+                  <span>ప్రారంభ వేలం పాట ధర <strong>₹{Number(auction?.startingBid || 5001).toLocaleString('en-IN')}</strong> ({auction?.ladduWeight || '21 KG'} లడ్డూ ప్రసాదం).</span>
                 </li>
                 <li className="flex items-start gap-1.5">
                   <span className="text-amber-400 font-bold">2.</span>
@@ -733,6 +781,114 @@ export const LadduAuction = ({ onOpenDonation }) => {
         </div>
 
       </div>
+
+      {/* MODAL 0: Admin Auction Setup Modal */}
+      {showSetupModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-[#240e06] border-2 border-amber-500/60 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92dvh] overflow-y-auto custom-scrollbar">
+            <div className="flex items-center justify-between border-b border-amber-500/30 pb-2">
+              <h3 className="font-devotional text-base font-bold gold-gradient-text flex items-center gap-1.5">
+                <span>⚙️ వేలం సెట్టింగ్స్ • Auction Setup</span>
+              </h3>
+              <button onClick={() => setShowSetupModal(false)} className="p-1 text-amber-300/70 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSetup} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-amber-300 mb-1 font-semibold">Starting Auction Value (ప్రారంభ వేలం ధర ₹)</label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  value={setupForm.startingBid}
+                  onChange={(e) => setSetupForm({ ...setupForm, startingBid: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-[#140502] border border-amber-500/40 text-amber-100 font-mono font-bold text-sm focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-amber-300 mb-1 font-semibold">Weight of Laddu (లడ్డూ బరువు)</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. 21 KG, 15 KG, 11 KG, 5 KG"
+                    value={setupForm.ladduWeight}
+                    onChange={(e) => setSetupForm({ ...setupForm, ladduWeight: e.target.value })}
+                    className="flex-1 px-3 py-2 rounded-xl bg-[#140502] border border-amber-500/40 text-amber-100 focus:outline-none font-semibold"
+                  />
+                  {['21 KG', '15 KG', '11 KG', '5 KG'].map(w => (
+                    <button
+                      key={w}
+                      type="button"
+                      onClick={() => setSetupForm({ ...setupForm, ladduWeight: w })}
+                      className="px-2 py-1.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[11px] font-bold"
+                    >
+                      {w}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-amber-300 mb-1 font-semibold">Minimum Increment (కనిష్ట పెరుగుదల ₹ - 0 for None)</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="0 for none"
+                    value={setupForm.minIncrement}
+                    onChange={(e) => setSetupForm({ ...setupForm, minIncrement: e.target.value })}
+                    className="flex-1 px-3 py-2 rounded-xl bg-[#140502] border border-amber-500/40 text-amber-100 font-mono focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setSetupForm({ ...setupForm, minIncrement: 0 })}
+                    className={`px-2.5 py-2 rounded-xl text-[11px] font-bold border ${
+                      Number(setupForm.minIncrement) === 0 
+                        ? 'bg-emerald-600 text-white border-emerald-400' 
+                        : 'bg-black/40 text-amber-300 border-amber-500/30'
+                    }`}
+                  >
+                    None (0)
+                  </button>
+                </div>
+                <span className="text-[10px] text-amber-400/70 block mt-0.5">
+                  Set to 0 if there is no minimum increment constraint.
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-amber-300 mb-1 font-semibold">Item Title (శీర్షిక)</label>
+                <input
+                  type="text"
+                  value={setupForm.itemTitle}
+                  onChange={(e) => setSetupForm({ ...setupForm, itemTitle: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-[#140502] border border-amber-500/40 text-amber-100 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowSetupModal(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-[#34160b] text-amber-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-saffron-500 text-amber-950 font-bold shadow-gold"
+                >
+                  Save Settings
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* MODAL 1: Add New Bidder to Quick List (Admin Only) */}
       {showAddBidderModal && (

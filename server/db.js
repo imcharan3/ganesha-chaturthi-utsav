@@ -19,11 +19,12 @@ const AUCTION_FILE = path.join(DATA_DIR, 'auction.json');
 // Default Initial Seed Data
 const DEFAULT_AUCTION = {
   status: "upcoming",
-  itemTitle: "శ్రీ వినాయక మహా లడ్డూ ప్రసాదం (21 KG)",
-  itemTitleEnglish: "Lord Varasiddhi Vinayaka Sacred Maha Laddu Prasadam (21 KG)",
-  description: "Most sacred 21KG Maha Laddu blessed during the auspicious 4-day Ganesha Navaratri poojas. Brought to the grand live auction on Day 3.",
+  itemTitle: "శ్రీ వినాయక మహా లడ్డూ ప్రసాదం",
+  itemTitleEnglish: "Lord Varasiddhi Vinayaka Sacred Maha Laddu Prasadam",
+  ladduWeight: "21 KG",
+  description: "Most sacred Maha Laddu blessed during the auspicious 4-day Ganesha Navaratri poojas. Brought to the grand live auction on Day 3.",
   startingBid: 5001,
-  minIncrement: 500,
+  minIncrement: 0,
   currentHighestBid: 5001,
   highestBidderName: "",
   highestBidderGotram: "",
@@ -32,7 +33,7 @@ const DEFAULT_AUCTION = {
   registeredBidders: [
     {
       id: "bidder-sample-1",
-      name: "విజయ కాలనీ భక్తులు",
+      name: "విజయ కాలనీ కమిటీ సభ్యులు",
       gotram: "శివ గోత్రం",
       phone: ""
     }

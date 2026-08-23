@@ -103,15 +103,16 @@ export const generateAuctionPoster = async (winnerData, settings) => {
   // 6. Grand Event Badge
   ctx.fillStyle = '#7c2d12';
   ctx.beginPath();
-  ctx.roundRect(width / 2 - 320, 415, 640, 65, 32);
+  ctx.roundRect(width / 2 - 340, 415, 680, 65, 32);
   ctx.fill();
   ctx.strokeStyle = '#f59e0b';
   ctx.lineWidth = 2.5;
   ctx.stroke();
 
+  const ladduWeight = winnerData?.ladduWeight || '21 KG';
   ctx.fillStyle = '#fffbeb';
-  ctx.font = 'bold 30px "Noto Sans Telugu", Outfit, sans-serif';
-  ctx.fillText('🏆 మహా లడ్డూ ప్రసాదం వేలం విజేత 🏆', width / 2, 458);
+  ctx.font = 'bold 28px "Noto Sans Telugu", Outfit, sans-serif';
+  ctx.fillText(`🏆 ${ladduWeight} మహా లడ్డూ ప్రసాదం వేలం విజేత 🏆`, width / 2, 458);
 
   // 7. Winner Details Card Frame
   const cardY = 515;

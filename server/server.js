@@ -221,18 +221,21 @@ app.get('/api/auction', (req, res) => {
 });
 
 app.put('/api/admin/auction/status', verifyAdmin, (req, res) => {
-  const { status, startingBid, minIncrement, itemTitle } = req.body;
+  const { status, startingBid, minIncrement, itemTitle, ladduWeight } = req.body;
   const fields = {};
-  if (status) fields.status = status;
-  if (startingBid) {
+  if (status !== undefined) fields.status = status;
+  if (startingBid !== undefined && startingBid !== null && startingBid !== '') {
     fields.startingBid = Number(startingBid);
     const curr = db.getAuction();
-    if (curr.bidsHistory.length === 0) {
+    if (!curr.bidsHistory || curr.bidsHistory.length === 0) {
       fields.currentHighestBid = Number(startingBid);
     }
   }
-  if (minIncrement) fields.minIncrement = Number(minIncrement);
-  if (itemTitle) fields.itemTitle = itemTitle;
+  if (minIncrement !== undefined && minIncrement !== null && minIncrement !== '') {
+    fields.minIncrement = Number(minIncrement);
+  }
+  if (itemTitle !== undefined) fields.itemTitle = itemTitle;
+  if (ladduWeight !== undefined) fields.ladduWeight = ladduWeight;
 
   const updated = db.updateAuction(fields);
   io.emit('auction:updated', updated);
