@@ -117,7 +117,7 @@ app.get('/api/donors', (req, res) => {
 });
 
 app.post('/api/donors', (req, res) => {
-  const { name, amount, gotram, phone, paymentMode, referenceNo, message, receiptUrl } = req.body;
+  const { name, amount, gotram, phone, paymentMode, referenceNo, message, receiptUrl, status } = req.body;
   const numAmount = Number(amount);
 
   if (!name || isNaN(numAmount) || numAmount <= 0) {
@@ -128,6 +128,13 @@ app.post('/api/donors', (req, res) => {
     return res.status(400).json({ error: 'Payment screenshot is compulsory for UPI transactions' });
   }
 
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  const settings = db.getSettings();
+  const isAdmin = (token === settings.adminPin || token === 'ganesh2026-admin-session-token');
+
+  const initialStatus = isAdmin ? (status || 'Verified') : 'Pending Verification';
+
   const newDonor = db.addDonor({
     name: name.trim(),
     amount: Math.floor(numAmount),
@@ -137,7 +144,7 @@ app.post('/api/donors', (req, res) => {
     referenceNo: referenceNo || `REF-${Date.now().toString().slice(-6)}`,
     message: message || '',
     receiptUrl: receiptUrl || null,
-    status: 'Verified'
+    status: initialStatus
   });
 
   const donors = db.getDonors();
@@ -148,6 +155,21 @@ app.post('/api/donors', (req, res) => {
 
   io.emit('donor:created', payload);
   res.status(201).json(payload);
+});
+
+// Admin 1-Click Verification Endpoint
+app.post('/api/admin/donors/:id/verify', verifyAdmin, (req, res) => {
+  const { id } = req.params;
+  const updated = db.updateDonor(id, { status: 'Verified' });
+  if (!updated) {
+    return res.status(404).json({ error: 'Donor not found' });
+  }
+  const donors = db.getDonors();
+  io.emit('donor:updated', {
+    donor: updated,
+    stats: calculateStats(donors)
+  });
+  res.json({ success: true, donor: updated });
 });
 
 app.put('/api/admin/donors/:id', verifyAdmin, (req, res) => {

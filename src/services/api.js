@@ -65,6 +65,18 @@ export const api = {
     return data;
   },
 
+  verifyDonor: async (id, token) => {
+    const res = await fetch(`${API_BASE}/admin/donors/${id}/verify`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to verify donor');
+    return data;
+  },
+
   deleteDonor: async (id, token) => {
     const res = await fetch(`${API_BASE}/admin/donors/${id}`, {
       method: 'DELETE',

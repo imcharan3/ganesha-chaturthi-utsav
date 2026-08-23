@@ -127,7 +127,7 @@ export const db = {
     const newDonor = {
       id: `dn-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       createdAt: new Date().toISOString(),
-      status: "Verified",
+      status: donor.status || "Pending Verification",
       ...donor
     };
     donors.unshift(newDonor);

@@ -54,6 +54,19 @@ export const DonorsList = ({ donors, stats, onOpenDonation, onRefreshDonors }) =
       .slice(0, 3);
   }, [donors]);
 
+  // Admin 1-Click Verify Donor
+  const handleVerifyDonor = async (id, name) => {
+    try {
+      await api.verifyDonor(id, adminToken);
+      if (selectedReceiptDonor?.id === id) {
+        setSelectedReceiptDonor(prev => ({ ...prev, status: 'Verified' }));
+      }
+      if (onRefreshDonors) onRefreshDonors();
+    } catch (err) {
+      alert(err.message || 'Failed to verify donor');
+    }
+  };
+
   // Admin Delete Donor
   const handleDeleteDonor = async (id, name) => {
     if (!window.confirm(`Are you sure you want to delete donor "${name}" from the ledger?`)) return;
@@ -383,10 +396,32 @@ export const DonorsList = ({ donors, stats, onOpenDonation, onRefreshDonors }) =
                             ⭐ Maha Daata
                           </span>
                         )}
-                        <span className="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
-                          <CheckCircle className="w-2.5 h-2.5" />
-                          <span>{donor.status || 'Verified'}</span>
-                        </span>
+
+                        {/* Verification Status Badge / Admin Verify Button */}
+                        {donor.status === 'Verified' ? (
+                          <span className="text-[10px] bg-emerald-950/90 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full flex items-center gap-1 font-semibold shadow-sm">
+                            <CheckCircle className="w-2.5 h-2.5 text-emerald-400" />
+                            <span>Verified ✅</span>
+                          </span>
+                        ) : (
+                          <div className="inline-flex items-center gap-1.5">
+                            {isAdmin ? (
+                              <button
+                                type="button"
+                                onClick={() => handleVerifyDonor(donor.id, donor.name)}
+                                className="text-[10px] font-bold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-md hover:scale-105 active:scale-95 transition-all border border-emerald-400/50"
+                                title="Admin: Click to verify this donor"
+                              >
+                                <CheckCircle className="w-3 h-3 text-white" />
+                                <span>Verify (ధృవీకరించండి) ✓</span>
+                              </button>
+                            ) : (
+                              <span className="text-[10px] bg-amber-950/40 text-amber-400/70 border border-amber-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                <span>Pending Verification ⏳</span>
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-amber-300/70">
@@ -427,6 +462,16 @@ export const DonorsList = ({ donors, stats, onOpenDonation, onRefreshDonors }) =
                       {/* Admin Controls */}
                       {isAdmin && (
                         <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-amber-500/20">
+                          {donor.status !== 'Verified' && (
+                            <button
+                              onClick={() => handleVerifyDonor(donor.id, donor.name)}
+                              className="px-2 py-1 rounded-lg bg-emerald-600/30 text-emerald-300 hover:bg-emerald-600 hover:text-white transition-all text-xs font-bold flex items-center gap-1"
+                              title="Verify Donor"
+                            >
+                              <CheckCircle className="w-3 h-3" />
+                              <span>Verify</span>
+                            </button>
+                          )}
                           <button
                             onClick={() => handleOpenEdit(donor)}
                             className="p-1.5 rounded-lg bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-amber-950 transition-all text-xs"
@@ -524,10 +569,16 @@ export const DonorsList = ({ donors, stats, onOpenDonation, onRefreshDonors }) =
                   </div>
                   <div className="bg-black/30 p-2 rounded-xl border border-amber-500/15">
                     <span className="text-[10px] text-amber-400/70 block">Status</span>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400">
-                      <CheckCircle className="w-3 h-3" />
-                      <span>{selectedReceiptDonor.status || 'Verified'}</span>
-                    </span>
+                    {selectedReceiptDonor.status === 'Verified' ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400">
+                        <CheckCircle className="w-3 h-3" />
+                        <span>Verified ✅</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-400">
+                        <span>Pending Review ⏳</span>
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -544,9 +595,19 @@ export const DonorsList = ({ donors, stats, onOpenDonation, onRefreshDonors }) =
                 )}
               </div>
 
-              {/* Admin Alter/Edit Action */}
+              {/* Admin Actions */}
               {isAdmin ? (
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
+                  {selectedReceiptDonor.status !== 'Verified' && (
+                    <button
+                      type="button"
+                      onClick={() => handleVerifyDonor(selectedReceiptDonor.id, selectedReceiptDonor.name)}
+                      className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md transition-all border border-emerald-400/50"
+                    >
+                      <CheckCircle className="w-4 h-4 text-white" />
+                      <span>Approve & Verify (ధృవీకరించండి) ✓</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -557,12 +618,12 @@ export const DonorsList = ({ donors, stats, onOpenDonation, onRefreshDonors }) =
                     className="flex-1 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
                   >
                     <Edit3 className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Admin: Alter / Edit This Donor Record</span>
+                    <span>Alter / Edit Record</span>
                   </button>
                 </div>
               ) : (
                 <p className="text-center text-[11px] text-amber-400/60">
-                  🔒 Verified by Vijaya Colony Ganesha Committee. Only admins can alter or delete donor records.
+                  🔒 Verified by Vijaya Colony Ganesha Committee. Only admins can alter or verify donor records.
                 </p>
               )}
 

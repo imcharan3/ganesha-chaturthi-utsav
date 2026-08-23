@@ -192,6 +192,18 @@ export const DonationModal = ({ isOpen, onClose, settings, onDonationSuccess }) 
                     <span className="text-amber-300/70">Payment Mode:</span>
                     <span className="text-amber-200">{donationComplete.paymentMode} ({donationComplete.referenceNo})</span>
                   </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-amber-300/70">Status:</span>
+                    {donationComplete.status === 'Verified' ? (
+                      <span className="text-xs font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/30">
+                        Verified ✅
+                      </span>
+                    ) : (
+                      <span className="text-xs font-bold text-amber-300 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-500/30">
+                        Submitted (Pending Verification) ⏳
+                      </span>
+                    )}
+                  </div>
                   {donationComplete.message && (
                     <div className="pt-2 border-t border-amber-500/20">
                       <span className="text-xs text-amber-300/70 block mb-0.5">Devotional Prayer / Message:</span>
@@ -218,7 +230,8 @@ export const DonationModal = ({ isOpen, onClose, settings, onDonationSuccess }) 
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <button
                   onClick={() => {
-                    const text = `🌺 Vinayaka Chavithi 2026 Donation Receipt 🌺\nDonor: ${donationComplete.name}\nAmount: ₹${donationComplete.amount}\nReference: ${donationComplete.referenceNo}\nStatus: Verified\nMay Lord Ganesha bless all of us! 🙏🚩`;
+                    const currentStatus = donationComplete.status === 'Verified' ? 'Verified ✅' : 'Submitted (Pending Verification) ⏳';
+                    const text = `🌺 Vinayaka Chavithi 2026 Donation Receipt 🌺\nDonor: ${donationComplete.name}\nAmount: ₹${donationComplete.amount}\nReference: ${donationComplete.referenceNo}\nStatus: ${currentStatus}\nMay Lord Ganesha bless all of us! 🙏🚩`;
                     if (navigator.share) {
                       navigator.share({ title: 'Donation Receipt', text }).catch(() => {});
                     } else {
