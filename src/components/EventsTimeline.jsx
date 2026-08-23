@@ -3,7 +3,7 @@ import { Calendar, Clock, MapPin, Sparkles, Trophy, Utensils, Flame, Download, C
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 
-export const EventsTimeline = ({ events, settings, onRefreshEvents }) => {
+export const EventsTimeline = ({ events, settings, onRefreshEvents, setActiveTab }) => {
   const { isAdmin, adminToken } = useAuth();
   const [selectedDay, setSelectedDay] = useState(1);
   
@@ -182,6 +182,16 @@ export const EventsTimeline = ({ events, settings, onRefreshEvents }) => {
 
               {/* Action Buttons */}
               <div className="pt-4 flex flex-wrap items-center gap-3">
+                {currentEvent.dayNumber === 3 && (
+                  <button
+                    onClick={() => setActiveTab && setActiveTab('auction')}
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-saffron-500 to-amber-600 text-amber-950 font-extrabold text-xs sm:text-sm shadow-gold hover:brightness-110 active:scale-95 transition-all flex items-center gap-2"
+                  >
+                    <Trophy className="w-4 h-4 text-amber-950 fill-amber-950" />
+                    <span>Open Live Laddu Auction (ప్రత్యక్ష వేలం పాట) ➔</span>
+                  </button>
+                )}
+
                 <button
                   onClick={() => downloadCalendarReminder(currentEvent)}
                   className="px-4 py-2.5 rounded-xl bg-[#2e1208] hover:bg-[#3d180b] border border-amber-500/40 text-amber-200 text-xs sm:text-sm font-semibold flex items-center gap-2 transition-all shadow"

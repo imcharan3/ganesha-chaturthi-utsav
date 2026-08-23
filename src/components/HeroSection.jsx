@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Heart, Calendar, MessageSquare, MapPin, Sparkles, Trophy, Users, ShieldCheck, ChevronRight, Share2 } from 'lucide-react';
+import { 
+  Heart, Calendar, MessageSquare, MapPin, Sparkles, Trophy, 
+  Users, ShieldCheck, ChevronRight, Share2, Crown, Download, Flame, ArrowRight 
+} from 'lucide-react';
+import { generateAuctionPoster, downloadAuctionPoster, shareAuctionPoster } from '../utils/generateAuctionPoster';
 
-export const HeroSection = ({ stats, settings, onOpenDonation, setActiveTab }) => {
+export const HeroSection = ({ stats, settings, auction, onOpenDonation, setActiveTab }) => {
+  const [isGeneratingPoster, setIsGeneratingPoster] = useState(false);
+
   // Countdown Timer
   const [timeLeft, setTimeLeft] = useState({
     days: 12,
@@ -50,17 +56,124 @@ export const HeroSection = ({ stats, settings, onOpenDonation, setActiveTab }) =
     }
   };
 
+  const handleDownloadWinnerPoster = async () => {
+    if (!auction?.winner) return;
+    setIsGeneratingPoster(true);
+    try {
+      const canvas = await generateAuctionPoster(auction.winner, settings);
+      downloadAuctionPoster(canvas, `Ganesha_Laddu_Winner_${auction.winner.name.replace(/\s+/g, '_')}.png`);
+    } catch (e) {
+      alert('Error generating poster');
+    } finally {
+      setIsGeneratingPoster(false);
+    }
+  };
+
+  const handleShareWinnerPoster = async () => {
+    if (!auction?.winner) return;
+    setIsGeneratingPoster(true);
+    try {
+      const canvas = await generateAuctionPoster(auction.winner, settings);
+      await shareAuctionPoster(canvas, auction.winner, settings);
+    } catch (e) {
+      alert('Error sharing poster');
+    } finally {
+      setIsGeneratingPoster(false);
+    }
+  };
+
+  const isAuctionLive = auction?.status === 'live';
+  const hasAuctionWinner = (auction?.status === 'completed' || auction?.winner) && auction?.winner?.name;
+
   return (
-    <div className="relative overflow-hidden pt-6 pb-12 sm:pt-10 sm:pb-16">
+    <div className="relative overflow-hidden pt-4 pb-12 sm:pt-8 sm:pb-16 space-y-6">
       
       {/* Devotional Glow Background Accents */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] sm:w-[600px] h-[350px] sm:h-[600px] bg-gradient-to-tr from-saffron-600/20 via-amber-500/20 to-crimson-600/10 rounded-full blur-3xl pointer-events-none -z-10"></div>
       
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         
+        {/* LIVE AUCTION CALLOUT BANNER (WHEN LIVE) */}
+        {isAuctionLive && (
+          <div 
+            onClick={() => setActiveTab('auction')}
+            className="cursor-pointer bg-gradient-to-r from-red-950 via-[#350f06] to-red-950 border-2 border-red-500/70 p-3 sm:p-4 rounded-2xl shadow-[0_0_25px_rgba(239,68,68,0.35)] flex items-center justify-between gap-3 animate-pulse group hover:border-red-400 transition-all"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center font-bold shrink-0 shadow-lg">
+                <Flame className="w-5 h-5 animate-bounce" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-red-400 animate-ping"></span>
+                  <h4 className="font-bold text-sm sm:text-base text-white">
+                    ప్రత్యక్ష లడ్డూ వేలం పాట జరుగుతోంది! (LIVE AUCTION)
+                  </h4>
+                </div>
+                <p className="text-xs text-amber-200/90">
+                  Current Highest Bid: <strong className="text-amber-300 font-mono text-sm">₹{Number(auction?.currentHighestBid || 5001).toLocaleString('en-IN')}</strong> {auction?.highestBidderName && `by ${auction.highestBidderName}`}
+                </p>
+              </div>
+            </div>
+
+            <div className="hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-saffron-500 text-amber-950 font-black text-xs shadow-gold group-hover:brightness-110">
+              <span>Watch & Bid</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </div>
+        )}
+
+        {/* MAHA LADDU AUCTION WINNER ROYAL SHOWCASE (WHEN COMPLETED) */}
+        {hasAuctionWinner && (
+          <div className="temple-card p-5 sm:p-7 rounded-3xl border-2 border-amber-400 shadow-[0_12px_35px_rgba(245,158,11,0.22)] relative overflow-hidden bg-gradient-to-br from-[#2a0e05] via-[#1a0703] to-[#240e06] text-center space-y-4">
+            <div className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-amber-950 font-black px-4 py-1 rounded-full text-xs shadow-gold">
+              <Crown className="w-3.5 h-3.5 fill-amber-950" />
+              <span>శ్రీ వినాయక మహా లడ్డూ ప్రసాదం వేలం విజేత • AUCTION WINNER</span>
+              <Crown className="w-3.5 h-3.5 fill-amber-950" />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-2xl sm:text-4xl font-extrabold text-white font-devotional">
+                {auction.winner.name}
+              </h3>
+              <p className="text-xs sm:text-sm font-semibold text-amber-300">
+                గోత్రం: <span className="text-amber-100">{auction.winner.gotram || 'శివ గోత్రం'}</span> • గెలుచుకున్న మొత్తం: <strong className="text-amber-300 font-mono text-base sm:text-xl font-black">₹{Number(auction.winner.winningBid).toLocaleString('en-IN')}</strong>
+              </p>
+            </div>
+
+            {/* Poster Actions */}
+            <div className="flex flex-wrap items-center justify-center gap-2.5 pt-1">
+              <button
+                onClick={handleShareWinnerPoster}
+                disabled={isGeneratingPoster}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-xs shadow-md hover:brightness-110 active:scale-95 transition-all flex items-center gap-1.5"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span>{isGeneratingPoster ? 'Generating...' : 'Share Poster on WhatsApp'}</span>
+              </button>
+
+              <button
+                onClick={handleDownloadWinnerPoster}
+                disabled={isGeneratingPoster}
+                className="px-4 py-2 rounded-xl bg-[#2b1008] hover:bg-[#3d170b] border border-amber-500/50 text-amber-200 font-bold text-xs shadow-sm transition-all flex items-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5 text-amber-400" />
+                <span>Download Poster (PNG)</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('auction')}
+                className="px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 font-semibold text-xs flex items-center gap-1"
+              >
+                <span>View Full Auction Details ➔</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Sanskrit Shloka Banner */}
-        <div className="text-center mb-6 sm:mb-8">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-950/60 border border-amber-500/30 text-amber-300 text-xs sm:text-sm shadow-inner mb-3">
+        <div className="text-center mb-4 sm:mb-6">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-950/60 border border-amber-500/30 text-amber-300 text-xs sm:text-sm shadow-inner mb-2">
             <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-spin" style={{ animationDuration: '8s' }} />
             <span>మంగళకరమైన శ్లోకం</span>
             <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-spin" style={{ animationDuration: '8s' }} />

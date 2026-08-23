@@ -215,6 +215,93 @@ app.put('/api/admin/events/:id', verifyAdmin, (req, res) => {
   res.json({ success: true, event: updated });
 });
 
+// 4. Live Laddu Auction API
+app.get('/api/auction', (req, res) => {
+  res.json(db.getAuction());
+});
+
+app.put('/api/admin/auction/status', verifyAdmin, (req, res) => {
+  const { status, startingBid, minIncrement, itemTitle } = req.body;
+  const fields = {};
+  if (status) fields.status = status;
+  if (startingBid) {
+    fields.startingBid = Number(startingBid);
+    const curr = db.getAuction();
+    if (curr.bidsHistory.length === 0) {
+      fields.currentHighestBid = Number(startingBid);
+    }
+  }
+  if (minIncrement) fields.minIncrement = Number(minIncrement);
+  if (itemTitle) fields.itemTitle = itemTitle;
+
+  const updated = db.updateAuction(fields);
+  io.emit('auction:updated', updated);
+  res.json({ success: true, auction: updated });
+});
+
+app.post('/api/admin/auction/bidders', verifyAdmin, (req, res) => {
+  const { name, gotram, phone } = req.body;
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: 'Bidder name is required' });
+  }
+  const newBidder = db.addRegisteredBidder({ name, gotram, phone });
+  const updated = db.getAuction();
+  io.emit('auction:updated', updated);
+  res.json({ success: true, bidder: newBidder, auction: updated });
+});
+
+app.delete('/api/admin/auction/bidders/:id', verifyAdmin, (req, res) => {
+  const { id } = req.params;
+  const success = db.deleteRegisteredBidder(id);
+  const updated = db.getAuction();
+  io.emit('auction:updated', updated);
+  res.json({ success, auction: updated });
+});
+
+app.post('/api/admin/auction/bid', verifyAdmin, (req, res) => {
+  const { bidderName, gotram, amount, note, phone } = req.body;
+  const numAmount = Number(amount);
+  const auction = db.getAuction();
+
+  if (!bidderName || !bidderName.trim()) {
+    return res.status(400).json({ error: 'Bidder name is required' });
+  }
+
+  if (isNaN(numAmount) || numAmount <= 0) {
+    return res.status(400).json({ error: 'Valid bid amount is required' });
+  }
+
+  const result = db.addBid({ bidderName, gotram, amount: numAmount, note, phone });
+  io.emit('auction:newBid', {
+    newBid: result.newBid,
+    auction: result.auction
+  });
+  res.json({ success: true, newBid: result.newBid, auction: result.auction });
+});
+
+app.post('/api/admin/auction/undo', verifyAdmin, (req, res) => {
+  const result = db.undoBid();
+  if (!result) {
+    return res.status(400).json({ error: 'No bids to undo' });
+  }
+  io.emit('auction:updated', result.auction);
+  res.json({ success: true, removedBid: result.removedBid, auction: result.auction });
+});
+
+app.post('/api/admin/auction/winner', verifyAdmin, (req, res) => {
+  const { winnerName, gotram, winningBid, phone, message } = req.body;
+  const updated = db.declareWinner({ winnerName, gotram, winningBid, phone, message });
+  io.emit('auction:winnerDeclared', updated);
+  res.json({ success: true, auction: updated });
+});
+
+app.post('/api/admin/auction/reset', verifyAdmin, (req, res) => {
+  const { startingBid } = req.body;
+  const resetData = db.resetAuction(startingBid);
+  io.emit('auction:updated', resetData);
+  res.json({ success: true, auction: resetData });
+});
+
 // 4. Chat Messages API
 app.get('/api/messages', (req, res) => {
   res.json(db.getMessages());

@@ -110,6 +110,107 @@ export const api = {
     return data;
   },
 
+  // Live Laddu Auction
+  getAuction: async () => {
+    const res = await fetch(`${API_BASE}/auction`);
+    if (!res.ok) throw new Error('Failed to fetch auction details');
+    return res.json();
+  },
+
+  updateAuctionStatus: async (statusData, token) => {
+    const res = await fetch(`${API_BASE}/admin/auction/status`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(statusData)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to update auction status');
+    return data;
+  },
+
+  addAuctionBidder: async (bidderData, token) => {
+    const res = await fetch(`${API_BASE}/admin/auction/bidders`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(bidderData)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to add bidder');
+    return data;
+  },
+
+  deleteAuctionBidder: async (bidderId, token) => {
+    const res = await fetch(`${API_BASE}/admin/auction/bidders/${bidderId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to delete bidder');
+    return data;
+  },
+
+  placeAuctionBid: async (bidData, token) => {
+    const res = await fetch(`${API_BASE}/admin/auction/bid`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(bidData)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to place bid');
+    return data;
+  },
+
+  undoAuctionBid: async (token) => {
+    const res = await fetch(`${API_BASE}/admin/auction/undo`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to undo bid');
+    return data;
+  },
+
+  declareAuctionWinner: async (winnerData, token) => {
+    const res = await fetch(`${API_BASE}/admin/auction/winner`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(winnerData)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to declare winner');
+    return data;
+  },
+
+  resetAuction: async (startingBid, token) => {
+    const res = await fetch(`${API_BASE}/admin/auction/reset`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ startingBid })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to reset auction');
+    return data;
+  },
+
   // Messages
   getMessages: async () => {
     const res = await fetch(`${API_BASE}/messages`);

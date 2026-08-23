@@ -14,8 +14,34 @@ const DONORS_FILE = path.join(DATA_DIR, 'donors.json');
 const EVENTS_FILE = path.join(DATA_DIR, 'events.json');
 const MESSAGES_FILE = path.join(DATA_DIR, 'messages.json');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
+const AUCTION_FILE = path.join(DATA_DIR, 'auction.json');
 
 // Default Initial Seed Data
+const DEFAULT_AUCTION = {
+  status: "upcoming",
+  itemTitle: "శ్రీ వినాయక మహా లడ్డూ ప్రసాదం (21 KG)",
+  itemTitleEnglish: "Lord Varasiddhi Vinayaka Sacred Maha Laddu Prasadam (21 KG)",
+  description: "Most sacred 21KG Maha Laddu blessed during the auspicious 4-day Ganesha Navaratri poojas. Brought to the grand live auction on Day 3.",
+  startingBid: 5001,
+  minIncrement: 500,
+  currentHighestBid: 5001,
+  highestBidderName: "",
+  highestBidderGotram: "",
+  highestBidderPhone: "",
+  bidsCount: 0,
+  registeredBidders: [
+    {
+      id: "bidder-sample-1",
+      name: "విజయ కాలనీ భక్తులు",
+      gotram: "శివ గోత్రం",
+      phone: ""
+    }
+  ],
+  bidsHistory: [],
+  winner: null,
+  updatedAt: new Date().toISOString()
+};
+
 const DEFAULT_SETTINGS = {
   utsavName: "విజయ కాలనీ గణేష్ యూత్",
   subtitle: "Vijaya Colony Ganesha Youth • Vinayaka Chavithi 2026",
@@ -206,7 +232,125 @@ export const db = {
     return null;
   },
 
-  // Settings
+// Settings
   getSettings: () => readJsonFile(SETTINGS_FILE, DEFAULT_SETTINGS),
-  saveSettings: (settings) => writeJsonFile(SETTINGS_FILE, settings)
+  saveSettings: (settings) => writeJsonFile(SETTINGS_FILE, settings),
+
+  // Live Laddu Auction
+  getAuction: () => readJsonFile(AUCTION_FILE, DEFAULT_AUCTION),
+  saveAuction: (auction) => writeJsonFile(AUCTION_FILE, auction),
+  updateAuction: (fields) => {
+    const auction = db.getAuction();
+    const updated = { ...auction, ...fields, updatedAt: new Date().toISOString() };
+    db.saveAuction(updated);
+    return updated;
+  },
+  addRegisteredBidder: ({ name, gotram, phone }) => {
+    const auction = db.getAuction();
+    if (!auction.registeredBidders) auction.registeredBidders = [];
+    const newBidder = {
+      id: `bidder-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      name: name.trim(),
+      gotram: gotram ? gotram.trim() : 'శివ గోత్రం',
+      phone: phone ? phone.trim() : '',
+      createdAt: new Date().toISOString()
+    };
+    auction.registeredBidders.push(newBidder);
+    db.saveAuction(auction);
+    return newBidder;
+  },
+  deleteRegisteredBidder: (id) => {
+    const auction = db.getAuction();
+    if (!auction.registeredBidders) return false;
+    const initialLen = auction.registeredBidders.length;
+    auction.registeredBidders = auction.registeredBidders.filter(b => b.id !== id);
+    if (auction.registeredBidders.length !== initialLen) {
+      db.saveAuction(auction);
+      return true;
+    }
+    return false;
+  },
+  addBid: ({ bidderName, gotram, amount, note, phone }) => {
+    const auction = db.getAuction();
+    const numAmount = Number(amount);
+    const newBid = {
+      id: `bid-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      bidderName: bidderName.trim(),
+      gotram: gotram ? gotram.trim() : 'శివ గోత్రం',
+      phone: phone ? phone.trim() : '',
+      amount: numAmount,
+      note: note ? note.trim() : '',
+      timestamp: new Date().toISOString()
+    };
+
+    if (!auction.bidsHistory) auction.bidsHistory = [];
+    auction.bidsHistory.unshift(newBid);
+    auction.currentHighestBid = numAmount;
+    auction.highestBidderName = bidderName.trim();
+    auction.highestBidderGotram = gotram ? gotram.trim() : 'శివ గోత్రం';
+    auction.highestBidderPhone = phone ? phone.trim() : '';
+    auction.bidsCount = auction.bidsHistory.length;
+    auction.updatedAt = new Date().toISOString();
+
+    // Auto-save bidder to registeredBidders if not already present
+    if (!auction.registeredBidders) auction.registeredBidders = [];
+    const exists = auction.registeredBidders.some(b => b.name.toLowerCase() === bidderName.trim().toLowerCase());
+    if (!exists) {
+      auction.registeredBidders.push({
+        id: `bidder-${Date.now()}`,
+        name: bidderName.trim(),
+        gotram: gotram ? gotram.trim() : 'శివ గోత్రం',
+        phone: phone ? phone.trim() : ''
+      });
+    }
+
+    db.saveAuction(auction);
+    return { newBid, auction };
+  },
+  undoBid: () => {
+    const auction = db.getAuction();
+    if (!auction.bidsHistory || auction.bidsHistory.length === 0) return null;
+    const removedBid = auction.bidsHistory.shift();
+    auction.bidsCount = auction.bidsHistory.length;
+    if (auction.bidsHistory.length > 0) {
+      const topBid = auction.bidsHistory[0];
+      auction.currentHighestBid = topBid.amount;
+      auction.highestBidderName = topBid.bidderName;
+      auction.highestBidderGotram = topBid.gotram;
+      auction.highestBidderPhone = topBid.phone;
+    } else {
+      auction.currentHighestBid = auction.startingBid || 5001;
+      auction.highestBidderName = '';
+      auction.highestBidderGotram = '';
+      auction.highestBidderPhone = '';
+    }
+    auction.updatedAt = new Date().toISOString();
+    db.saveAuction(auction);
+    return { removedBid, auction };
+  },
+  declareWinner: ({ winnerName, gotram, winningBid, phone, message }) => {
+    const auction = db.getAuction();
+    auction.status = 'completed';
+    auction.winner = {
+      name: winnerName || auction.highestBidderName || 'మహా భక్తుడు',
+      gotram: gotram || auction.highestBidderGotram || 'శివ గోత్రం',
+      winningBid: Number(winningBid) || auction.currentHighestBid || 5001,
+      phone: phone || auction.highestBidderPhone || '',
+      message: message || 'సర్వేజనాః సుఖినోభవంతు - శ్రీ వినాయక మహా లడ్డూ ప్రసాద విజేత',
+      declaredAt: new Date().toISOString()
+    };
+    auction.updatedAt = new Date().toISOString();
+    db.saveAuction(auction);
+    return auction;
+  },
+  resetAuction: (startingBid = 5001) => {
+    const defaultData = {
+      ...DEFAULT_AUCTION,
+      startingBid: Number(startingBid) || 5001,
+      currentHighestBid: Number(startingBid) || 5001,
+      updatedAt: new Date().toISOString()
+    };
+    db.saveAuction(defaultData);
+    return defaultData;
+  }
 };

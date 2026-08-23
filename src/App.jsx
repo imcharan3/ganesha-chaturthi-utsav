@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { HeroSection } from './components/HeroSection';
 import { DonorsList } from './components/DonorsList';
+import { LadduAuction } from './components/LadduAuction';
 import { EventsTimeline } from './components/EventsTimeline';
 import { YouthChat } from './components/YouthChat';
 import { DonationModal } from './components/DonationModal';
@@ -25,16 +26,18 @@ function MainApp() {
   const [stats, setStats] = useState({ totalDonors: 0, totalAmount: 0, targetAmount: 70000 });
   const [events, setEvents] = useState([]);
   const [messages, setMessages] = useState([]);
+  const [auction, setAuction] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Fetch initial data
   const fetchData = async () => {
     try {
-      const [settingsRes, donorsRes, eventsRes, messagesRes] = await Promise.all([
+      const [settingsRes, donorsRes, eventsRes, messagesRes, auctionRes] = await Promise.all([
         api.getSettings().catch(() => ({})),
         api.getDonors().catch(() => ({ donors: [], stats: {} })),
         api.getEvents().catch(() => ([])),
-        api.getMessages().catch(() => ([]))
+        api.getMessages().catch(() => ([])),
+        api.getAuction().catch(() => null)
       ]);
 
       setSettings(settingsRes);
@@ -42,6 +45,7 @@ function MainApp() {
       setStats(donorsRes.stats || { totalDonors: 0, totalAmount: 0, targetAmount: 70000 });
       setEvents(eventsRes || []);
       setMessages(messagesRes || []);
+      setAuction(auctionRes);
     } catch (err) {
       console.error('Error loading data:', err);
     } finally {
@@ -92,6 +96,18 @@ function MainApp() {
       setSettings(updatedSet);
     });
 
+    socket.on('auction:updated', (updatedAuction) => {
+      setAuction(updatedAuction);
+    });
+
+    socket.on('auction:newBid', ({ newBid, auction: updatedAuction }) => {
+      setAuction(updatedAuction);
+    });
+
+    socket.on('auction:winnerDeclared', (updatedAuction) => {
+      setAuction(updatedAuction);
+    });
+
     return () => {
       socket.off('donor:created');
       socket.off('donor:updated');
@@ -101,6 +117,9 @@ function MainApp() {
       socket.off('message:deleted');
       socket.off('event:updated');
       socket.off('settings:updated');
+      socket.off('auction:updated');
+      socket.off('auction:newBid');
+      socket.off('auction:winnerDeclared');
     };
   }, [socket]);
 
@@ -122,6 +141,7 @@ function MainApp() {
             <HeroSection
               stats={stats}
               settings={settings}
+              auction={auction}
               onOpenDonation={() => setIsDonationOpen(true)}
               setActiveTab={setActiveTab}
             />
@@ -174,11 +194,18 @@ function MainApp() {
           />
         )}
 
+        {activeTab === 'auction' && (
+          <LadduAuction
+            onOpenDonation={() => setIsDonationOpen(true)}
+          />
+        )}
+
         {activeTab === 'events' && (
           <EventsTimeline
             events={events}
             settings={settings}
             onRefreshEvents={fetchData}
+            setActiveTab={setActiveTab}
           />
         )}
 

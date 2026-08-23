@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bell, Heart, Shield, Lock, Unlock, Calendar, Users, MessageSquare, Flame } from 'lucide-react';
+import { Bell, Heart, Shield, Lock, Unlock, Calendar, Users, MessageSquare, Flame, Trophy } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { playTempleBell } from '../utils/audio';
 
@@ -15,8 +15,9 @@ export const Navbar = ({ activeTab, setActiveTab, onOpenDonation, settings }) =>
 
   const navItems = [
     { id: 'home', label: 'Home', icon: Flame, telugu: 'ప్రారంభం' },
-    { id: 'donors', label: 'Donors List', icon: Heart, telugu: 'విరాళాల జాబితా' },
-    { id: 'events', label: '4-Day Events', icon: Calendar, telugu: 'కార్యక్రమాలు' },
+    { id: 'donors', label: 'Donors', icon: Heart, telugu: 'విరాళాలు' },
+    { id: 'auction', label: 'Laddu Auction 🏆', icon: Trophy, telugu: 'లడ్డూ వేలం' },
+    { id: 'events', label: 'Events', icon: Calendar, telugu: 'కార్యక్రమాలు' },
     { id: 'chat', label: 'Youth Chat', icon: MessageSquare, telugu: 'యువజన చర్చ' }
   ];
 
