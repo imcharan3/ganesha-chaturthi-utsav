@@ -21,5 +21,7 @@
   ],
   "bidsHistory": [],
   "winner": null,
-  "updatedAt": "2026-08-23T09:05:00.000Z"
+  "updatedAt": "2026-08-23T09:05:00.000Z",
+  "_id": "live_laddu_auction",
+  "__v": 0
 }

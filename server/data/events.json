@@ -1,5 +1,6 @@
 [
   {
+    "_id": "6a8c7cec1b03777059d9423f",
     "id": "evt-day-1",
     "dayNumber": 1,
     "title": "Vigraha Pratisthapana & Ganapathi Homam",
@@ -12,9 +13,11 @@
       "11:00 AM - First Maha Harathi & Modak Teertha Prasadam"
     ],
     "status": "Upcoming",
-    "icon": "Flame"
+    "icon": "Flame",
+    "__v": 0
   },
   {
+    "_id": "6a8c7cec1b03777059d94240",
     "id": "evt-day-2",
     "dayNumber": 2,
     "title": "Maha Annadanam (మహా అన్నదానం)",
@@ -27,9 +30,11 @@
       "07:30 PM - Evening Bhajans & Keerthanas"
     ],
     "status": "Upcoming",
-    "icon": "Utensils"
+    "icon": "Utensils",
+    "__v": 0
   },
   {
+    "_id": "6a8c7cec1b03777059d94241",
     "id": "evt-day-3",
     "dayNumber": 3,
     "title": "Vutti Sambaram & Grand Laddu Auction",
@@ -42,9 +47,11 @@
       "07:00 PM - Grand Laddu Auction (మహా లడ్డూ వేలం పాట)"
     ],
     "status": "Upcoming",
-    "icon": "Trophy"
+    "icon": "Trophy",
+    "__v": 0
   },
   {
+    "_id": "6a8c7cec1b03777059d94242",
     "id": "evt-day-4",
     "dayNumber": 4,
     "title": "Grand Ratha Yatra & Shobha Yatra Nimajjanam",
@@ -57,6 +64,7 @@
       "09:00 PM - Holy Jal Nimajjanam with fireworks"
     ],
     "status": "Upcoming",
-    "icon": "Sparkles"
+    "icon": "Sparkles",
+    "__v": 0
   }
 ]

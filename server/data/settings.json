@@ -9,5 +9,7 @@
   "contactPhone": "+91 98765 43210",
   "startDate": "2026-09-14T08:00:00.000Z",
   "instagramHandle": "@vijayacolony_ganesha_diaries",
-  "instagramUrl": "https://instagram.com/vijayacolony_ganesha_diaries"
+  "instagramUrl": "https://instagram.com/vijayacolony_ganesha_diaries",
+  "_id": "global_settings",
+  "__v": 0
 }
