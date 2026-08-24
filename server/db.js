@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import mongoose from 'mongoose';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,8 +16,9 @@ const EVENTS_FILE = path.join(DATA_DIR, 'events.json');
 const MESSAGES_FILE = path.join(DATA_DIR, 'messages.json');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 const AUCTION_FILE = path.join(DATA_DIR, 'auction.json');
+const CONFIG_FILE = path.join(DATA_DIR, 'db_config.json');
 
-// Default Initial Seed Data
+// Default Seed Data
 const DEFAULT_AUCTION = {
   status: "upcoming",
   itemTitle: "శ్రీ వినాయక మహా లడ్డూ ప్రసాదం",
@@ -146,111 +148,495 @@ function writeJsonFile(filePath, data) {
   }
 }
 
+// Mongoose Schemas for MongoDB Persistence
+const DonorSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true, index: true },
+  name: { type: String, required: true },
+  gotram: { type: String, default: 'Shiva' },
+  amount: { type: Number, required: true },
+  paymentMode: { type: String, default: 'UPI' },
+  referenceNo: { type: String },
+  status: { type: String, default: 'Verified' },
+  message: { type: String, default: '' },
+  phone: { type: String, default: '' },
+  receiptUrl: { type: String, default: null },
+  isSample: { type: Boolean, default: false },
+  createdAt: { type: String, default: () => new Date().toISOString() },
+  updatedAt: { type: String }
+}, { collection: 'donors', strict: false });
+
+const EventSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true, index: true },
+  dayNumber: { type: Number, required: true },
+  title: { type: String, required: true },
+  titleTelugu: { type: String },
+  time: { type: String },
+  description: { type: String },
+  highlights: [{ type: String }],
+  status: { type: String, default: 'Upcoming' },
+  icon: { type: String, default: 'Sparkles' }
+}, { collection: 'events', strict: false });
+
+const MessageSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true, index: true },
+  sender: { type: String, required: true },
+  senderId: { type: String },
+  role: { type: String, default: 'Devotee' },
+  text: { type: String },
+  audioUrl: { type: String },
+  imageUrl: { type: String },
+  replyTo: { type: Object },
+  reactions: { type: Object, default: {} },
+  createdAt: { type: String, default: () => new Date().toISOString() }
+}, { collection: 'messages', strict: false });
+
+const SettingsSchema = new mongoose.Schema({
+  _id: { type: String, default: 'global_settings' },
+  utsavName: { type: String, default: DEFAULT_SETTINGS.utsavName },
+  subtitle: { type: String, default: DEFAULT_SETTINGS.subtitle },
+  location: { type: String, default: DEFAULT_SETTINGS.location },
+  targetAmount: { type: Number, default: DEFAULT_SETTINGS.targetAmount },
+  upiId: { type: String, default: DEFAULT_SETTINGS.upiId },
+  upiName: { type: String, default: DEFAULT_SETTINGS.upiName },
+  adminPin: { type: String, default: DEFAULT_SETTINGS.adminPin },
+  contactPhone: { type: String, default: DEFAULT_SETTINGS.contactPhone },
+  startDate: { type: String, default: DEFAULT_SETTINGS.startDate },
+  instagramHandle: { type: String, default: DEFAULT_SETTINGS.instagramHandle },
+  instagramUrl: { type: String, default: DEFAULT_SETTINGS.instagramUrl }
+}, { collection: 'settings', strict: false });
+
+const AuctionSchema = new mongoose.Schema({
+  _id: { type: String, default: 'live_laddu_auction' },
+  status: { type: String, default: 'upcoming' },
+  itemTitle: { type: String },
+  itemTitleEnglish: { type: String },
+  ladduWeight: { type: String, default: '21 KG' },
+  description: { type: String },
+  startingBid: { type: Number, default: 5001 },
+  minIncrement: { type: Number, default: 0 },
+  currentHighestBid: { type: Number, default: 5001 },
+  highestBidderName: { type: String, default: '' },
+  highestBidderGotram: { type: String, default: '' },
+  highestBidderPhone: { type: String, default: '' },
+  bidsCount: { type: Number, default: 0 },
+  registeredBidders: [{ type: Object }],
+  bidsHistory: [{ type: Object }],
+  winner: { type: Object, default: null },
+  updatedAt: { type: String }
+}, { collection: 'auction', strict: false });
+
+let DonorModel = null;
+let EventModel = null;
+let MessageModel = null;
+let SettingsModel = null;
+let AuctionModel = null;
+
+try {
+  DonorModel = mongoose.model('Donor', DonorSchema);
+  EventModel = mongoose.model('Event', EventSchema);
+  MessageModel = mongoose.model('Message', MessageSchema);
+  SettingsModel = mongoose.model('Settings', SettingsSchema);
+  AuctionModel = mongoose.model('Auction', AuctionSchema);
+} catch (e) {
+  DonorModel = mongoose.models.Donor;
+  EventModel = mongoose.models.Event;
+  MessageModel = mongoose.models.Message;
+  SettingsModel = mongoose.models.Settings;
+  AuctionModel = mongoose.models.Auction;
+}
+
+// In-Memory Database Store for Instant 0ms Read Response
+let memDonors = readJsonFile(DONORS_FILE, DEFAULT_DONORS);
+let memEvents = readJsonFile(EVENTS_FILE, DEFAULT_EVENTS);
+let memMessages = readJsonFile(MESSAGES_FILE, DEFAULT_MESSAGES);
+let memSettings = readJsonFile(SETTINGS_FILE, DEFAULT_SETTINGS);
+let memAuction = readJsonFile(AUCTION_FILE, DEFAULT_AUCTION);
+
+let dbStatus = {
+  connected: false,
+  mode: 'local',
+  uriMasked: '',
+  lastSyncTime: null,
+  error: null
+};
+
+// Async persistence helpers to cloud MongoDB
+async function persistMongoDonor(donor) {
+  if (!dbStatus.connected || !DonorModel) return;
+  try {
+    await DonorModel.findOneAndUpdate({ id: donor.id }, donor, { upsert: true, new: true });
+  } catch (err) {
+    console.error('MongoDB Donor Save Error:', err.message);
+  }
+}
+
+async function deleteMongoDonor(id) {
+  if (!dbStatus.connected || !DonorModel) return;
+  try {
+    await DonorModel.deleteOne({ id });
+  } catch (err) {
+    console.error('MongoDB Donor Delete Error:', err.message);
+  }
+}
+
+async function persistMongoSettings(settings) {
+  if (!dbStatus.connected || !SettingsModel) return;
+  try {
+    await SettingsModel.findByIdAndUpdate('global_settings', settings, { upsert: true, new: true });
+  } catch (err) {
+    console.error('MongoDB Settings Save Error:', err.message);
+  }
+}
+
+async function persistMongoAuction(auction) {
+  if (!dbStatus.connected || !AuctionModel) return;
+  try {
+    await AuctionModel.findByIdAndUpdate('live_laddu_auction', auction, { upsert: true, new: true });
+  } catch (err) {
+    console.error('MongoDB Auction Save Error:', err.message);
+  }
+}
+
+async function persistMongoMessage(msg) {
+  if (!dbStatus.connected || !MessageModel) return;
+  try {
+    await MessageModel.findOneAndUpdate({ id: msg.id }, msg, { upsert: true, new: true });
+  } catch (err) {
+    console.error('MongoDB Message Save Error:', err.message);
+  }
+}
+
+async function deleteMongoMessage(id) {
+  if (!dbStatus.connected || !MessageModel) return;
+  try {
+    await MessageModel.deleteOne({ id });
+  } catch (err) {
+    console.error('MongoDB Message Delete Error:', err.message);
+  }
+}
+
+async function persistMongoEvent(event) {
+  if (!dbStatus.connected || !EventModel) return;
+  try {
+    await EventModel.findOneAndUpdate({ id: event.id }, event, { upsert: true, new: true });
+  } catch (err) {
+    console.error('MongoDB Event Save Error:', err.message);
+  }
+}
+
+// Connect to MongoDB & Auto-Sync
+async function connectDatabase(mongoUri) {
+  if (!mongoUri) return false;
+  try {
+    console.log('🔄 Connecting to Cloud Database (MongoDB Atlas)...');
+    await mongoose.connect(mongoUri, {
+      serverSelectionTimeoutMS: 8000
+    });
+
+    dbStatus.connected = true;
+    dbStatus.mode = 'mongodb';
+    dbStatus.error = null;
+    
+    // Mask URI for display (e.g. mongodb+srv://user:***@cluster.mongodb.net/...)
+    try {
+      dbStatus.uriMasked = mongoUri.replace(/(mongodb(?:\+srv)?:\/\/[^:]+:)([^@]+)(@.+)/, '$1******$3');
+    } catch {
+      dbStatus.uriMasked = 'mongodb://******';
+    }
+
+    console.log(`✅ Connected to MongoDB Cloud Database: ${dbStatus.uriMasked}`);
+
+    // Initial Data Sync: Load existing data from MongoDB into Memory
+    const [dbDonors, dbEvents, dbMessages, dbSettings, dbAuction] = await Promise.all([
+      DonorModel.find({}).sort({ createdAt: -1 }).lean(),
+      EventModel.find({}).sort({ dayNumber: 1 }).lean(),
+      MessageModel.find({}).sort({ createdAt: 1 }).lean(),
+      SettingsModel.findById('global_settings').lean(),
+      AuctionModel.findById('live_laddu_auction').lean()
+    ]);
+
+    // 1. Settings
+    if (dbSettings) {
+      memSettings = { ...DEFAULT_SETTINGS, ...dbSettings };
+    } else {
+      await SettingsModel.findByIdAndUpdate('global_settings', memSettings, { upsert: true });
+    }
+
+    // 2. Donors
+    if (dbDonors && dbDonors.length > 0) {
+      memDonors = dbDonors;
+    } else if (memDonors && memDonors.length > 0) {
+      // First time initial upload from local JSON
+      await DonorModel.insertMany(memDonors);
+    }
+
+    // 3. Events
+    if (dbEvents && dbEvents.length > 0) {
+      memEvents = dbEvents;
+    } else if (memEvents && memEvents.length > 0) {
+      await EventModel.insertMany(memEvents);
+    }
+
+    // 4. Messages
+    if (dbMessages && dbMessages.length > 0) {
+      memMessages = dbMessages;
+    } else if (memMessages && memMessages.length > 0) {
+      await MessageModel.insertMany(memMessages);
+    }
+
+    // 5. Auction
+    if (dbAuction) {
+      memAuction = { ...DEFAULT_AUCTION, ...dbAuction };
+    } else {
+      await AuctionModel.findByIdAndUpdate('live_laddu_auction', memAuction, { upsert: true });
+    }
+
+    // Backup current synchronized data to local JSON
+    writeJsonFile(DONORS_FILE, memDonors);
+    writeJsonFile(EVENTS_FILE, memEvents);
+    writeJsonFile(MESSAGES_FILE, memMessages);
+    writeJsonFile(SETTINGS_FILE, memSettings);
+    writeJsonFile(AUCTION_FILE, memAuction);
+
+    dbStatus.lastSyncTime = new Date().toISOString();
+    return true;
+  } catch (err) {
+    dbStatus.connected = false;
+    dbStatus.mode = 'local';
+    dbStatus.error = err.message;
+    console.error('❌ MongoDB Connection Error. Falling back to local JSON:', err.message);
+    return false;
+  }
+}
+
+// Initial Database Initialization
+export async function initDb() {
+  // Check environment variables first
+  const envUri = process.env.MONGODB_URI || process.env.DATABASE_URL || process.env.MONGO_URL;
+  
+  // Or check saved database config
+  let savedConfig = readJsonFile(CONFIG_FILE, {});
+  const uriToUse = envUri || savedConfig.mongodbUri;
+
+  if (uriToUse) {
+    await connectDatabase(uriToUse);
+  } else {
+    console.log('ℹ️ Running in Local Storage Mode. Add MONGODB_URI to Render Environment Variables for cloud persistence.');
+  }
+}
+
 // Database helper object
 export const db = {
+  init: initDb,
+  
+  // Connection Status & Management
+  getStatus: () => ({
+    ...dbStatus,
+    stats: {
+      totalDonors: memDonors.length,
+      totalMessages: memMessages.length,
+      totalBids: memAuction?.bidsHistory?.length || 0,
+      totalEvents: memEvents.length
+    }
+  }),
+
+  connect: async (uri) => {
+    if (!uri) throw new Error('MongoDB Connection URI is required');
+    const success = await connectDatabase(uri.trim());
+    if (success) {
+      writeJsonFile(CONFIG_FILE, { mongodbUri: uri.trim(), connectedAt: new Date().toISOString() });
+      return { success: true, status: db.getStatus() };
+    } else {
+      throw new Error(dbStatus.error || 'Failed to connect to MongoDB');
+    }
+  },
+
+  // Export Full JSON Backup
+  exportBackup: () => ({
+    version: '1.0',
+    exportedAt: new Date().toISOString(),
+    settings: memSettings,
+    donors: memDonors,
+    events: memEvents,
+    messages: memMessages,
+    auction: memAuction
+  }),
+
+  // Import Full JSON Backup
+  importBackup: async (backupData) => {
+    if (!backupData || typeof backupData !== 'object') {
+      throw new Error('Invalid backup data format');
+    }
+
+    if (backupData.settings) {
+      memSettings = { ...DEFAULT_SETTINGS, ...backupData.settings };
+      writeJsonFile(SETTINGS_FILE, memSettings);
+      persistMongoSettings(memSettings);
+    }
+
+    if (Array.isArray(backupData.donors)) {
+      memDonors = backupData.donors;
+      writeJsonFile(DONORS_FILE, memDonors);
+      if (dbStatus.connected && DonorModel) {
+        await DonorModel.deleteMany({});
+        if (memDonors.length > 0) await DonorModel.insertMany(memDonors);
+      }
+    }
+
+    if (Array.isArray(backupData.events)) {
+      memEvents = backupData.events;
+      writeJsonFile(EVENTS_FILE, memEvents);
+      if (dbStatus.connected && EventModel) {
+        await EventModel.deleteMany({});
+        if (memEvents.length > 0) await EventModel.insertMany(memEvents);
+      }
+    }
+
+    if (Array.isArray(backupData.messages)) {
+      memMessages = backupData.messages;
+      writeJsonFile(MESSAGES_FILE, memMessages);
+      if (dbStatus.connected && MessageModel) {
+        await MessageModel.deleteMany({});
+        if (memMessages.length > 0) await MessageModel.insertMany(memMessages);
+      }
+    }
+
+    if (backupData.auction) {
+      memAuction = { ...DEFAULT_AUCTION, ...backupData.auction };
+      writeJsonFile(AUCTION_FILE, memAuction);
+      persistMongoAuction(memAuction);
+    }
+
+    return {
+      success: true,
+      donorsCount: memDonors.length,
+      messagesCount: memMessages.length,
+      bidsCount: memAuction?.bidsHistory?.length || 0
+    };
+  },
+
   // Donors
-  getDonors: () => readJsonFile(DONORS_FILE, DEFAULT_DONORS),
-  saveDonors: (donors) => writeJsonFile(DONORS_FILE, donors),
+  getDonors: () => memDonors,
+  saveDonors: (donors) => {
+    memDonors = donors;
+    writeJsonFile(DONORS_FILE, donors);
+  },
   addDonor: (donor) => {
-    const donors = db.getDonors();
     const newDonor = {
       id: `dn-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       createdAt: new Date().toISOString(),
       status: donor.status || "Pending Verification",
       ...donor
     };
-    donors.unshift(newDonor);
-    db.saveDonors(donors);
+    memDonors.unshift(newDonor);
+    writeJsonFile(DONORS_FILE, memDonors);
+    persistMongoDonor(newDonor);
     return newDonor;
   },
   updateDonor: (id, updatedFields) => {
-    const donors = db.getDonors();
-    const index = donors.findIndex(d => d.id === id);
+    const index = memDonors.findIndex(d => d.id === id);
     if (index !== -1) {
-      donors[index] = { ...donors[index], ...updatedFields, updatedAt: new Date().toISOString() };
-      db.saveDonors(donors);
-      return donors[index];
+      memDonors[index] = { ...memDonors[index], ...updatedFields, updatedAt: new Date().toISOString() };
+      writeJsonFile(DONORS_FILE, memDonors);
+      persistMongoDonor(memDonors[index]);
+      return memDonors[index];
     }
     return null;
   },
   deleteDonor: (id) => {
-    const donors = db.getDonors();
-    const filtered = donors.filter(d => d.id !== id);
-    if (filtered.length !== donors.length) {
-      db.saveDonors(filtered);
+    const index = memDonors.findIndex(d => d.id === id);
+    if (index !== -1) {
+      memDonors.splice(index, 1);
+      writeJsonFile(DONORS_FILE, memDonors);
+      deleteMongoDonor(id);
       return true;
     }
     return false;
   },
 
   // Events
-  getEvents: () => readJsonFile(EVENTS_FILE, DEFAULT_EVENTS),
-  saveEvents: (events) => writeJsonFile(EVENTS_FILE, events),
+  getEvents: () => memEvents,
+  saveEvents: (events) => {
+    memEvents = events;
+    writeJsonFile(EVENTS_FILE, events);
+  },
   updateEvent: (id, updatedFields) => {
-    const events = db.getEvents();
-    const index = events.findIndex(e => e.id === id);
+    const index = memEvents.findIndex(e => e.id === id);
     if (index !== -1) {
-      events[index] = { ...events[index], ...updatedFields };
-      db.saveEvents(events);
-      return events[index];
+      memEvents[index] = { ...memEvents[index], ...updatedFields };
+      writeJsonFile(EVENTS_FILE, memEvents);
+      persistMongoEvent(memEvents[index]);
+      return memEvents[index];
     }
     return null;
   },
 
   // Messages
-  getMessages: () => readJsonFile(MESSAGES_FILE, DEFAULT_MESSAGES),
-  saveMessages: (messages) => writeJsonFile(MESSAGES_FILE, messages),
+  getMessages: () => memMessages,
+  saveMessages: (messages) => {
+    memMessages = messages;
+    writeJsonFile(MESSAGES_FILE, messages);
+  },
   addMessage: (msg) => {
-    const messages = db.getMessages();
     const newMsg = {
       id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       createdAt: new Date().toISOString(),
       reactions: {},
       ...msg
     };
-    messages.push(newMsg);
-    // Keep last 500 messages
-    if (messages.length > 500) messages.shift();
-    db.saveMessages(messages);
+    memMessages.push(newMsg);
+    if (memMessages.length > 500) memMessages.shift();
+    writeJsonFile(MESSAGES_FILE, memMessages);
+    persistMongoMessage(newMsg);
     return newMsg;
   },
   deleteMessage: (id) => {
-    const messages = db.getMessages();
-    const filtered = messages.filter(m => m.id !== id);
-    if (filtered.length !== messages.length) {
-      db.saveMessages(filtered);
+    const index = memMessages.findIndex(m => m.id === id);
+    if (index !== -1) {
+      memMessages.splice(index, 1);
+      writeJsonFile(MESSAGES_FILE, memMessages);
+      deleteMongoMessage(id);
       return true;
     }
     return false;
   },
   toggleReaction: (msgId, emoji, userKey) => {
-    const messages = db.getMessages();
-    const msg = messages.find(m => m.id === msgId);
+    const msg = memMessages.find(m => m.id === msgId);
     if (msg) {
       if (!msg.reactions) msg.reactions = {};
       msg.reactions[emoji] = (msg.reactions[emoji] || 0) + 1;
-      db.saveMessages(messages);
+      writeJsonFile(MESSAGES_FILE, memMessages);
+      persistMongoMessage(msg);
       return msg;
     }
     return null;
   },
 
-// Settings
-  getSettings: () => readJsonFile(SETTINGS_FILE, DEFAULT_SETTINGS),
-  saveSettings: (settings) => writeJsonFile(SETTINGS_FILE, settings),
+  // Settings
+  getSettings: () => memSettings,
+  saveSettings: (settings) => {
+    memSettings = settings;
+    writeJsonFile(SETTINGS_FILE, settings);
+    persistMongoSettings(settings);
+    return memSettings;
+  },
 
   // Live Laddu Auction
-  getAuction: () => readJsonFile(AUCTION_FILE, DEFAULT_AUCTION),
-  saveAuction: (auction) => writeJsonFile(AUCTION_FILE, auction),
+  getAuction: () => memAuction,
+  saveAuction: (auction) => {
+    memAuction = auction;
+    writeJsonFile(AUCTION_FILE, auction);
+    persistMongoAuction(auction);
+    return memAuction;
+  },
   updateAuction: (fields) => {
-    const auction = db.getAuction();
-    const updated = { ...auction, ...fields, updatedAt: new Date().toISOString() };
-    db.saveAuction(updated);
-    return updated;
+    memAuction = { ...memAuction, ...fields, updatedAt: new Date().toISOString() };
+    writeJsonFile(AUCTION_FILE, memAuction);
+    persistMongoAuction(memAuction);
+    return memAuction;
   },
   addRegisteredBidder: ({ name, gotram, phone }) => {
-    const auction = db.getAuction();
-    if (!auction.registeredBidders) auction.registeredBidders = [];
+    if (!memAuction.registeredBidders) memAuction.registeredBidders = [];
     const newBidder = {
       id: `bidder-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       name: name.trim(),
@@ -258,14 +644,13 @@ export const db = {
       phone: phone ? phone.trim() : '',
       createdAt: new Date().toISOString()
     };
-    auction.registeredBidders.push(newBidder);
-    db.saveAuction(auction);
+    memAuction.registeredBidders.push(newBidder);
+    db.saveAuction(memAuction);
     return newBidder;
   },
   updateRegisteredBidder: (id, { name, gotram, phone }) => {
-    const auction = db.getAuction();
-    if (!auction.registeredBidders) return null;
-    const bidder = auction.registeredBidders.find(b => b.id === id);
+    if (!memAuction.registeredBidders) return null;
+    const bidder = memAuction.registeredBidders.find(b => b.id === id);
     if (!bidder) return null;
 
     const oldName = bidder.name;
@@ -274,8 +659,8 @@ export const db = {
     if (phone !== undefined) bidder.phone = phone.trim();
 
     // Propagate corrected name/gotram/phone to existing bidsHistory
-    if (auction.bidsHistory) {
-      auction.bidsHistory.forEach(b => {
+    if (memAuction.bidsHistory) {
+      memAuction.bidsHistory.forEach(b => {
         if (b.bidderName.trim().toLowerCase() === oldName.trim().toLowerCase()) {
           b.bidderName = bidder.name;
           if (bidder.gotram) b.gotram = bidder.gotram;
@@ -285,36 +670,34 @@ export const db = {
     }
 
     // Propagate to current highest bidder if matching
-    if (auction.highestBidderName && auction.highestBidderName.trim().toLowerCase() === oldName.trim().toLowerCase()) {
-      auction.highestBidderName = bidder.name;
-      if (bidder.gotram) auction.highestBidderGotram = bidder.gotram;
-      if (bidder.phone) auction.highestBidderPhone = bidder.phone;
+    if (memAuction.highestBidderName && memAuction.highestBidderName.trim().toLowerCase() === oldName.trim().toLowerCase()) {
+      memAuction.highestBidderName = bidder.name;
+      if (bidder.gotram) memAuction.highestBidderGotram = bidder.gotram;
+      if (bidder.phone) memAuction.highestBidderPhone = bidder.phone;
     }
 
     // Propagate to winner if matching
-    if (auction.winner && auction.winner.name && auction.winner.name.trim().toLowerCase() === oldName.trim().toLowerCase()) {
-      auction.winner.name = bidder.name;
-      if (bidder.gotram) auction.winner.gotram = bidder.gotram;
-      if (bidder.phone) auction.winner.phone = bidder.phone;
+    if (memAuction.winner && memAuction.winner.name && memAuction.winner.name.trim().toLowerCase() === oldName.trim().toLowerCase()) {
+      memAuction.winner.name = bidder.name;
+      if (bidder.gotram) memAuction.winner.gotram = bidder.gotram;
+      if (bidder.phone) memAuction.winner.phone = bidder.phone;
     }
 
-    auction.updatedAt = new Date().toISOString();
-    db.saveAuction(auction);
-    return { bidder, auction };
+    memAuction.updatedAt = new Date().toISOString();
+    db.saveAuction(memAuction);
+    return { bidder, auction: memAuction };
   },
   deleteRegisteredBidder: (id) => {
-    const auction = db.getAuction();
-    if (!auction.registeredBidders) return false;
-    const initialLen = auction.registeredBidders.length;
-    auction.registeredBidders = auction.registeredBidders.filter(b => b.id !== id);
-    if (auction.registeredBidders.length !== initialLen) {
-      db.saveAuction(auction);
+    if (!memAuction.registeredBidders) return false;
+    const initialLen = memAuction.registeredBidders.length;
+    memAuction.registeredBidders = memAuction.registeredBidders.filter(b => b.id !== id);
+    if (memAuction.registeredBidders.length !== initialLen) {
+      db.saveAuction(memAuction);
       return true;
     }
     return false;
   },
   addBid: ({ bidderName, gotram, amount, note, phone }) => {
-    const auction = db.getAuction();
     const numAmount = Number(amount);
     const newBid = {
       id: `bid-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -326,20 +709,20 @@ export const db = {
       timestamp: new Date().toISOString()
     };
 
-    if (!auction.bidsHistory) auction.bidsHistory = [];
-    auction.bidsHistory.unshift(newBid);
-    auction.currentHighestBid = numAmount;
-    auction.highestBidderName = bidderName.trim();
-    auction.highestBidderGotram = gotram ? gotram.trim() : 'శివ గోత్రం';
-    auction.highestBidderPhone = phone ? phone.trim() : '';
-    auction.bidsCount = auction.bidsHistory.length;
-    auction.updatedAt = new Date().toISOString();
+    if (!memAuction.bidsHistory) memAuction.bidsHistory = [];
+    memAuction.bidsHistory.unshift(newBid);
+    memAuction.currentHighestBid = numAmount;
+    memAuction.highestBidderName = bidderName.trim();
+    memAuction.highestBidderGotram = gotram ? gotram.trim() : 'శివ గోత్రం';
+    memAuction.highestBidderPhone = phone ? phone.trim() : '';
+    memAuction.bidsCount = memAuction.bidsHistory.length;
+    memAuction.updatedAt = new Date().toISOString();
 
     // Auto-save bidder to registeredBidders if not already present
-    if (!auction.registeredBidders) auction.registeredBidders = [];
-    const exists = auction.registeredBidders.some(b => b.name.toLowerCase() === bidderName.trim().toLowerCase());
+    if (!memAuction.registeredBidders) memAuction.registeredBidders = [];
+    const exists = memAuction.registeredBidders.some(b => b.name.toLowerCase() === bidderName.trim().toLowerCase());
     if (!exists) {
-      auction.registeredBidders.push({
+      memAuction.registeredBidders.push({
         id: `bidder-${Date.now()}`,
         name: bidderName.trim(),
         gotram: gotram ? gotram.trim() : 'శివ గోత్రం',
@@ -347,44 +730,42 @@ export const db = {
       });
     }
 
-    db.saveAuction(auction);
-    return { newBid, auction };
+    db.saveAuction(memAuction);
+    return { newBid, auction: memAuction };
   },
   undoBid: () => {
-    const auction = db.getAuction();
-    if (!auction.bidsHistory || auction.bidsHistory.length === 0) return null;
-    const removedBid = auction.bidsHistory.shift();
-    auction.bidsCount = auction.bidsHistory.length;
-    if (auction.bidsHistory.length > 0) {
-      const topBid = auction.bidsHistory[0];
-      auction.currentHighestBid = topBid.amount;
-      auction.highestBidderName = topBid.bidderName;
-      auction.highestBidderGotram = topBid.gotram;
-      auction.highestBidderPhone = topBid.phone;
+    if (!memAuction.bidsHistory || memAuction.bidsHistory.length === 0) return null;
+    const removedBid = memAuction.bidsHistory.shift();
+    memAuction.bidsCount = memAuction.bidsHistory.length;
+    if (memAuction.bidsHistory.length > 0) {
+      const topBid = memAuction.bidsHistory[0];
+      memAuction.currentHighestBid = topBid.amount;
+      memAuction.highestBidderName = topBid.bidderName;
+      memAuction.highestBidderGotram = topBid.gotram;
+      memAuction.highestBidderPhone = topBid.phone;
     } else {
-      auction.currentHighestBid = auction.startingBid || 5001;
-      auction.highestBidderName = '';
-      auction.highestBidderGotram = '';
-      auction.highestBidderPhone = '';
+      memAuction.currentHighestBid = memAuction.startingBid || 5001;
+      memAuction.highestBidderName = '';
+      memAuction.highestBidderGotram = '';
+      memAuction.highestBidderPhone = '';
     }
-    auction.updatedAt = new Date().toISOString();
-    db.saveAuction(auction);
-    return { removedBid, auction };
+    memAuction.updatedAt = new Date().toISOString();
+    db.saveAuction(memAuction);
+    return { removedBid, auction: memAuction };
   },
   declareWinner: ({ winnerName, gotram, winningBid, phone, message }) => {
-    const auction = db.getAuction();
-    auction.status = 'completed';
-    auction.winner = {
-      name: winnerName || auction.highestBidderName || 'మహా భక్తుడు',
-      gotram: gotram || auction.highestBidderGotram || 'శివ గోత్రం',
-      winningBid: Number(winningBid) || auction.currentHighestBid || 5001,
-      phone: phone || auction.highestBidderPhone || '',
+    memAuction.status = 'completed';
+    memAuction.winner = {
+      name: winnerName || memAuction.highestBidderName || 'మహా భక్తుడు',
+      gotram: gotram || memAuction.highestBidderGotram || 'శివ గోత్రం',
+      winningBid: Number(winningBid) || memAuction.currentHighestBid || 5001,
+      phone: phone || memAuction.highestBidderPhone || '',
       message: message || 'సర్వేజనాః సుఖినోభవంతు - శ్రీ వినాయక మహా లడ్డూ ప్రసాద విజేత',
       declaredAt: new Date().toISOString()
     };
-    auction.updatedAt = new Date().toISOString();
-    db.saveAuction(auction);
-    return auction;
+    memAuction.updatedAt = new Date().toISOString();
+    db.saveAuction(memAuction);
+    return memAuction;
   },
   resetAuction: (startingBid = 5001) => {
     const defaultData = {

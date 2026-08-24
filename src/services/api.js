@@ -296,5 +296,50 @@ export const api = {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Image upload failed');
     return data;
+  },
+
+  // Database Management & Cloud Persistence
+  getDbStatus: async (token) => {
+    const res = await fetch(`${API_BASE}/admin/database/status`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error('Failed to fetch database status');
+    return res.json();
+  },
+
+  connectDb: async (uri, token) => {
+    const res = await fetch(`${API_BASE}/admin/database/connect`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ uri })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to connect database');
+    return data;
+  },
+
+  exportDbBackup: async (token) => {
+    const res = await fetch(`${API_BASE}/admin/database/export`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error('Failed to export backup');
+    return res.json();
+  },
+
+  importDbBackup: async (backupData, token) => {
+    const res = await fetch(`${API_BASE}/admin/database/import`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(backupData)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to import backup');
+    return data;
   }
 };

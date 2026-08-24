@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
@@ -94,6 +97,40 @@ app.put('/api/admin/settings', verifyAdmin, (req, res) => {
   db.saveSettings(updated);
   io.emit('settings:updated', updated);
   res.json({ success: true, settings: updated });
+});
+
+// Database Management & Diagnostics (Cloud Persistence)
+app.get('/api/admin/database/status', verifyAdmin, (req, res) => {
+  res.json(db.getStatus());
+});
+
+app.post('/api/admin/database/connect', verifyAdmin, async (req, res) => {
+  const { uri } = req.body;
+  try {
+    const result = await db.connect(uri);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Connection failed' });
+  }
+});
+
+app.get('/api/admin/database/export', verifyAdmin, (req, res) => {
+  const backup = db.exportBackup();
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', `attachment; filename=Ganesha_Utsav_Backup_${Date.now()}.json`);
+  res.json(backup);
+});
+
+app.post('/api/admin/database/import', verifyAdmin, async (req, res) => {
+  try {
+    const result = await db.importBackup(req.body);
+    // Broadcast updates to all connected users
+    io.emit('settings:updated', db.getSettings());
+    io.emit('auction:updated', db.getAuction());
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Import failed' });
+  }
 });
 
 // Helper to calculate stats excluding sample records
@@ -456,6 +493,16 @@ if (fs.existsSync(DIST_DIR)) {
   });
 }
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`🌺 Ganapathi Bappa Morya! Full-Stack Server running on http://0.0.0.0:${PORT}`);
-});
+async function startServer() {
+  try {
+    await db.init();
+  } catch (err) {
+    console.error('Database initialization error:', err);
+  }
+
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`🌺 Ganapathi Bappa Morya! Full-Stack Server running on http://0.0.0.0:${PORT}`);
+  });
+}
+
+startServer();
