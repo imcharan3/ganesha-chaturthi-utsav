@@ -12,31 +12,32 @@ export const HeroSection = ({ stats, settings, auction, onOpenDonation, setActiv
   const [showInstaQrModal, setShowInstaQrModal] = useState(false);
 
   // Countdown Timer
-  const [timeLeft, setTimeLeft] = useState({
-    days: 12,
-    hours: 8,
-    minutes: 45,
-    seconds: 30
-  });
+  // Helper to compute exact time left
+  const calculateCountdown = (targetStr) => {
+    const targetDate = new Date(targetStr || '2026-09-14T08:00:00.000+05:30').getTime();
+    const now = new Date().getTime();
+    const difference = targetDate - now;
+
+    if (difference > 0) {
+      return {
+        days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+        minutes: Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60)),
+        seconds: Math.floor((difference % (1000 * 60)) / 1000),
+        isLive: false
+      };
+    }
+    return { days: 0, hours: 0, minutes: 0, seconds: 0, isLive: true };
+  };
+
+  const [timeLeft, setTimeLeft] = useState(() => calculateCountdown(settings?.startDate));
 
   useEffect(() => {
-    // Default festival target date or from settings
-    const targetDate = new Date(settings?.startDate || '2026-09-14T08:00:00.000Z').getTime();
+    // Initial immediate calculation
+    setTimeLeft(calculateCountdown(settings?.startDate));
 
     const timer = setInterval(() => {
-      const now = new Date().getTime();
-      const difference = targetDate - now;
-
-      if (difference > 0) {
-        setTimeLeft({
-          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-          hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60)),
-          minutes: Math.floor((difference % (1000 * 60)) / (1000 * 60)),
-          seconds: Math.floor((difference % (1000 * 60)) / 1000)
-        });
-      } else {
-        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-      }
+      setTimeLeft(calculateCountdown(settings?.startDate));
     }, 1000);
 
     return () => clearInterval(timer);
@@ -365,33 +366,48 @@ export const HeroSection = ({ stats, settings, auction, onOpenDonation, setActiv
             </div>
 
             {/* Festival Countdown Card */}
-            <div className="temple-card p-4 rounded-2xl shadow-xl">
-              <div className="flex items-center justify-between mb-2">
+            <div className="temple-card p-4 rounded-2xl shadow-xl space-y-2">
+              <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-amber-300 flex items-center gap-1.5">
                   <Calendar className="w-3.5 h-3.5 text-saffron-400" />
                   <span>Utsav Countdown</span>
                 </span>
-                <span className="text-[10px] text-amber-400/80">Day 1 Pratistha</span>
+                <span className="text-[10px] text-amber-400/90 font-medium">
+                  {settings?.startDate ? new Date(settings.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '14 Sep 2026'}
+                </span>
               </div>
 
-              <div className="grid grid-cols-4 gap-1.5 text-center">
-                <div className="bg-[#1c0803] p-1.5 rounded-lg border border-amber-500/30">
-                  <span className="block text-base font-bold text-amber-200">{timeLeft.days}</span>
-                  <span className="block text-[9px] text-amber-400/70 uppercase">Days</span>
+              {timeLeft.isLive ? (
+                <div className="bg-gradient-to-r from-emerald-950/80 via-[#240e06] to-emerald-950/80 p-3 rounded-xl border border-emerald-500/40 text-center space-y-1">
+                  <span className="inline-flex items-center gap-1 text-emerald-400 font-bold text-xs animate-pulse">
+                    <span>🪔</span>
+                    <span>ఉత్సవాలు ప్రారంభమయ్యాయి!</span>
+                    <span>🌺</span>
+                  </span>
+                  <p className="text-[10px] text-amber-200/90 font-medium">
+                    Grand Ganesha Celebrations are Live Today!
+                  </p>
                 </div>
-                <div className="bg-[#1c0803] p-1.5 rounded-lg border border-amber-500/30">
-                  <span className="block text-base font-bold text-amber-200">{timeLeft.hours}</span>
-                  <span className="block text-[9px] text-amber-400/70 uppercase">Hrs</span>
+              ) : (
+                <div className="grid grid-cols-4 gap-1.5 text-center">
+                  <div className="bg-[#1c0803] p-1.5 rounded-lg border border-amber-500/30">
+                    <span className="block text-base font-bold text-amber-200">{timeLeft.days}</span>
+                    <span className="block text-[9px] text-amber-400/70 uppercase">Days</span>
+                  </div>
+                  <div className="bg-[#1c0803] p-1.5 rounded-lg border border-amber-500/30">
+                    <span className="block text-base font-bold text-amber-200">{timeLeft.hours}</span>
+                    <span className="block text-[9px] text-amber-400/70 uppercase">Hrs</span>
+                  </div>
+                  <div className="bg-[#1c0803] p-1.5 rounded-lg border border-amber-500/30">
+                    <span className="block text-base font-bold text-amber-200">{timeLeft.minutes}</span>
+                    <span className="block text-[9px] text-amber-400/70 uppercase">Mins</span>
+                  </div>
+                  <div className="bg-[#1c0803] p-1.5 rounded-lg border border-amber-500/30">
+                    <span className="block text-base font-bold text-amber-400 animate-pulse">{timeLeft.seconds}</span>
+                    <span className="block text-[9px] text-amber-400/70 uppercase">Secs</span>
+                  </div>
                 </div>
-                <div className="bg-[#1c0803] p-1.5 rounded-lg border border-amber-500/30">
-                  <span className="block text-base font-bold text-amber-200">{timeLeft.minutes}</span>
-                  <span className="block text-[9px] text-amber-400/70 uppercase">Mins</span>
-                </div>
-                <div className="bg-[#1c0803] p-1.5 rounded-lg border border-amber-500/30">
-                  <span className="block text-base font-bold text-amber-400 animate-pulse">{timeLeft.seconds}</span>
-                  <span className="block text-[9px] text-amber-400/70 uppercase">Secs</span>
-                </div>
-              </div>
+              )}
             </div>
 
           </div>

@@ -20,6 +20,7 @@ export const AdminModal = ({ isOpen, onClose, settings, onRefreshSettings }) => 
   const [upiId, setUpiId] = useState(settings?.upiId || 'charanadishti123@okaxis');
   const [location, setLocation] = useState(settings?.location || '');
   const [contactPhone, setContactPhone] = useState(settings?.contactPhone || '');
+  const [startDate, setStartDate] = useState(settings?.startDate || '2026-09-14T08:00:00.000+05:30');
   const [isSaved, setIsSaved] = useState(false);
 
   // Database Connection State
@@ -28,6 +29,17 @@ export const AdminModal = ({ isOpen, onClose, settings, onRefreshSettings }) => 
   const [isConnectingDb, setIsConnectingDb] = useState(false);
   const [dbMessage, setDbMessage] = useState(null);
   const [isImporting, setIsImporting] = useState(false);
+
+  useEffect(() => {
+    if (settings) {
+      if (settings.utsavName) setUtsavName(settings.utsavName);
+      if (settings.targetAmount) setTargetAmount(settings.targetAmount);
+      if (settings.upiId) setUpiId(settings.upiId);
+      if (settings.location) setLocation(settings.location);
+      if (settings.contactPhone) setContactPhone(settings.contactPhone);
+      if (settings.startDate) setStartDate(settings.startDate);
+    }
+  }, [settings]);
 
   useEffect(() => {
     if (isAdmin && adminToken && isOpen) {
@@ -67,7 +79,8 @@ export const AdminModal = ({ isOpen, onClose, settings, onRefreshSettings }) => 
         targetAmount: Number(targetAmount),
         upiId: upiId.trim(),
         location: location.trim(),
-        contactPhone: contactPhone.trim()
+        contactPhone: contactPhone.trim(),
+        startDate: startDate
       }, adminToken);
       setIsSaved(true);
       setTimeout(() => setIsSaved(false), 2500);
@@ -301,6 +314,21 @@ export const AdminModal = ({ isOpen, onClose, settings, onRefreshSettings }) => 
                       onChange={(e) => setContactPhone(e.target.value)}
                       className="w-full px-3 py-2 rounded-xl bg-[#170702] border border-amber-500/30 text-amber-100 focus:outline-none"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-amber-300/80 mb-1">
+                      Festival Start Date & Time (ఉత్సవ ప్రారంభ తేదీ & సమయం)
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={startDate ? new Date(new Date(startDate).getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 16) : '2026-09-14T08:00'}
+                      onChange={(e) => setStartDate(new Date(e.target.value).toISOString())}
+                      className="w-full px-3 py-2 rounded-xl bg-[#170702] border border-amber-500/30 text-amber-100 focus:outline-none"
+                    />
+                    <p className="text-[10px] text-amber-400/60 mt-0.5">
+                      The Home Screen countdown timer dynamically counts down to this exact date & time in real-time.
+                    </p>
                   </div>
 
                   {isSaved && (
