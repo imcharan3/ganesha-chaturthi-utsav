@@ -246,6 +246,17 @@ function MainApp() {
           </a>
         </div>
 
+        {/* Admin Panel Quick Trigger */}
+        <div className="pt-2">
+          <button
+            onClick={() => setIsAdminModalOpen(true)}
+            className="inline-flex items-center gap-1.5 text-[11px] text-amber-400/80 hover:text-amber-200 bg-[#1e0a04] px-3 py-1 rounded-full border border-amber-500/20 hover:border-amber-500/50 transition-all"
+          >
+            <span>⚙️</span>
+            <span>Committee Admin & Cloud Database Panel</span>
+          </button>
+        </div>
+
         <p className="text-[11px] text-amber-500/50 pt-1">
           Vijaya Colony Ganesha Diaries 2026 • Live Donations, Laddu Auction & Community Platform
         </p>

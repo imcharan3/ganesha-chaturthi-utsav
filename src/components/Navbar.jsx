@@ -132,11 +132,21 @@ export const Navbar = ({ activeTab, setActiveTab, onOpenDonation, settings }) =>
 
             {/* Admin Login / Status */}
             {isAdmin ? (
-              <div className="flex items-center gap-1 bg-emerald-950/70 border border-emerald-500/40 px-2 py-1 rounded-xl shrink-0">
-                <Shield className="w-3.5 h-3.5 text-emerald-400" />
+              <div className="flex items-center gap-1.5 bg-emerald-950/70 border border-emerald-500/40 px-2.5 py-1 rounded-xl shrink-0">
                 <button
+                  type="button"
+                  onClick={() => setIsAdminModalOpen(true)}
+                  className="flex items-center gap-1 text-emerald-300 hover:text-white transition-colors"
+                  title="Open Admin & Database Panel"
+                >
+                  <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-[11px] sm:text-xs font-bold">Admin</span>
+                </button>
+                <span className="text-emerald-500/40">•</span>
+                <button
+                  type="button"
                   onClick={logout}
-                  className="text-[10px] text-amber-300 hover:text-red-300 underline"
+                  className="text-[10px] text-amber-300/80 hover:text-red-300 underline"
                   title="Logout Admin"
                 >
                   Exit
@@ -144,11 +154,13 @@ export const Navbar = ({ activeTab, setActiveTab, onOpenDonation, settings }) =>
               </div>
             ) : (
               <button
+                type="button"
                 onClick={() => setIsAdminModalOpen(true)}
-                className="p-1.5 sm:p-2 rounded-xl bg-[#2b1008] border border-amber-500/30 text-amber-300/80 hover:text-amber-100 hover:border-amber-400 transition-all text-xs flex items-center shrink-0"
-                title="Committee Admin Login"
+                className="p-1.5 sm:p-2 rounded-xl bg-[#2b1008] border border-amber-500/30 text-amber-300/80 hover:text-amber-100 hover:border-amber-400 transition-all text-xs flex items-center gap-1 shrink-0"
+                title="Committee Admin Login & Database Settings"
               >
                 <Lock className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden sm:inline text-[11px] font-semibold text-amber-300">Admin</span>
               </button>
             )}
 
