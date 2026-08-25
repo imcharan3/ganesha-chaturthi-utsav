@@ -35,14 +35,12 @@ const DEFAULT_AUCTION = {
   minIncrement: 0,
   currentHighestBid: 5001,
   highestBidderName: "",
-  highestBidderGotram: "",
   highestBidderPhone: "",
   bidsCount: 0,
   registeredBidders: [
     {
       id: "bidder-sample-1",
       name: "విజయ కాలనీ కమిటీ సభ్యులు",
-      gotram: "శివ గోత్రం",
       phone: ""
     }
   ],
@@ -159,7 +157,7 @@ const DonorSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true, index: true },
   receiptNo: { type: String, index: true },
   name: { type: String, required: true },
-  gotram: { type: String, default: 'Shiva' },
+  gotram: { type: String, default: '' },
   amount: { type: Number, required: true },
   paymentMode: { type: String, default: 'UPI' },
   referenceNo: { type: String },
@@ -167,6 +165,8 @@ const DonorSchema = new mongoose.Schema({
   message: { type: String, default: '' },
   phone: { type: String, default: '' },
   receiptUrl: { type: String, default: null },
+  isSpecialDonor: { type: Boolean, default: false },
+  specialContribution: { type: String, default: '' },
   isSample: { type: Boolean, default: false },
   createdAt: { type: String, default: () => new Date().toISOString() },
   verifiedAt: { type: String },
@@ -687,12 +687,11 @@ export const db = {
     persistMongoAuction(memAuction);
     return memAuction;
   },
-  addRegisteredBidder: ({ name, gotram, phone }) => {
+  addRegisteredBidder: ({ name, phone }) => {
     if (!memAuction.registeredBidders) memAuction.registeredBidders = [];
     const newBidder = {
       id: `bidder-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       name: name.trim(),
-      gotram: gotram ? gotram.trim() : 'శివ గోత్రం',
       phone: phone ? phone.trim() : '',
       createdAt: new Date().toISOString()
     };
@@ -700,22 +699,20 @@ export const db = {
     db.saveAuction(memAuction);
     return newBidder;
   },
-  updateRegisteredBidder: (id, { name, gotram, phone }) => {
+  updateRegisteredBidder: (id, { name, phone }) => {
     if (!memAuction.registeredBidders) return null;
     const bidder = memAuction.registeredBidders.find(b => b.id === id);
     if (!bidder) return null;
 
     const oldName = bidder.name;
     bidder.name = name.trim();
-    if (gotram !== undefined) bidder.gotram = gotram.trim();
     if (phone !== undefined) bidder.phone = phone.trim();
 
-    // Propagate corrected name/gotram/phone to existing bidsHistory
+    // Propagate corrected name/phone to existing bidsHistory
     if (memAuction.bidsHistory) {
       memAuction.bidsHistory.forEach(b => {
         if (b.bidderName.trim().toLowerCase() === oldName.trim().toLowerCase()) {
           b.bidderName = bidder.name;
-          if (bidder.gotram) b.gotram = bidder.gotram;
           if (bidder.phone) b.phone = bidder.phone;
         }
       });
@@ -724,14 +721,12 @@ export const db = {
     // Propagate to current highest bidder if matching
     if (memAuction.highestBidderName && memAuction.highestBidderName.trim().toLowerCase() === oldName.trim().toLowerCase()) {
       memAuction.highestBidderName = bidder.name;
-      if (bidder.gotram) memAuction.highestBidderGotram = bidder.gotram;
       if (bidder.phone) memAuction.highestBidderPhone = bidder.phone;
     }
 
     // Propagate to winner if matching
     if (memAuction.winner && memAuction.winner.name && memAuction.winner.name.trim().toLowerCase() === oldName.trim().toLowerCase()) {
       memAuction.winner.name = bidder.name;
-      if (bidder.gotram) memAuction.winner.gotram = bidder.gotram;
       if (bidder.phone) memAuction.winner.phone = bidder.phone;
     }
 
@@ -749,12 +744,11 @@ export const db = {
     }
     return false;
   },
-  addBid: ({ bidderName, gotram, amount, note, phone }) => {
+  addBid: ({ bidderName, amount, note, phone }) => {
     const numAmount = Number(amount);
     const newBid = {
       id: `bid-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       bidderName: bidderName.trim(),
-      gotram: gotram ? gotram.trim() : 'శివ గోత్రం',
       phone: phone ? phone.trim() : '',
       amount: numAmount,
       note: note ? note.trim() : '',
@@ -765,7 +759,6 @@ export const db = {
     memAuction.bidsHistory.unshift(newBid);
     memAuction.currentHighestBid = numAmount;
     memAuction.highestBidderName = bidderName.trim();
-    memAuction.highestBidderGotram = gotram ? gotram.trim() : 'శివ గోత్రం';
     memAuction.highestBidderPhone = phone ? phone.trim() : '';
     memAuction.bidsCount = memAuction.bidsHistory.length;
     memAuction.updatedAt = new Date().toISOString();
@@ -777,7 +770,6 @@ export const db = {
       memAuction.registeredBidders.push({
         id: `bidder-${Date.now()}`,
         name: bidderName.trim(),
-        gotram: gotram ? gotram.trim() : 'శివ గోత్రం',
         phone: phone ? phone.trim() : ''
       });
     }
@@ -793,23 +785,20 @@ export const db = {
       const topBid = memAuction.bidsHistory[0];
       memAuction.currentHighestBid = topBid.amount;
       memAuction.highestBidderName = topBid.bidderName;
-      memAuction.highestBidderGotram = topBid.gotram;
       memAuction.highestBidderPhone = topBid.phone;
     } else {
       memAuction.currentHighestBid = memAuction.startingBid || 5001;
       memAuction.highestBidderName = '';
-      memAuction.highestBidderGotram = '';
       memAuction.highestBidderPhone = '';
     }
     memAuction.updatedAt = new Date().toISOString();
     db.saveAuction(memAuction);
     return { removedBid, auction: memAuction };
   },
-  declareWinner: ({ winnerName, gotram, winningBid, phone, message }) => {
+  declareWinner: ({ winnerName, winningBid, phone, message }) => {
     memAuction.status = 'completed';
     memAuction.winner = {
       name: winnerName || memAuction.highestBidderName || 'మహా భక్తుడు',
-      gotram: gotram || memAuction.highestBidderGotram || 'శివ గోత్రం',
       winningBid: Number(winningBid) || memAuction.currentHighestBid || 5001,
       phone: phone || memAuction.highestBidderPhone || '',
       message: message || 'సర్వేజనాః సుఖినోభవంతు - శ్రీ వినాయక మహా లడ్డూ ప్రసాద విజేత',

@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 /**
  * Generate a high-resolution, divine Devotional Receipt Canvas
@@ -192,7 +193,11 @@ export const generateDonorReceiptCanvas = async (donor, settings) => {
   };
 
   renderFieldRow('దాత పేరు', 'Donor Name', donor?.name || 'భక్తుడు', true);
-  renderFieldRow('గోత్రం', 'Gotram', donor?.gotram || 'శివ గోత్రం');
+
+  if (donor?.isSpecialDonor) {
+    renderFieldRow('విశిష్ట దాత సేవ', 'Special Contribution', donor.specialContribution || 'విశిష్ట విరాళ సేవ', true);
+  }
+
   renderFieldRow('మొబైల్ నంబర్', 'Mobile Phone', donor?.phone ? `+91 ${donor.phone}` : 'Recorded on Portal');
   renderFieldRow('చెల్లింపు విధానం', 'Payment Mode', `${donor?.paymentMode || 'UPI'} (${donor?.referenceNo || 'REF-VERIFIED'})`);
   renderFieldRow('ధృవీకరణ స్థితి', 'Status', 'అడ్మిన్ ధృవీకరించబడింది (Verified & Blessed ✅)');
@@ -336,16 +341,19 @@ export const getWhatsAppReceiptText = (donor, settings) => {
     minute: '2-digit'
   });
   const amountStr = Number(donor?.amount || 0).toLocaleString('en-IN');
-  const gotramStr = donor?.gotram || 'శివ గోత్రం';
   const donorName = donor?.name || 'భక్తుడు';
+
+  let specialDonorSection = '';
+  if (donor?.isSpecialDonor && donor?.specialContribution) {
+    specialDonorSection = `\n🌟 *విశిష్ట దాత సేవ (Special Contribution):* ${donor.specialContribution}\n`;
+  }
 
   return `🚩 *శ్రీ వరసిద్ధి వినాయక సేవా సమితి* 🚩
 *${utsavName} 2026*
 *అధికారిక విరాళ రశీదు & దివ్య ఆశీస్సులు*
 ----------------------------------------
 🧾 *రశీదు సంఖ్య (Receipt No):* ${receiptNo}
-👤 *దాత పేరు (Donor Name):* ${donorName}
-🌺 *గోత్రం (Gotram):* ${gotramStr}
+👤 *దాత పేరు (Donor Name):* ${donorName}${specialDonorSection}
 💰 *సమర్పించిన విరాళం:* ₹${amountStr} /-
 💳 *చెల్లింపు విధానం:* ${donor?.paymentMode || 'UPI'} (${donor?.referenceNo || 'VERIFIED'})
 📅 *తేదీ & సమయం:* ${dateStr}, ${timeStr}
@@ -362,57 +370,6 @@ https://ganesha-chaturthi-utsav.onrender.com/`;
 };
 
 /**
- * Convert Canvas to PNG Blob
- */
-export const generateDonorReceiptBlob = async (donor, settings) => {
-  const canvas = await generateDonorReceiptCanvas(donor, settings);
-  return new Promise((resolve) => {
-    canvas.toBlob((blob) => resolve(blob), 'image/png', 1.0);
-  });
-};
-
-/**
- * Share Devotional Receipt with Attached PNG Image and Message
- * On mobile/PWA: Uses Web Share API to attach the PNG image directly to WhatsApp/Share sheet!
- * On desktop fallback: Downloads PNG image and opens WhatsApp chat with text.
- */
-export const shareDonorReceiptWithImage = async (donor, settings) => {
-  const text = getWhatsAppReceiptText(donor, settings);
-  const safeName = (donor.name || 'Donor').replace(/\s+/g, '_');
-  const receiptNo = donor.receiptNo || 'REC';
-  const fileName = `Ganesha_Receipt_${receiptNo}_${safeName}.png`;
-
-  try {
-    const blob = await generateDonorReceiptBlob(donor, settings);
-    if (!blob) throw new Error('Failed to generate image blob');
-
-    const file = new File([blob], fileName, { type: 'image/png' });
-
-    // Check if Web Share API with files is supported (Mobile Chrome, Safari, Android WebViews)
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({
-        title: 'శ్రీ వినాయక చవితి అధికారిక విరాళ రశీదు',
-        text: text,
-        files: [file]
-      });
-      return { success: true, method: 'web-share' };
-    }
-  } catch (err) {
-    if (err.name === 'AbortError') return { success: false, cancelled: true };
-    console.warn('Web share with image failed or not supported, falling back:', err);
-  }
-
-  // Fallback for desktop & browsers without File Share support:
-  // 1. Download the PNG receipt image to Downloads folder
-  await downloadDonorReceiptPng(donor, settings);
-
-  // 2. Open WhatsApp chat with prefilled text
-  sendWhatsAppReceipt(donor, settings);
-
-  return { success: true, method: 'download-and-whatsapp' };
-};
-
-/**
  * Open WhatsApp with prefilled devotional receipt text directly to donor's phone
  */
 export const sendWhatsAppReceipt = (donor, settings) => {
@@ -426,5 +383,163 @@ export const sendWhatsAppReceipt = (donor, settings) => {
   } else {
     const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
+  }
+};
+
+/**
+ * Download Complete Donors List PDF (Verified Donors Only, Special Donors at Top, Clickable Screenshot Links)
+ */
+export const downloadDonorsLedgerPdf = (donors = [], settings = {}) => {
+  try {
+    // 1. Filter ONLY VERIFIED DONORS
+    const verifiedDonors = donors.filter(d => d.status === 'Verified' || d.receiptNo);
+
+    if (verifiedDonors.length === 0) {
+      alert('No verified donors found to generate PDF report.');
+      return false;
+    }
+
+    // 2. Sort: Special Donors first, then descending by amount
+    const sortedDonors = [...verifiedDonors].sort((a, b) => {
+      if (a.isSpecialDonor && !b.isSpecialDonor) return -1;
+      if (!a.isSpecialDonor && b.isSpecialDonor) return 1;
+      return (Number(b.amount) || 0) - (Number(a.amount) || 0);
+    });
+
+    const totalVerifiedSum = sortedDonors.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+    const specialDonorsCount = sortedDonors.filter(d => d.isSpecialDonor).length;
+
+    // 3. Initialize PDF
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'pt',
+      format: 'a4'
+    });
+
+    const utsavTitle = settings?.utsavName || 'విజయ కాలనీ గణేష్ డైరీస్';
+
+    // Header Banner
+    pdf.setFillColor(124, 45, 18); // Crimson Deep
+    pdf.rect(0, 0, 595.28, 75, 'F');
+
+    pdf.setTextColor(254, 240, 138);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(16);
+    pdf.text(utsavTitle, 297.64, 28, { align: 'center' });
+
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(255, 255, 255);
+    pdf.text('OFFICIAL VERIFIED DONORS LEDGER • 2026', 297.64, 45, { align: 'center' });
+
+    pdf.setFontSize(8);
+    pdf.setTextColor(254, 215, 170);
+    pdf.text(`Total Verified Donors: ${sortedDonors.length}  |  Special Donors: ${specialDonorsCount}  |  Total Amount: Rs. ${totalVerifiedSum.toLocaleString('en-IN')}`, 297.64, 62, { align: 'center' });
+
+    // Table Data preparation
+    const tableColumns = [
+      { header: '#', dataKey: 'sno' },
+      { header: 'Receipt No', dataKey: 'receiptNo' },
+      { header: 'Donor Name & Details', dataKey: 'donorDetails' },
+      { header: 'Phone', dataKey: 'phone' },
+      { header: 'Amount (Rs)', dataKey: 'amount' },
+      { header: 'Mode / UTR', dataKey: 'mode' },
+      { header: 'Screenshot Proof', dataKey: 'screenshot' }
+    ];
+
+    const tableRows = sortedDonors.map((d, index) => {
+      let donorNameText = d.name || 'Donor';
+      if (d.isSpecialDonor) {
+        donorNameText = `[SPECIAL DONOR] ${d.name}` + (d.specialContribution ? `\nContrib: ${d.specialContribution}` : '');
+      }
+
+      return {
+        sno: index + 1,
+        receiptNo: d.receiptNo || `REC-${index + 1001}`,
+        donorDetails: donorNameText,
+        phone: d.phone ? `+91 ${d.phone}` : '-',
+        amount: `Rs. ${Number(d.amount).toLocaleString('en-IN')}`,
+        mode: `${d.paymentMode || 'UPI'}\n${d.referenceNo || 'VERIFIED'}`,
+        screenshot: d.receiptUrl ? 'Click to View Proof' : 'No Screenshot',
+        receiptUrl: d.receiptUrl,
+        isSpecial: d.isSpecialDonor
+      };
+    });
+
+    // AutoTable Generation
+    autoTable(pdf, {
+      startY: 85,
+      columns: tableColumns,
+      body: tableRows,
+      theme: 'grid',
+      styles: {
+        fontSize: 8,
+        cellPadding: 4,
+        valign: 'middle',
+        overflow: 'linebreak'
+      },
+      headStyles: {
+        fillColor: [180, 83, 9], // Gold Amber
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        halign: 'center'
+      },
+      columnStyles: {
+        sno: { cellWidth: 20, halign: 'center' },
+        receiptNo: { cellWidth: 70, halign: 'center', fontStyle: 'bold' },
+        donorDetails: { cellWidth: 150 },
+        phone: { cellWidth: 75, halign: 'center' },
+        amount: { cellWidth: 65, halign: 'right', fontStyle: 'bold', textColor: [180, 83, 9] },
+        mode: { cellWidth: 75, halign: 'center', fontSize: 7 },
+        screenshot: { cellWidth: 80, halign: 'center', textColor: [37, 99, 235], fontStyle: 'bold' }
+      },
+      didParseCell: function(data) {
+        // Highlight Special Donor Rows in light amber
+        const rowRaw = data.row.raw;
+        if (rowRaw && rowRaw.isSpecial && data.section === 'body') {
+          data.cell.styles.fillColor = [254, 243, 199]; // Light Gold
+          if (data.column.dataKey === 'donorDetails') {
+            data.cell.styles.textColor = [120, 53, 15]; // Deep Amber
+            data.cell.styles.fontStyle = 'bold';
+          }
+        }
+      },
+      didDrawCell: function(data) {
+        // Attach active clickable PDF Link to the screenshot cell
+        if (data.column.dataKey === 'screenshot' && data.section === 'body') {
+          const rowRaw = data.row.raw;
+          if (rowRaw && rowRaw.receiptUrl) {
+            pdf.link(data.cell.x, data.cell.y, data.cell.width, data.cell.height, {
+              url: rowRaw.receiptUrl
+            });
+          }
+        }
+      },
+      foot: [[
+        { content: 'TOTAL VERIFIED DONATIONS', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fillColor: [243, 244, 246] } },
+        { content: `Rs. ${totalVerifiedSum.toLocaleString('en-IN')}`, styles: { halign: 'right', fontStyle: 'bold', textColor: [180, 83, 9], fillColor: [243, 244, 246] } },
+        { content: `${sortedDonors.length} Donors`, colSpan: 2, styles: { halign: 'center', fontStyle: 'bold', fillColor: [243, 244, 246] } }
+      ]],
+      margin: { top: 85, left: 20, right: 20, bottom: 35 },
+      didDrawPage: function(data) {
+        // Footer
+        pdf.setFontSize(7);
+        pdf.setTextColor(156, 163, 175);
+        pdf.text(
+          `Generated on ${new Date().toLocaleString('en-IN')} | Page ${data.pageNumber}`,
+          297.64,
+          pdf.internal.pageSize.height - 15,
+          { align: 'center' }
+        );
+      }
+    });
+
+    // Save PDF
+    pdf.save(`Vijaya_Colony_Verified_Donors_Ledger_${new Date().toISOString().slice(0, 10)}.pdf`);
+    return true;
+  } catch (err) {
+    console.error('Error generating Donors Ledger PDF:', err);
+    alert('Failed to generate Donors List PDF: ' + err.message);
+    return false;
   }
 };

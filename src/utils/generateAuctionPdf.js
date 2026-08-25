@@ -117,9 +117,8 @@ export const generateAuctionPdf = async (auction, settings) => {
 
       ctx.fillStyle = '#78350f';
       ctx.font = '600 20px "Noto Sans Telugu", Outfit, sans-serif';
-      const winnerGotram = auction.winner.gotram || 'శివ గోత్రం';
       const winnerAmount = Number(auction.winner.winningBid).toLocaleString('en-IN');
-      ctx.fillText(`గోత్రం: ${winnerGotram}   |   గెలుచుకున్న మొత్తం: ₹${winnerAmount}/-`, width / 2, nextY + 122);
+      ctx.fillText(`గెలుచుకున్న మొత్తం (Winning Bid): ₹${winnerAmount}/-`, width / 2, nextY + 122);
 
       nextY += winnerH + 25;
     }
@@ -131,8 +130,7 @@ export const generateAuctionPdf = async (auction, settings) => {
     ctx.fillText('📊 ప్రత్యక్ష వేలం పాట వివరాలు (Complete Bids History):', 50, nextY + 28);
 
     const tableTop = nextY + 45;
-    const colX = [50, 130, 520, 830, 1050]; // S.No, Name, Gotram, Amount, Time
-    const colW = [80, 390, 310, 220, 140];
+    const colX = [50, 140, 680, 960]; // S.No, Name, Amount, Time
 
     // Table Header Row
     ctx.fillStyle = '#381207';
@@ -143,10 +141,9 @@ export const generateAuctionPdf = async (auction, settings) => {
     ctx.fillStyle = '#fef3c7';
     ctx.font = 'bold 16px "Noto Sans Telugu", Outfit, sans-serif';
     ctx.fillText('#', colX[0] + 25, tableTop + 30);
-    ctx.fillText('భక్తుని పేరు (Bidder Name)', colX[1] + 15, tableTop + 30);
-    ctx.fillText('గోత్రం (Gotram)', colX[2] + 15, tableTop + 30);
-    ctx.fillText('బిడ్ మొత్తం (Amount)', colX[3] + 15, tableTop + 30);
-    ctx.fillText('సమయం (Time)', colX[4] + 10, tableTop + 30);
+    ctx.fillText('భక్తుని పేరు (Bidder Name)', colX[1] + 20, tableTop + 30);
+    ctx.fillText('బిడ్ మొత్తం (Amount)', colX[2] + 20, tableTop + 30);
+    ctx.fillText('సమయం (Time)', colX[3] + 20, tableTop + 30);
 
     // Table Body Rows
     let curY = tableTop + 48;
@@ -176,21 +173,17 @@ export const generateAuctionPdf = async (auction, settings) => {
         ctx.font = isHighest ? 'bold 16px Outfit, sans-serif' : '15px Outfit, sans-serif';
         ctx.fillText(`#${bids.length - idx}`, colX[0] + 20, curY + 29);
 
-        ctx.font = isHighest ? 'bold 17px "Noto Sans Telugu", Outfit, sans-serif' : '16px "Noto Sans Telugu", Outfit, sans-serif';
-        ctx.fillText(bid.bidderName, colX[1] + 15, curY + 29);
+        ctx.font = isHighest ? 'bold 18px "Noto Sans Telugu", Outfit, sans-serif' : '17px "Noto Sans Telugu", Outfit, sans-serif';
+        ctx.fillText(bid.bidderName, colX[1] + 20, curY + 29);
 
-        ctx.font = '15px "Noto Sans Telugu", Outfit, sans-serif';
-        ctx.fillStyle = '#4b5563';
-        ctx.fillText(bid.gotram || 'శివ గోత్రం', colX[2] + 15, curY + 29);
-
-        ctx.font = 'bold 17px Outfit, sans-serif';
+        ctx.font = 'bold 18px Outfit, sans-serif';
         ctx.fillStyle = isHighest ? '#b45309' : '#047857';
-        ctx.fillText(`₹ ${Number(bid.amount).toLocaleString('en-IN')}`, colX[3] + 15, curY + 29);
+        ctx.fillText(`₹ ${Number(bid.amount).toLocaleString('en-IN')}`, colX[2] + 20, curY + 29);
 
         ctx.font = '14px Outfit, sans-serif';
         ctx.fillStyle = '#6b7280';
         const timeStr = new Date(bid.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-        ctx.fillText(timeStr, colX[4] + 10, curY + 29);
+        ctx.fillText(timeStr, colX[3] + 20, curY + 29);
 
         curY += rowHeight;
       });

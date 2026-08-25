@@ -3,15 +3,16 @@ import {
   X, Receipt, Search, Download, Share2, FileText, CheckCircle2, 
   Eye, Calendar, Phone, Heart, Sparkles, Filter, ExternalLink, Printer 
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { 
   downloadDonorReceiptPdf, 
   downloadDonorReceiptPng, 
-  sendWhatsAppReceipt,
-  shareDonorReceiptWithImage,
+  sendWhatsAppReceipt, 
   generateDonorReceiptCanvas 
 } from '../utils/receiptGenerator';
 
 export const ReceiptsArchiveModal = ({ isOpen, onClose, donors = [], settings }) => {
+  const { isAdmin } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('newest'); // 'newest' | 'oldest' | 'highest' | 'lowest'
   const [filterTier, setFilterTier] = useState('all'); // 'all' | 'above1000' | 'below1000'
@@ -103,7 +104,8 @@ export const ReceiptsArchiveModal = ({ isOpen, onClose, donors = [], settings })
     const headers = [
       'Receipt No (రశీదు నెం)',
       'Donor Name (దాత పేరు)',
-      'Gotram (గోత్రం)',
+      'Special Donor Status',
+      'Special Contribution Note',
       'Phone Number (ఫోన్)',
       'Donation Amount (₹)',
       'Payment Mode (విధానం)',
@@ -116,7 +118,8 @@ export const ReceiptsArchiveModal = ({ isOpen, onClose, donors = [], settings })
     const rows = verifiedDonors.map((d) => [
       d.receiptNo || 'N/A',
       `"${(d.name || '').replace(/"/g, '""')}"`,
-      `"${(d.gotram || 'Shiva').replace(/"/g, '""')}"`,
+      d.isSpecialDonor ? 'Special Donor (విశిష్ట దాత)' : 'Regular Donor',
+      `"${(d.specialContribution || '').replace(/"/g, '""')}"`,
       `"${d.phone || ''}"`,
       Number(d.amount) || 0,
       `"${d.paymentMode || 'UPI'}"`,
@@ -294,13 +297,18 @@ export const ReceiptsArchiveModal = ({ isOpen, onClose, donors = [], settings })
                     {/* Middle Details Grid */}
                     <div className="grid grid-cols-2 gap-2 text-xs text-amber-200/80">
                       <div>
-                        <span className="text-[10px] text-amber-400/60 block">Gotram:</span>
-                        <span className="font-semibold text-amber-100">{receipt.gotram || 'శివ గోత్రం'}</span>
-                      </div>
-                      <div>
                         <span className="text-[10px] text-amber-400/60 block">Mobile Phone:</span>
                         <span className="font-semibold text-amber-100">{receipt.phone ? `+91 ${receipt.phone}` : 'Not provided'}</span>
                       </div>
+                      <div>
+                        <span className="text-[10px] text-amber-400/60 block">Payment Mode:</span>
+                        <span className="font-semibold text-amber-100">{receipt.paymentMode || 'UPI'} ({receipt.referenceNo || 'VERIFIED'})</span>
+                      </div>
+                      {receipt.isSpecialDonor && receipt.specialContribution && (
+                        <div className="col-span-2 bg-amber-950/60 border border-amber-500/30 px-2 py-0.5 rounded text-[11px] text-amber-200">
+                          <strong className="text-amber-400">🌟 విశిష్ట సేవ:</strong> {receipt.specialContribution}
+                        </div>
+                      )}
                       <div className="col-span-2 flex items-center gap-1 text-[11px] text-amber-300/70 pt-0.5">
                         <Calendar className="w-3 h-3 text-amber-400 shrink-0" />
                         <span>Issued Timestamp: <strong>{dateStr} at {timeStr}</strong></span>
@@ -310,16 +318,18 @@ export const ReceiptsArchiveModal = ({ isOpen, onClose, donors = [], settings })
                     {/* Action Toolbar */}
                     <div className="pt-2 border-t border-amber-500/20 flex flex-wrap items-center gap-1.5">
                       
-                      {/* WhatsApp Receipt Button */}
-                      <button
-                        type="button"
-                        onClick={() => shareDonorReceiptWithImage(receipt, settings)}
-                        className="flex-1 py-1.5 px-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-[11px] flex items-center justify-center gap-1 shadow-sm active:scale-95 transition-all"
-                        title="Send Official Devotional Receipt via WhatsApp (with Attached PNG Image)"
-                      >
-                        <Share2 className="w-3.5 h-3.5" />
-                        <span>Send WhatsApp Receipt + Image</span>
-                      </button>
+                      {/* WhatsApp Receipt Button (ADMIN ONLY) */}
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => sendWhatsAppReceipt(receipt, settings)}
+                          className="flex-1 py-1.5 px-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-[11px] flex items-center justify-center gap-1 shadow-sm active:scale-95 transition-all"
+                          title="Send Official Devotional Receipt via WhatsApp (Admin Only)"
+                        >
+                          <Share2 className="w-3.5 h-3.5" />
+                          <span>Send WhatsApp Receipt 📱</span>
+                        </button>
+                      )}
 
                       {/* Download PDF */}
                       <button
@@ -414,11 +424,11 @@ export const ReceiptsArchiveModal = ({ isOpen, onClose, donors = [], settings })
             <div className="p-3.5 bg-[#160602] border-t border-amber-500/20 flex flex-wrap items-center justify-center gap-2 shrink-0">
               <button
                 type="button"
-                onClick={() => shareDonorReceiptWithImage(previewDonor, settings)}
+                onClick={() => sendWhatsAppReceipt(previewDonor, settings)}
                 className="py-2 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
               >
                 <Share2 className="w-3.5 h-3.5" />
-                <span>Send to WhatsApp + Image (+91 {previewDonor.phone || '...'})</span>
+                <span>Send to WhatsApp (+91 {previewDonor.phone || '...'})</span>
               </button>
 
               <button

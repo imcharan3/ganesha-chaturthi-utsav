@@ -3,7 +3,7 @@ import { Sparkles, Heart, Bell, Shield, Lock, Trophy, Calendar, MessageSquare, I
 import { useAuth } from '../context/AuthContext';
 import { playTempleBell } from '../utils/audio';
 
-export const Navbar = ({ activeTab, setActiveTab, onOpenDonation, settings }) => {
+export const Navbar = ({ activeTab, setActiveTab, onOpenDonation, settings, unreadMessages = 0 }) => {
   const { isAdmin, setIsAdminModalOpen, logout } = useAuth();
   const [bellRinging, setBellRinging] = useState(false);
 
@@ -12,7 +12,7 @@ export const Navbar = ({ activeTab, setActiveTab, onOpenDonation, settings }) =>
     { id: 'donors', label: 'Donors', icon: Heart, telugu: 'విరాళాలు' },
     { id: 'auction', label: 'Laddu Auction 🏆', icon: Trophy, telugu: 'లడ్డూ వేలం' },
     { id: 'events', label: 'Events', icon: Calendar, telugu: 'కార్యక్రమాలు' },
-    { id: 'chat', label: 'Youth Chat', icon: MessageSquare, telugu: 'యువజన చర్చ' }
+    { id: 'chat', label: 'Youth Chat', icon: MessageSquare, telugu: 'యువజన చర్చ', badge: unreadMessages }
   ];
 
   const handleBellClick = () => {
@@ -89,6 +89,11 @@ export const Navbar = ({ activeTab, setActiveTab, onOpenDonation, settings }) =>
                 >
                   <Icon className={`w-4 h-4 ${isActive ? 'text-amber-200 animate-bounce' : 'text-amber-400'}`} />
                   <span>{item.label}</span>
+                  {item.badge > 0 && (
+                    <span className="bg-red-600 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold animate-pulse">
+                      {item.badge}
+                    </span>
+                  )}
                 </button>
               );
             })}

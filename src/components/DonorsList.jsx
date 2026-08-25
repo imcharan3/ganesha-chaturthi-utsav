@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { 
   Heart, Search, Filter, ArrowUpDown, Trash2, Edit3, Shield, Download, 
   Plus, CheckCircle, Sparkles, Trophy, UserCheck, Eye, Image as ImageIcon, 
-  ExternalLink, X, Upload, Receipt, Share2, FileText, Phone, CheckCircle2 
+  ExternalLink, X, Upload, Receipt, Share2, FileText, Phone, CheckCircle2, Star 
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
@@ -10,31 +10,41 @@ import { ReceiptsArchiveModal } from './ReceiptsArchiveModal';
 import { 
   downloadDonorReceiptPdf, 
   downloadDonorReceiptPng, 
-  sendWhatsAppReceipt,
-  shareDonorReceiptWithImage
+  sendWhatsAppReceipt, 
+  downloadDonorsLedgerPdf 
 } from '../utils/receiptGenerator';
 
 export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRefreshDonors }) => {
   const { isAdmin, adminToken, setIsAdminModalOpen } = useAuth();
   
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('newest'); // 'newest' | 'highest' | 'lowest'
-  const [filterTier, setFilterTier] = useState('all'); // 'all' | 'maha' | 'above1000' | 'below1000'
+  const [sortBy, setSortBy] = useState('newest'); // 'newest' | 'highest' | 'lowest' | 'special'
+  const [filterTier, setFilterTier] = useState('all'); // 'all' | 'special' | 'maha' | 'above1000' | 'below1000'
   
-  // Public Screenshot Lightbox Modal State (Viewable by everyone)
+  // Public Screenshot Lightbox Modal State
   const [selectedReceiptDonor, setSelectedReceiptDonor] = useState(null);
 
   // Bills & Receipts Archive Modal State
   const [isReceiptsArchiveOpen, setIsReceiptsArchiveOpen] = useState(false);
 
-  // Verification Success Prompt State (Instant WhatsApp delivery)
+  // Verification Success Prompt State (Instant WhatsApp delivery for Admin)
   const [verifySuccessDonor, setVerifySuccessDonor] = useState(null);
 
   // Edit State for Admin
   const [editingDonor, setEditingDonor] = useState(null);
-  const [editForm, setEditForm] = useState({ name: '', gotram: '', phone: '', amount: '', message: '', status: 'Verified', receiptUrl: '' });
+  const [editForm, setEditForm] = useState({
+    name: '',
+    phone: '',
+    amount: '',
+    message: '',
+    status: 'Verified',
+    receiptUrl: '',
+    isSpecialDonor: false,
+    specialContribution: ''
+  });
   const [isUpdating, setIsUpdating] = useState(false);
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
+  const [isDownloadingPdfList, setIsDownloadingPdfList] = useState(false);
 
   // Verified Donors Count for badge
   const verifiedCount = useMemo(() => {
@@ -45,24 +55,31 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
   const filteredDonors = useMemo(() => {
     return (donors || [])
       .filter((d) => {
-        const query = searchQuery.toLowerCase();
+        const query = searchQuery.toLowerCase().trim();
         const matchesSearch = 
+          !query ||
           d.name?.toLowerCase().includes(query) ||
-          d.gotram?.toLowerCase().includes(query) ||
           d.receiptNo?.toLowerCase().includes(query) ||
           d.phone?.includes(query) ||
           d.referenceNo?.toLowerCase().includes(query) ||
+          d.specialContribution?.toLowerCase().includes(query) ||
           d.message?.toLowerCase().includes(query);
 
         if (!matchesSearch) return false;
 
         const amt = Number(d.amount) || 0;
+        if (filterTier === 'special') return d.isSpecialDonor;
         if (filterTier === 'maha') return amt >= 5000;
         if (filterTier === 'above1000') return amt >= 1000;
         if (filterTier === 'below1000') return amt < 1000;
         return true;
       })
       .sort((a, b) => {
+        // If sorting by special first
+        if (sortBy === 'special') {
+          if (a.isSpecialDonor && !b.isSpecialDonor) return -1;
+          if (!a.isSpecialDonor && b.isSpecialDonor) return 1;
+        }
         if (sortBy === 'highest') return (Number(b.amount) || 0) - (Number(a.amount) || 0);
         if (sortBy === 'lowest') return (Number(a.amount) || 0) - (Number(b.amount) || 0);
         // Default newest
@@ -111,13 +128,14 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
   const handleOpenEdit = (donor) => {
     setEditingDonor(donor);
     setEditForm({
-      name: donor.name,
-      gotram: donor.gotram || '',
+      name: donor.name || '',
       phone: donor.phone || '',
-      amount: donor.amount,
+      amount: donor.amount || '',
       message: donor.message || '',
       status: donor.status || 'Verified',
-      receiptUrl: donor.receiptUrl || ''
+      receiptUrl: donor.receiptUrl || '',
+      isSpecialDonor: Boolean(donor.isSpecialDonor),
+      specialContribution: donor.specialContribution || ''
     });
   };
 
@@ -141,12 +159,13 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
     try {
       await api.updateDonor(editingDonor.id, {
         name: editForm.name.trim(),
-        gotram: editForm.gotram.trim(),
         phone: editForm.phone.trim(),
         amount: Number(editForm.amount),
         message: editForm.message.trim(),
         status: editForm.status,
-        receiptUrl: editForm.receiptUrl || null
+        receiptUrl: editForm.receiptUrl || null,
+        isSpecialDonor: editForm.status === 'Verified' ? Boolean(editForm.isSpecialDonor) : false,
+        specialContribution: editForm.status === 'Verified' && editForm.isSpecialDonor ? editForm.specialContribution.trim() : ''
       }, adminToken);
       setEditingDonor(null);
       if (selectedReceiptDonor?.id === editingDonor.id) {
@@ -160,7 +179,17 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
     }
   };
 
-  // Export Donors to CSV / Excel (with UTF-8 BOM for perfect Microsoft Excel Unicode & Telugu display)
+  // Download PDF Donors List (Verified Donors Only, Special Donors on Top, Clickable Links)
+  const handleDownloadPdfList = () => {
+    setIsDownloadingPdfList(true);
+    try {
+      downloadDonorsLedgerPdf(donors, settings);
+    } finally {
+      setIsDownloadingPdfList(false);
+    }
+  };
+
+  // Export Donors to CSV / Excel
   const handleExportCSV = () => {
     if (!donors || donors.length === 0) {
       alert('No donor records to export');
@@ -170,7 +199,8 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
     const headers = [
       'Receipt No (రశీదు నెం)',
       'Donor Name (దాత పేరు)',
-      'Gotram (గోత్రం)',
+      'Special Donor Status',
+      'Special Contribution Note',
       'Mobile Phone (ఫోన్)',
       'Amount (₹)',
       'Payment Mode',
@@ -185,7 +215,8 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
     const rows = donors.map(d => [
       d.receiptNo || 'N/A',
       `"${(d.name || '').replace(/"/g, '""')}"`,
-      `"${(d.gotram || 'Shiva').replace(/"/g, '""')}"`,
+      d.isSpecialDonor ? 'Special Donor (విశిష్ట దాత)' : 'Regular Donor',
+      `"${(d.specialContribution || '').replace(/"/g, '""')}"`,
       `"${d.phone || ''}"`,
       Number(d.amount) || 0,
       `"${d.paymentMode || 'UPI'}"`,
@@ -210,10 +241,10 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
       
       {/* Header Banner */}
-      <div className="temple-card p-6 rounded-3xl shadow-xl border border-amber-500/30 flex flex-col md:flex-row items-center justify-between gap-6">
+      <div className="temple-card p-4 sm:p-6 rounded-3xl shadow-xl border border-amber-500/30 flex flex-col md:flex-row items-center justify-between gap-5">
         <div className="text-center md:text-left space-y-1">
           <div className="inline-flex items-center gap-1.5 text-xs text-amber-400 bg-amber-950/60 px-3 py-1 rounded-full border border-amber-500/30">
             <Heart className="w-3.5 h-3.5 fill-saffron-500 text-saffron-500" />
@@ -227,47 +258,58 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
           </p>
         </div>
 
-        {/* Action CTAs */}
-        <div className="flex flex-wrap items-center justify-center gap-2.5">
+        {/* Action CTAs Toolbar */}
+        <div className="flex flex-wrap items-center justify-center gap-2">
           
+          {/* Download Official Donors PDF Report */}
+          <button
+            onClick={handleDownloadPdfList}
+            disabled={isDownloadingPdfList}
+            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 hover:brightness-110 text-amber-950 font-bold text-xs sm:text-sm shadow-md active:scale-95 transition-all flex items-center gap-1.5"
+            title="Download PDF of Verified Donors (Special Donors on Top with Clickable Screenshot Links)"
+          >
+            <FileText className="w-4 h-4 text-amber-950" />
+            <span>Download Donors List (PDF)</span>
+          </button>
+
           {/* Bills & Receipts Archive Button */}
           <button
             onClick={() => setIsReceiptsArchiveOpen(true)}
-            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-800 via-teal-800 to-emerald-900 hover:from-emerald-700 hover:to-teal-700 border border-emerald-400/40 text-emerald-100 font-bold text-xs sm:text-sm shadow-md active:scale-95 transition-all flex items-center gap-1.5"
+            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-800 via-teal-800 to-emerald-900 hover:from-emerald-700 hover:to-teal-700 border border-emerald-400/40 text-emerald-100 font-bold text-xs sm:text-sm shadow-md active:scale-95 transition-all flex items-center gap-1.5"
             title="View All Verified Bills & Receipts Archive"
           >
             <Receipt className="w-4 h-4 text-emerald-300" />
-            <span>Bills & Receipts Archive ({verifiedCount})</span>
+            <span>Bills & Receipts ({verifiedCount})</span>
           </button>
 
           <button
             onClick={onOpenDonation}
-            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-saffron-500 to-amber-600 text-amber-950 font-bold text-xs sm:text-sm shadow-gold hover:brightness-110 active:scale-95 transition-all flex items-center gap-1.5"
+            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-saffron-500 to-amber-500 text-amber-950 font-bold text-xs sm:text-sm shadow-gold hover:brightness-110 active:scale-95 transition-all flex items-center gap-1.5"
           >
             <Plus className="w-4 h-4" />
-            <span>Add My Donation (విరాళం)</span>
+            <span>Add Donation (విరాళం)</span>
           </button>
 
           <button
             onClick={handleExportCSV}
-            className="px-3.5 py-2.5 rounded-xl bg-[#2b1008] hover:bg-[#3c170b] border border-amber-500/40 text-amber-200 text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition-all"
+            className="px-3 py-2 rounded-xl bg-[#2b1008] hover:bg-[#3c170b] border border-amber-500/40 text-amber-200 text-xs font-semibold flex items-center gap-1.5 transition-all"
             title="Download CSV for Committee Records"
           >
-            <Download className="w-4 h-4 text-amber-400" />
-            <span>Export CSV</span>
+            <Download className="w-3.5 h-3.5 text-amber-400" />
+            <span>CSV</span>
           </button>
 
           {isAdmin ? (
-            <div className="flex items-center gap-1 bg-emerald-950/80 border border-emerald-500/50 px-3 py-2 rounded-xl text-xs text-emerald-300 font-semibold">
+            <div className="flex items-center gap-1 bg-emerald-950/80 border border-emerald-500/50 px-2.5 py-1.5 rounded-xl text-xs text-emerald-300 font-semibold">
               <Shield className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Admin Mode Active</span>
+              <span>Admin Active</span>
             </div>
           ) : (
             <button
               onClick={() => setIsAdminModalOpen(true)}
-              className="text-xs text-amber-400/80 hover:text-amber-200 underline flex items-center gap-1"
+              className="text-xs text-amber-400/80 hover:text-amber-200 underline flex items-center gap-1 px-2 py-1"
             >
-              <Shield className="w-3.5 h-3.5" />
+              <Shield className="w-3 h-3" />
               <span>Admin Login</span>
             </button>
           )}
@@ -282,10 +324,10 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
             <span>ముఖ్య దాతలు • Top Major Donors (Maha Daatas)</span>
           </h3>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
             {topDonors.map((donor, idx) => {
               const rankColors = [
-                'from-amber-500/20 via-yellow-500/10 to-amber-950/40 border-amber-400/60 text-amber-300',
+                'from-amber-500/25 via-yellow-500/10 to-amber-950/40 border-amber-400/60 text-amber-300',
                 'from-slate-400/20 via-slate-500/10 to-amber-950/40 border-slate-400/50 text-slate-200',
                 'from-amber-700/20 via-amber-800/10 to-amber-950/40 border-amber-700/50 text-amber-400'
               ];
@@ -304,10 +346,24 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
                       ₹{Number(donor.amount).toLocaleString('en-IN')}
                     </span>
                   </div>
+
                   <div>
-                    <h4 className="font-bold text-base text-amber-100 line-clamp-1">{donor.name}</h4>
-                    <p className="text-xs text-amber-300/80">Gotram: {donor.gotram || 'Shiva'}</p>
+                    <div className="flex items-center gap-1.5">
+                      <h4 className="font-bold text-base text-amber-100 line-clamp-1">{donor.name}</h4>
+                      {donor.isSpecialDonor && donor.status === 'Verified' && (
+                        <span className="shrink-0 p-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px]" title="Special Donor">
+                          ⭐
+                        </span>
+                      )}
+                    </div>
+                    {donor.phone && <p className="text-xs text-amber-300/80">Phone: +91 {donor.phone}</p>}
                   </div>
+
+                  {donor.isSpecialDonor && donor.status === 'Verified' && donor.specialContribution && (
+                    <div className="bg-amber-950/60 border border-amber-500/40 px-2.5 py-1 rounded-lg text-[11px] text-amber-200">
+                      <span className="text-amber-400 font-bold">🌟 విశిష్ట సేవ:</span> {donor.specialContribution}
+                    </div>
+                  )}
 
                   {donor.receiptNo && (
                     <span className="inline-block text-[10px] font-mono font-bold text-amber-300 bg-black/50 px-2 py-0.5 rounded border border-amber-500/30">
@@ -320,15 +376,16 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
                   )}
 
                   <div className="pt-1 flex flex-wrap items-center gap-1.5">
-                    {donor.status === 'Verified' && (
+                    {/* Send WhatsApp Receipt (ADMIN ONLY) */}
+                    {isAdmin && donor.status === 'Verified' && (
                       <button
                         type="button"
-                        onClick={() => shareDonorReceiptWithImage(donor, settings)}
-                        className="py-1 px-2.5 rounded-lg bg-emerald-700/40 hover:bg-emerald-700/70 border border-emerald-500/40 text-emerald-200 text-[11px] font-semibold flex items-center gap-1 transition-all"
-                        title="Send / Share Receipt with Attached Image on WhatsApp"
+                        onClick={() => sendWhatsAppReceipt(donor, settings)}
+                        className="py-1 px-2.5 rounded-lg bg-emerald-700/50 hover:bg-emerald-600 border border-emerald-500/40 text-emerald-200 text-[11px] font-semibold flex items-center gap-1 transition-all"
+                        title="Send Receipt to Donor WhatsApp (Admin Only)"
                       >
                         <Share2 className="w-3 h-3" />
-                        <span>WhatsApp Receipt (with Image)</span>
+                        <span>Send WhatsApp</span>
                       </button>
                     )}
                     {donor.receiptUrl && (
@@ -359,7 +416,7 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
             <Search className="w-4 h-4 text-amber-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search by Donor name, Gotram, Receipt No, Phone..."
+              placeholder="Search by Donor name, Receipt No, Phone, Special contribution..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-[#1c0803] border border-amber-500/30 text-amber-100 text-xs sm:text-sm focus:outline-none focus:border-amber-400 placeholder:text-amber-400/40"
@@ -381,6 +438,7 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
               className="bg-[#1c0803] border border-amber-500/30 text-amber-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none flex-1 md:flex-none"
             >
               <option value="newest">Newest First</option>
+              <option value="special">Special Donors First ⭐</option>
               <option value="highest">Highest Amount</option>
               <option value="lowest">Lowest Amount</option>
             </select>
@@ -390,7 +448,8 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
               onChange={(e) => setFilterTier(e.target.value)}
               className="bg-[#1c0803] border border-amber-500/30 text-amber-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none flex-1 md:flex-none"
             >
-              <option value="all">All Amounts</option>
+              <option value="all">All Donors</option>
+              <option value="special">🌟 Special Donors Only</option>
               <option value="maha">Maha Daatas (₹5000+)</option>
               <option value="above1000">₹1000 & Above</option>
               <option value="below1000">Below ₹1000</option>
@@ -408,6 +467,7 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
           <div className="space-y-3">
             {filteredDonors.map((donor) => {
               const isVerified = donor.status === 'Verified';
+              const isSpecial = isVerified && donor.isSpecialDonor;
               const createdDateStr = new Date(donor.createdAt).toLocaleDateString('en-IN', {
                 day: 'numeric',
                 month: 'short'
@@ -422,18 +482,30 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
               return (
                 <div
                   key={donor.id}
-                  className="bg-[#1c0803]/80 hover:bg-[#250b04] border border-amber-500/30 hover:border-amber-500/60 p-4 rounded-2xl transition-all shadow-md"
+                  className={`p-4 rounded-2xl transition-all shadow-md border ${
+                    isSpecial 
+                      ? 'bg-gradient-to-r from-[#2c1206] via-[#240b04] to-[#1c0803] border-amber-400/60 shadow-amber-950/40' 
+                      : 'bg-[#1c0803]/80 hover:bg-[#250b04] border-amber-500/30 hover:border-amber-500/60'
+                  }`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     
                     {/* Left: Donor Details */}
                     <div className="space-y-1.5 flex-1 min-w-0">
                       
-                      {/* Name & Verification Badge */}
-                      <div className="flex flex-wrap items-center gap-2">
+                      {/* Name & Badges */}
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                         <h4 className="font-bold text-sm sm:text-base text-white font-devotional truncate">
                           {donor.name}
                         </h4>
+
+                        {/* Special Donor Badge (Visible only after verification & admin assign) */}
+                        {isSpecial && (
+                          <span className="text-[10px] sm:text-[11px] bg-gradient-to-r from-amber-500 to-yellow-400 text-amber-950 px-2 py-0.5 rounded-full font-black flex items-center gap-1 shadow-sm border border-amber-300">
+                            <Star className="w-3 h-3 fill-amber-950" />
+                            <span>విశిష్ట దాత (Special Donor)</span>
+                          </span>
+                        )}
 
                         {isVerified ? (
                           <div className="flex items-center gap-1.5">
@@ -468,9 +540,15 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
                         )}
                       </div>
 
-                      {/* Meta: Gotram, Phone, Mode, Timestamp */}
+                      {/* Special Contribution Note if applicable */}
+                      {isSpecial && donor.specialContribution && (
+                        <div className="inline-block bg-amber-950/70 border border-amber-500/30 px-2.5 py-0.5 rounded-lg text-xs text-amber-200">
+                          <strong className="text-amber-400">🌟 విశిష్ట సేవ:</strong> {donor.specialContribution}
+                        </div>
+                      )}
+
+                      {/* Meta: Phone, Mode, Timestamp */}
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-amber-300/70">
-                        {donor.gotram && <span>గోత్రం: <strong className="text-amber-200">{donor.gotram}</strong></span>}
                         {donor.phone && <span>ఫోన్: <strong className="text-amber-200">+91 {donor.phone}</strong></span>}
                         <span>Mode: <strong className="text-amber-200">{donor.paymentMode || 'UPI'}</strong></span>
                         <span className="text-amber-400/50">•</span>
@@ -503,20 +581,23 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
                         {/* Verified Devotional Receipt Actions */}
                         {isVerified && (
                           <>
-                            <button
-                              type="button"
-                              onClick={() => shareDonorReceiptWithImage(donor, settings)}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 text-white text-xs font-bold shadow-sm active:scale-95 transition-all"
-                              title={donor.phone ? `Send official receipt with image to WhatsApp (+91 ${donor.phone})` : 'Share Receipt with image on WhatsApp'}
-                            >
-                              <Share2 className="w-3.5 h-3.5" />
-                              <span>{donor.phone ? 'Send WhatsApp Receipt (with Image) 📱' : 'Share Receipt (with Image)'}</span>
-                            </button>
+                            {/* Send WhatsApp Receipt (ADMIN ONLY) */}
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => sendWhatsAppReceipt(donor, settings)}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 text-white text-xs font-bold shadow-sm active:scale-95 transition-all"
+                                title="Send official receipt to donor WhatsApp (Admin Only)"
+                              >
+                                <Share2 className="w-3.5 h-3.5" />
+                                <span>{donor.phone ? 'Send WhatsApp Receipt 📱' : 'Share WhatsApp'}</span>
+                              </button>
+                            )}
 
                             <button
                               type="button"
                               onClick={() => downloadDonorReceiptPdf(donor, settings)}
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded-xl bg-[#2b1008] hover:bg-[#3d170b] border border-amber-500/40 text-amber-200 text-xs font-semibold transition-all"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-[#2b1008] hover:bg-[#3d170b] border border-amber-500/40 text-amber-200 text-xs font-semibold transition-all"
                               title="Download Official A4 PDF Bill"
                             >
                               <FileText className="w-3.5 h-3.5 text-amber-400" />
@@ -526,7 +607,7 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
                             <button
                               type="button"
                               onClick={() => downloadDonorReceiptPng(donor, settings)}
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded-xl bg-[#2b1008] hover:bg-[#3d170b] border border-amber-500/40 text-amber-200 text-xs font-semibold transition-all"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-[#2b1008] hover:bg-[#3d170b] border border-amber-500/40 text-amber-200 text-xs font-semibold transition-all"
                               title="Download PNG Image Receipt"
                             >
                               <Download className="w-3.5 h-3.5 text-amber-400" />
@@ -561,7 +642,7 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
                           <button
                             onClick={() => handleOpenEdit(donor)}
                             className="p-1.5 rounded-lg bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-amber-950 transition-all text-xs"
-                            title="Edit Donor Details (Admin Only)"
+                            title="Edit Donor Details & Special Donor Status (Admin Only)"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>
@@ -584,8 +665,8 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
         )}
       </div>
 
-      {/* Verification Success & Instant WhatsApp Send Modal */}
-      {verifySuccessDonor && (
+      {/* Verification Success & Instant WhatsApp Send Modal (Admin Only) */}
+      {verifySuccessDonor && isAdmin && (
         <div 
           className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
           onClick={() => setVerifySuccessDonor(null)}
@@ -615,23 +696,23 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
             {verifySuccessDonor.phone ? (
               <div className="p-3 bg-emerald-950/50 border border-emerald-500/30 rounded-2xl space-y-2">
                 <p className="text-xs text-emerald-200">
-                  📲 Send official receipt with PNG image to donor on WhatsApp (+91 <strong>{verifySuccessDonor.phone}</strong>)?
+                  📲 Send official receipt to donor on WhatsApp (+91 <strong>{verifySuccessDonor.phone}</strong>)?
                 </p>
                 <button
                   type="button"
-                  onClick={async () => {
-                    await shareDonorReceiptWithImage(verifySuccessDonor, settings);
+                  onClick={() => {
+                    sendWhatsAppReceipt(verifySuccessDonor, settings);
                     setVerifySuccessDonor(null);
                   }}
                   className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold text-xs shadow-md hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-1.5"
                 >
                   <Share2 className="w-4 h-4" />
-                  <span>Send WhatsApp Receipt + Image 🚀</span>
+                  <span>Send WhatsApp Receipt Now 🚀</span>
                 </button>
               </div>
             ) : (
               <div className="p-3 bg-[#180702] border border-amber-500/20 rounded-2xl space-y-2 text-xs text-amber-300/80">
-                <p>No phone number was provided by this donor. You can download or share the bill manually.</p>
+                <p>No phone number provided. You can download or share the bill manually.</p>
                 <div className="flex gap-2 justify-center">
                   <button
                     type="button"
@@ -639,13 +720,6 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
                     className="py-1.5 px-3 rounded-lg bg-[#2b1008] border border-amber-500/40 text-amber-200 text-xs font-semibold"
                   >
                     Download PDF
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => shareDonorReceiptWithImage(verifySuccessDonor, settings)}
-                    className="py-1.5 px-3 rounded-lg bg-emerald-700 text-white text-xs font-semibold"
-                  >
-                    Share with Image
                   </button>
                 </div>
               </div>
@@ -662,8 +736,8 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
         </div>
       )}
 
-      {/* Admin Edit Modal */}
-      {editingDonor && (
+      {/* Admin Edit Modal (with Special Donor Toggle & Special Contribution field) */}
+      {editingDonor && isAdmin && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-md bg-gradient-to-b from-[#240e06] via-[#1c0803] to-[#120502] border-2 border-amber-500/40 rounded-3xl shadow-2xl overflow-hidden max-h-[92dvh] flex flex-col my-auto">
             
@@ -675,13 +749,14 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
                 <X className="w-5 h-5" />
               </button>
               <h3 className="font-devotional text-base font-bold gold-gradient-text">
-                దాత వివరాల సవరణ | Edit Donor
+                దాత వివరాల సవరణ | Edit Donor (Admin Only)
               </h3>
             </div>
 
             <form onSubmit={handleSaveEdit} className="p-4 sm:p-6 space-y-3.5 overflow-y-auto custom-scrollbar flex-1 text-xs">
+              
               <div>
-                <label className="block text-amber-300/80 mb-1">Donor Name</label>
+                <label className="block text-amber-300/80 mb-1">Donor Name *</label>
                 <input
                   type="text"
                   required
@@ -693,15 +768,6 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-amber-300/80 mb-1">Gotram (గోత్రం)</label>
-                  <input
-                    type="text"
-                    value={editForm.gotram}
-                    onChange={(e) => setEditForm({ ...editForm, gotram: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-[#170702] border border-amber-500/30 text-amber-100 focus:outline-none"
-                  />
-                </div>
-                <div>
                   <label className="block text-amber-300/80 mb-1">Mobile / WhatsApp</label>
                   <input
                     type="tel"
@@ -711,11 +777,8 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
                     className="w-full px-3 py-2 rounded-xl bg-[#170702] border border-amber-500/30 text-amber-100 focus:outline-none"
                   />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-amber-300/80 mb-1">Amount (₹)</label>
+                  <label className="block text-amber-300/80 mb-1">Amount (₹) *</label>
                   <input
                     type="number"
                     required
@@ -724,21 +787,58 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
                     className="w-full px-3 py-2 rounded-xl bg-[#170702] border border-amber-500/30 text-amber-100 focus:outline-none"
                   />
                 </div>
-                <div>
-                  <label className="block text-amber-300/80 mb-1">Status</label>
-                  <select
-                    value={editForm.status}
-                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-[#170702] border border-amber-500/30 text-amber-100 focus:outline-none"
-                  >
-                    <option value="Verified">Verified ✅</option>
-                    <option value="Pending Verification">Pending ⏳</option>
-                  </select>
-                </div>
               </div>
 
               <div>
-                <label className="block text-amber-300/80 mb-1">Devotional Message</label>
+                <label className="block text-amber-300/80 mb-1">Verification Status</label>
+                <select
+                  value={editForm.status}
+                  onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-[#170702] border border-amber-500/30 text-amber-100 focus:outline-none"
+                >
+                  <option value="Verified">Verified ✅ (ధృవీకరించబడింది)</option>
+                  <option value="Pending Verification">Pending Verification ⏳</option>
+                </select>
+              </div>
+
+              {/* Special Donor Configuration Box (Admin Only) */}
+              <div className="p-3 rounded-2xl bg-amber-950/40 border border-amber-500/30 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editForm.isSpecialDonor}
+                      disabled={editForm.status !== 'Verified'}
+                      onChange={(e) => setEditForm({ ...editForm, isSpecialDonor: e.target.checked })}
+                      className="w-4 h-4 rounded text-amber-500 focus:ring-amber-400 bg-[#170702] border-amber-500/50 cursor-pointer"
+                    />
+                    <span className="text-amber-200 font-bold text-xs">
+                      🌟 విశిష్ట దాత బ్యాడ్జ్ (Special Donor Badge)
+                    </span>
+                  </label>
+                  {editForm.status !== 'Verified' && (
+                    <span className="text-[10px] text-amber-400/60 italic">Requires verification</span>
+                  )}
+                </div>
+
+                {editForm.isSpecialDonor && editForm.status === 'Verified' && (
+                  <div>
+                    <label className="block text-amber-300/80 mb-1 text-[11px]">
+                      Special Contribution / విశిష్ట సేవ వివరాలు *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. శ్రీ వినాయక వెండి కిరీటం విరాళం, మహా అన్నదానం స్పాన్సర్..."
+                      value={editForm.specialContribution}
+                      onChange={(e) => setEditForm({ ...editForm, specialContribution: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-[#170702] border border-amber-500/40 text-amber-100 text-xs focus:outline-none focus:border-amber-400 placeholder:text-amber-400/40"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-amber-300/80 mb-1">Devotional Message / Wishes</label>
                 <textarea
                   rows="2"
                   value={editForm.message}
@@ -748,7 +848,7 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
               </div>
 
               <div>
-                <label className="block text-amber-300/80 mb-1">Payment Screenshot</label>
+                <label className="block text-amber-300/80 mb-1">Payment Screenshot Proof</label>
                 <label className="w-full py-2 px-3 rounded-xl bg-[#1e0a04] hover:bg-[#2b1008] border border-amber-500/30 text-amber-200 text-center cursor-pointer flex items-center justify-center gap-2">
                   <Upload className="w-3.5 h-3.5 text-amber-400" />
                   <span>{isUploadingReceipt ? 'Uploading...' : editForm.receiptUrl ? 'Change Screenshot' : 'Upload Screenshot'}</span>

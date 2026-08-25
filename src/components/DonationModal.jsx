@@ -3,7 +3,8 @@ import { X, Heart, QrCode, CheckCircle2, Copy, Download, Share2, Sparkles, Smart
 import { QRCodeSVG } from 'qrcode.react';
 import confetti from 'canvas-confetti';
 import { api } from '../services/api';
-import { downloadDonorReceiptPdf, downloadDonorReceiptPng, sendWhatsAppReceipt, shareDonorReceiptWithImage } from '../utils/receiptGenerator';
+import { playTempleBell } from '../utils/audio';
+import { downloadDonorReceiptPdf, downloadDonorReceiptPng, sendWhatsAppReceipt } from '../utils/receiptGenerator';
 
 const PRESET_AMOUNTS = [101, 251, 501, 1116, 2116, 5116, 11116];
 
@@ -11,7 +12,6 @@ export const DonationModal = ({ isOpen, onClose, settings, onDonationSuccess }) 
   const [selectedAmount, setSelectedAmount] = useState(501);
   const [customAmount, setCustomAmount] = useState('');
   const [name, setName] = useState('');
-  const [gotram, setGotram] = useState('');
   const [phone, setPhone] = useState('');
   const [message, setMessage] = useState('');
   const [referenceNo, setReferenceNo] = useState('');
@@ -72,7 +72,6 @@ export const DonationModal = ({ isOpen, onClose, settings, onDonationSuccess }) 
     try {
       const payload = {
         name: name.trim(),
-        gotram: gotram.trim() || 'Shiva',
         phone: phone.trim(),
         amount: Math.abs(Math.floor(validatedAmount)),
         paymentMode,
@@ -106,7 +105,6 @@ export const DonationModal = ({ isOpen, onClose, settings, onDonationSuccess }) 
   const resetAndClose = () => {
     setDonationComplete(null);
     setName('');
-    setGotram('');
     setPhone('');
     setMessage('');
     setReferenceNo('');
@@ -230,11 +228,11 @@ export const DonationModal = ({ isOpen, onClose, settings, onDonationSuccess }) 
               <div className="flex flex-wrap items-center gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => shareDonorReceiptWithImage(donationComplete, settings)}
+                  onClick={() => sendWhatsAppReceipt(donationComplete, settings)}
                   className="flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs sm:text-sm shadow-md active:scale-95 transition-all flex items-center justify-center gap-1.5"
                 >
                   <Share2 className="w-4 h-4" />
-                  <span>Send to WhatsApp + Image 📱</span>
+                  <span>Send to WhatsApp 📱</span>
                 </button>
 
                 <button
@@ -418,21 +416,6 @@ export const DonationModal = ({ isOpen, onClose, settings, onDonationSuccess }) 
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-amber-300 mb-1">
-                      Gotram / Family Lineage (గోత్రం)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Kasyapa, Shiva, Bharadwaja"
-                      value={gotram}
-                      onChange={(e) => setGotram(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl bg-[#2b1008] border border-amber-500/30 text-amber-100 text-sm focus:outline-none focus:border-amber-400"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
                     <label className="block text-xs font-medium text-amber-300 mb-1 flex items-center justify-between">
                       <span>Mobile / WhatsApp Number</span>
                       <span className="text-[10px] text-emerald-400 font-bold">📲 WhatsApp Receipt</span>
@@ -445,7 +428,9 @@ export const DonationModal = ({ isOpen, onClose, settings, onDonationSuccess }) 
                       className="w-full px-3 py-2 rounded-xl bg-[#2b1008] border border-amber-500/30 text-amber-100 text-sm focus:outline-none focus:border-amber-400"
                     />
                   </div>
+                </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-amber-300 mb-1">
                       Payment Mode

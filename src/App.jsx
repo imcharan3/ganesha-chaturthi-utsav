@@ -1,6 +1,12 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { HeroSection } from './components/HeroSection';
+import { DonorsList } from './components/DonorsList';
+import { LadduAuction } from './components/LadduAuction';
+import { EventsTimeline } from './components/EventsTimeline';
+import { YouthChat } from './components/YouthChat';
+import { DonationModal } from './components/DonationModal';
+import { AdminModal } from './components/AdminModal';
 import { MobileNav } from './components/MobileNav';
 import { InstallAppBanner } from './components/InstallAppBanner';
 import { AppSplashScreen } from './components/AppSplashScreen';
@@ -8,22 +14,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { SocketProvider, useSocket } from './context/SocketContext';
 import { api } from './services/api';
 import { playTempleBell } from './utils/audio';
-
-// Code-split heavy tabs for lightning-fast initial page load
-const DonorsList = lazy(() => import('./components/DonorsList').then(m => ({ default: m.DonorsList })));
-const LadduAuction = lazy(() => import('./components/LadduAuction').then(m => ({ default: m.LadduAuction })));
-const EventsTimeline = lazy(() => import('./components/EventsTimeline').then(m => ({ default: m.EventsTimeline })));
-const YouthChat = lazy(() => import('./components/YouthChat').then(m => ({ default: m.YouthChat })));
-const DonationModal = lazy(() => import('./components/DonationModal').then(m => ({ default: m.DonationModal })));
-const AdminModal = lazy(() => import('./components/AdminModal').then(m => ({ default: m.AdminModal })));
-
-// Lightweight tab loading fallback
-const TabLoader = () => (
-  <div className="flex flex-col items-center justify-center min-h-[40vh] space-y-3 p-8">
-    <div className="w-10 h-10 border-4 border-amber-500/30 border-t-amber-400 rounded-full animate-spin" />
-    <span className="text-xs text-amber-300 font-semibold animate-pulse">జై గణేష్... లోడ్ అవుతోంది...</span>
-  </div>
-);
+import { X, MessageSquare } from 'lucide-react';
 
 function MainApp() {
   const [activeTab, setActiveTab] = useState('home');
@@ -39,6 +30,17 @@ function MainApp() {
   const [messages, setMessages] = useState([]);
   const [auction, setAuction] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const [chatToast, setChatToast] = useState(null);
+
+  // Clear unread messages when switching to chat
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    if (tabId === 'chat') {
+      setUnreadMessages(0);
+      setChatToast(null);
+    }
+  };
 
   // Fetch initial data
   const fetchData = async () => {
@@ -89,6 +91,27 @@ function MainApp() {
 
     socket.on('message:new', (msg) => {
       setMessages(prev => [...prev, msg]);
+      
+      // If user is currently not on the chat tab, notify them!
+      setActiveTab(currentTab => {
+        if (currentTab !== 'chat') {
+          setUnreadMessages(prev => prev + 1);
+          setChatToast(msg);
+          setTimeout(() => setChatToast(null), 6000);
+          playTempleBell();
+
+          // Native browser push notification if permitted
+          if ('Notification' in window && Notification.permission === 'granted') {
+            try {
+              new Notification(`💬 ${msg.senderName || 'Youth Member'}`, {
+                body: msg.text || 'Shared an attachment/voice message',
+                icon: '/colony_logo.jpg'
+              });
+            } catch (e) {}
+          }
+        }
+        return currentTab;
+      });
     });
 
     socket.on('message:reaction', ({ id, reactions }) => {
@@ -143,9 +166,10 @@ function MainApp() {
       {/* Top Devotional Header */}
       <Navbar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleTabChange}
         onOpenDonation={() => setIsDonationOpen(true)}
         settings={settings}
+        unreadMessages={unreadMessages}
       />
 
       {/* Main Tab Content */}
@@ -199,39 +223,37 @@ function MainApp() {
           </div>
         )}
 
-        <Suspense fallback={<TabLoader />}>
-          {activeTab === 'donors' && (
-            <DonorsList
-              donors={donors}
-              stats={stats}
-              settings={settings}
-              onOpenDonation={() => setIsDonationOpen(true)}
-              onRefreshDonors={fetchData}
-            />
-          )}
+        {activeTab === 'donors' && (
+          <DonorsList
+            donors={donors}
+            stats={stats}
+            settings={settings}
+            onOpenDonation={() => setIsDonationOpen(true)}
+            onRefreshDonors={fetchData}
+          />
+        )}
 
-          {activeTab === 'auction' && (
-            <LadduAuction
-              onOpenDonation={() => setIsDonationOpen(true)}
-            />
-          )}
+        {activeTab === 'auction' && (
+          <LadduAuction
+            onOpenDonation={() => setIsDonationOpen(true)}
+          />
+        )}
 
-          {activeTab === 'events' && (
-            <EventsTimeline
-              events={events}
-              settings={settings}
-              onRefreshEvents={fetchData}
-              setActiveTab={setActiveTab}
-            />
-          )}
+        {activeTab === 'events' && (
+          <EventsTimeline
+            events={events}
+            settings={settings}
+            onRefreshEvents={fetchData}
+            setActiveTab={setActiveTab}
+          />
+        )}
 
-          {activeTab === 'chat' && (
-            <YouthChat
-              messages={messages}
-              onRefreshMessages={fetchData}
-            />
-          )}
-        </Suspense>
+        {activeTab === 'chat' && (
+          <YouthChat
+            messages={messages}
+            onRefreshMessages={fetchData}
+          />
+        )}
       </main>
 
       {/* Devotional Footer */}
@@ -275,28 +297,47 @@ function MainApp() {
         </p>
       </footer>
 
-      {/* Lazy Modals */}
-      <Suspense fallback={null}>
-        {/* Donation Modal */}
-        {isDonationOpen && (
-          <DonationModal
-            isOpen={isDonationOpen}
-            onClose={() => setIsDonationOpen(false)}
-            settings={settings}
-            onDonationSuccess={() => fetchData()}
-          />
-        )}
+      {/* Donation Modal */}
+      <DonationModal
+        isOpen={isDonationOpen}
+        onClose={() => setIsDonationOpen(false)}
+        settings={settings}
+        onDonationSuccess={() => fetchData()}
+      />
 
-        {/* Admin PIN & Configuration Modal */}
-        {isAdminModalOpen && (
-          <AdminModal
-            isOpen={isAdminModalOpen}
-            onClose={() => setIsAdminModalOpen(false)}
-            settings={settings}
-            onRefreshSettings={fetchData}
-          />
-        )}
-      </Suspense>
+      {/* Admin PIN & Configuration Modal */}
+      <AdminModal
+        isOpen={isAdminModalOpen}
+        onClose={() => setIsAdminModalOpen(false)}
+        settings={settings}
+        onRefreshSettings={fetchData}
+      />
+
+      {/* Floating Chat Message Toast Banner */}
+      {chatToast && activeTab !== 'chat' && (
+        <div 
+          onClick={() => handleTabChange('chat')}
+          className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-50 bg-[#250c05] border-2 border-amber-400 p-3.5 rounded-2xl shadow-2xl flex items-center gap-3 cursor-pointer hover:scale-105 transition-transform animate-bounce max-w-xs sm:max-w-sm"
+        >
+          <div className="w-10 h-10 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400 flex items-center justify-center text-lg shrink-0">
+            💬
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider block">New Youth Chat Message</span>
+            <strong className="text-xs text-amber-100 block truncate">{chatToast.senderName || 'Youth Member'}</strong>
+            <p className="text-[11px] text-amber-200/80 truncate">{chatToast.text || 'Sent an attachment / voice'}</p>
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setChatToast(null);
+            }}
+            className="p-1 text-amber-400 hover:text-white"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* 1-Tap Mobile App Install Banner */}
       <InstallAppBanner />
@@ -304,8 +345,9 @@ function MainApp() {
       {/* Mobile App Navigation Bar */}
       <MobileNav
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleTabChange}
         onOpenDonation={() => setIsDonationOpen(true)}
+        unreadMessages={unreadMessages}
       />
 
     </div>

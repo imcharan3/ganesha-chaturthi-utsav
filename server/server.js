@@ -2,7 +2,6 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import express from 'express';
-import compression from 'compression';
 import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
@@ -50,12 +49,9 @@ const upload = multer({
 });
 
 // Middleware
-app.use(compression());
 app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static(UPLOADS_DIR, {
-  maxAge: '7d'
-}));
+app.use('/uploads', express.static(UPLOADS_DIR));
 
 // Admin Auth Middleware helper
 function verifyAdmin(req, res, next) {
@@ -158,7 +154,7 @@ app.get('/api/donors', (req, res) => {
 });
 
 app.post('/api/donors', (req, res) => {
-  const { name, amount, gotram, phone, paymentMode, referenceNo, message, receiptUrl, status } = req.body;
+  const { name, amount, gotram, phone, paymentMode, referenceNo, message, receiptUrl, status, isSpecialDonor, specialContribution } = req.body;
   const numAmount = Number(amount);
 
   if (!name || isNaN(numAmount) || numAmount <= 0) {
@@ -179,12 +175,14 @@ app.post('/api/donors', (req, res) => {
   const newDonor = db.addDonor({
     name: name.trim(),
     amount: Math.floor(numAmount),
-    gotram: gotram ? gotram.trim() : 'Shiva',
+    gotram: gotram ? gotram.trim() : '',
     phone: phone ? phone.trim() : '',
     paymentMode: paymentMode || 'UPI',
     referenceNo: referenceNo || `REF-${Date.now().toString().slice(-6)}`,
     message: message || '',
     receiptUrl: receiptUrl || null,
+    isSpecialDonor: isAdmin ? Boolean(isSpecialDonor) : false,
+    specialContribution: isAdmin ? (specialContribution || '').trim() : '',
     status: initialStatus
   });
 
@@ -284,11 +282,11 @@ app.put('/api/admin/auction/status', verifyAdmin, (req, res) => {
 });
 
 app.post('/api/admin/auction/bidders', verifyAdmin, (req, res) => {
-  const { name, gotram, phone } = req.body;
+  const { name, phone } = req.body;
   if (!name || !name.trim()) {
     return res.status(400).json({ error: 'Bidder name is required' });
   }
-  const newBidder = db.addRegisteredBidder({ name, gotram, phone });
+  const newBidder = db.addRegisteredBidder({ name, phone });
   const updated = db.getAuction();
   io.emit('auction:updated', updated);
   res.json({ success: true, bidder: newBidder, auction: updated });
@@ -296,11 +294,11 @@ app.post('/api/admin/auction/bidders', verifyAdmin, (req, res) => {
 
 app.put('/api/admin/auction/bidders/:id', verifyAdmin, (req, res) => {
   const { id } = req.params;
-  const { name, gotram, phone } = req.body;
+  const { name, phone } = req.body;
   if (!name || !name.trim()) {
     return res.status(400).json({ error: 'Bidder name is required' });
   }
-  const result = db.updateRegisteredBidder(id, { name, gotram, phone });
+  const result = db.updateRegisteredBidder(id, { name, phone });
   if (!result) {
     return res.status(404).json({ error: 'Bidder not found' });
   }
@@ -317,9 +315,8 @@ app.delete('/api/admin/auction/bidders/:id', verifyAdmin, (req, res) => {
 });
 
 app.post('/api/admin/auction/bid', verifyAdmin, (req, res) => {
-  const { bidderName, gotram, amount, note, phone } = req.body;
+  const { bidderName, amount, note, phone } = req.body;
   const numAmount = Number(amount);
-  const auction = db.getAuction();
 
   if (!bidderName || !bidderName.trim()) {
     return res.status(400).json({ error: 'Bidder name is required' });
@@ -329,10 +326,16 @@ app.post('/api/admin/auction/bid', verifyAdmin, (req, res) => {
     return res.status(400).json({ error: 'Valid bid amount is required' });
   }
 
-  const result = db.addBid({ bidderName, gotram, amount: numAmount, note, phone });
+  const result = db.addBid({ bidderName, amount: numAmount, note, phone });
   io.emit('auction:newBid', {
     newBid: result.newBid,
-    auction: result.auction
+    auction: result.auction,
+    notification: {
+      title: '🏆 Live Laddu Auction - New Bid!',
+      message: `${bidderName.trim()} placed ₹${numAmount.toLocaleString('en-IN')} on Maha Laddu!`,
+      amount: numAmount,
+      bidderName: bidderName.trim()
+    }
   });
   res.json({ success: true, newBid: result.newBid, auction: result.auction });
 });
@@ -347,8 +350,8 @@ app.post('/api/admin/auction/undo', verifyAdmin, (req, res) => {
 });
 
 app.post('/api/admin/auction/winner', verifyAdmin, (req, res) => {
-  const { winnerName, gotram, winningBid, phone, message } = req.body;
-  const updated = db.declareWinner({ winnerName, gotram, winningBid, phone, message });
+  const { winnerName, winningBid, phone, message } = req.body;
+  const updated = db.declareWinner({ winnerName, winningBid, phone, message });
   io.emit('auction:winnerDeclared', updated);
   res.json({ success: true, auction: updated });
 });

@@ -1,17 +1,57 @@
-import React, { useState } from 'react';
-import { Calendar, Clock, MapPin, Sparkles, Trophy, Utensils, Flame, Download, CheckCircle2, ChevronRight, Edit3, Shield } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Calendar, Clock, MapPin, Sparkles, Trophy, Utensils, Flame, Download, CheckCircle2, ChevronRight, Edit3, Shield, Bell, BellRing, Volume2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
+import { playTempleBell } from '../utils/audio';
 
 export const EventsTimeline = ({ events, settings, onRefreshEvents, setActiveTab }) => {
   const { isAdmin, adminToken } = useAuth();
   const [selectedDay, setSelectedDay] = useState(1);
+  const [alertsEnabled, setAlertsEnabled] = useState(() => {
+    return localStorage.getItem('vcgd_event_alerts') === 'true';
+  });
+  const [upcomingHourEvent, setUpcomingHourEvent] = useState(null);
   
   // Admin Edit Event State
   const [editingEvent, setEditingEvent] = useState(null);
   const [editForm, setEditForm] = useState({ title: '', time: '', description: '', status: 'Upcoming' });
 
   const currentEvent = events?.find(e => e.dayNumber === selectedDay) || events?.[0];
+
+  // Check for upcoming event within 1 hour or active today
+  useEffect(() => {
+    if (!events || events.length === 0) return;
+    // Default to the first upcoming or in-progress event
+    const upcoming = events.find(e => e.status === 'In Progress' || e.status === 'Upcoming') || events[0];
+    setUpcomingHourEvent(upcoming);
+  }, [events]);
+
+  const handleToggle1HourAlerts = async () => {
+    if (!alertsEnabled) {
+      if ('Notification' in window) {
+        const perm = await Notification.requestPermission();
+        if (perm === 'granted') {
+          playTempleBell();
+          setAlertsEnabled(true);
+          localStorage.setItem('vcgd_event_alerts', 'true');
+          new Notification('🔔 ఉత్సవ కార్యక్రమ హెచ్చరికలు ప్రారంభమయ్యాయి!', {
+            body: 'మీకు ప్రతి కార్యక్రమానికి 1 గంట ముందు హెచ్చరిక (1-Hour Alert) అందుతుంది. శుభం!',
+            icon: '/colony_logo.jpg'
+          });
+          alert('✅ 1-Hour Prior Event Alerts enabled! You will receive notifications before upcoming pooja & events.');
+        } else {
+          alert('Please allow browser notifications to receive 1-hour prior event alerts.');
+        }
+      } else {
+        setAlertsEnabled(true);
+        localStorage.setItem('vcgd_event_alerts', 'true');
+      }
+    } else {
+      setAlertsEnabled(false);
+      localStorage.setItem('vcgd_event_alerts', 'false');
+      alert('Event alerts turned off.');
+    }
+  };
 
   // Helper to generate iCalendar (.ics) event reminder
   const downloadCalendarReminder = (event) => {
@@ -82,13 +122,63 @@ export const EventsTimeline = ({ events, settings, onRefreshEvents, setActiveTab
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="px-3 py-1.5 rounded-xl bg-black/40 border border-amber-500/20 text-xs text-amber-300 flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center justify-center md:justify-end gap-2">
+          <button
+            onClick={handleToggle1HourAlerts}
+            className={`px-4 py-2 rounded-2xl font-bold text-xs flex items-center gap-2 shadow-md transition-all active:scale-95 ${
+              alertsEnabled
+                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border border-emerald-400/50 shadow-[0_0_15px_rgba(16,185,129,0.3)]'
+                : 'bg-[#2b1008] hover:bg-[#3d170b] text-amber-200 border border-amber-500/40'
+            }`}
+          >
+            {alertsEnabled ? (
+              <>
+                <BellRing className="w-4 h-4 text-emerald-200 animate-bounce" />
+                <span>1-Hour Prior Alerts ON 🔔</span>
+              </>
+            ) : (
+              <>
+                <Bell className="w-4 h-4 text-amber-400" />
+                <span>Enable 1-Hour Alerts 🔔</span>
+              </>
+            )}
+          </button>
+
+          <div className="px-3 py-2 rounded-2xl bg-black/40 border border-amber-500/20 text-xs text-amber-300 flex items-center gap-1.5">
             <MapPin className="w-4 h-4 text-saffron-400" />
             <span>{settings?.location || 'Main Mandapam'}</span>
           </div>
         </div>
       </div>
+
+      {/* 1-Hour Prior Devotee Alert Banner */}
+      {upcomingHourEvent && (
+        <div className="temple-card p-4 rounded-2xl border-2 border-amber-400/70 bg-gradient-to-r from-[#2a0e06] via-[#1f0903] to-[#2a0e06] shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 animate-pulse">
+          <div className="flex items-center gap-3 text-center sm:text-left">
+            <div className="w-10 h-10 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400 flex items-center justify-center text-lg shrink-0">
+              🔔
+            </div>
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 block">
+                ⚡ రాబోయే కార్యక్రమ హెచ్చరిక • 1-Hour Event Alert
+              </span>
+              <h4 className="text-sm sm:text-base font-extrabold text-amber-50 font-devotional">
+                Day {upcomingHourEvent.dayNumber}: {upcomingHourEvent.title} ({upcomingHourEvent.time})
+              </h4>
+              <p className="text-xs text-amber-300/80 line-clamp-1 font-telugu">
+                {upcomingHourEvent.titleTelugu} • భక్తులందరూ పూజా కార్యక్రమంలో పాల్గొనవలసిందిగా మనవి!
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setSelectedDay(upcomingHourEvent.dayNumber)}
+            className="px-3.5 py-1.5 rounded-xl bg-amber-500 text-amber-950 font-extrabold text-xs shrink-0 shadow hover:brightness-110 active:scale-95 transition-all"
+          >
+            కార్యక్రమ వివరాలు ➔
+          </button>
+        </div>
+      )}
 
       {/* 4 Days Tab Switcher */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">

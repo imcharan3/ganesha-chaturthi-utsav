@@ -137,16 +137,10 @@ export const generateAuctionPoster = async (winnerData, settings) => {
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 54px "Noto Sans Telugu", Outfit, sans-serif';
   const winnerName = winnerData?.name || 'భక్తుడు';
-  ctx.fillText(winnerName, width / 2, cardY + 135);
-
-  // Gotram
-  ctx.fillStyle = '#fde68a';
-  ctx.font = '600 28px "Noto Sans Telugu", Outfit, sans-serif';
-  const gotramText = `గోత్రం: ${winnerData?.gotram || 'శివ గోత్రం'}`;
-  ctx.fillText(gotramText, width / 2, cardY + 185);
+  ctx.fillText(winnerName, width / 2, cardY + 145);
 
   // Winning Amount Golden Highlight Box
-  const amountBoxY = cardY + 235;
+  const amountBoxY = cardY + 215;
   const amountBoxGrad = ctx.createLinearGradient(width / 2 - 250, 0, width / 2 + 250, 0);
   amountBoxGrad.addColorStop(0, '#b45309');
   amountBoxGrad.addColorStop(0.5, '#f59e0b');
@@ -217,7 +211,7 @@ export const downloadAuctionPoster = (canvas, filename = 'Vijaya_Colony_Ganesha_
 export const shareAuctionPoster = async (canvas, winnerData, settings) => {
   const winnerName = winnerData?.name || 'మహా భక్తుడు';
   const amount = Number(winnerData?.winningBid || 0).toLocaleString('en-IN');
-  const caption = `🌺 *శ్రీ వినాయక చవితి 2026 - మహా లడ్డూ వేలం పాట విజేత* 🌺\n\n🏆 *విజేత:* ${winnerName}\n🚩 *గోత్రం:* ${winnerData?.gotram || 'శివ గోత్రం'}\n💰 *గెలుచుకున్న మొత్తం:* ₹${amount}/-\n\nశ్రీ వరసిద్ధి వినాయక స్వామి అనుగ్రహం అందరిపై ఉండుగాక! 🙏🚩\n\n- *విజయ కాలనీ గణేష్ డైరీస్*\n📸 *Instagram:* @vijayacolony_ganesha_diaries\n🌐 https://ganesha-chaturthi-utsav.onrender.com/`;
+  const caption = `🌺 *శ్రీ వినాయక చవితి 2026 - మహా లడ్డూ వేలం పాట విజేత* 🌺\n\n🏆 *విజేత:* ${winnerName}\n💰 *గెలుచుకున్న మొత్తం:* ₹${amount}/-\n\nశ్రీ వరసిద్ధి వినాయక స్వామి అనుగ్రహం అందరిపై ఉండుగాక! 🙏🚩\n\n- *విజయ కాలనీ గణేష్ డైరీస్*\n📸 *Instagram:* @vijayacolony_ganesha_diaries\n🌐 https://ganesha-chaturthi-utsav.onrender.com/`;
 
   try {
     if (navigator.canShare) {

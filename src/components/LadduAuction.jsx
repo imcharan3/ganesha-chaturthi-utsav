@@ -20,13 +20,13 @@ export const LadduAuction = ({ onOpenDonation }) => {
   const [loading, setLoading] = useState(true);
   const [selectedBidder, setSelectedBidder] = useState(null);
   const [customBidderName, setCustomBidderName] = useState('');
-  const [customBidderGotram, setCustomBidderGotram] = useState('');
   const [bidAmount, setBidAmount] = useState('');
   const [isPlacingBid, setIsPlacingBid] = useState(false);
+  const [liveBidAlert, setLiveBidAlert] = useState(null);
   const [showAddBidderModal, setShowAddBidderModal] = useState(false);
   const [showEditBidderModal, setShowEditBidderModal] = useState(false);
   const [editingBidder, setEditingBidder] = useState(null);
-  const [editBidderForm, setEditBidderForm] = useState({ name: '', gotram: 'శివ గోత్రం', phone: '' });
+  const [editBidderForm, setEditBidderForm] = useState({ name: '', phone: '' });
   const [showDeclareWinnerModal, setShowDeclareWinnerModal] = useState(false);
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [setupForm, setSetupForm] = useState({
@@ -35,7 +35,7 @@ export const LadduAuction = ({ onOpenDonation }) => {
     minIncrement: 0,
     itemTitle: 'శ్రీ వినాయక మహా లడ్డూ ప్రసాదం'
   });
-  const [newBidderForm, setNewBidderForm] = useState({ name: '', gotram: 'శివ గోత్రం', phone: '' });
+  const [newBidderForm, setNewBidderForm] = useState({ name: '', phone: '' });
   const [isGeneratingPoster, setIsGeneratingPoster] = useState(false);
   const [settings, setSettings] = useState(null);
 
@@ -87,9 +87,28 @@ export const LadduAuction = ({ onOpenDonation }) => {
       }
     };
 
-    const handleNewBid = ({ newBid, auction: updatedAuction }) => {
+    const handleNewBid = ({ newBid, auction: updatedAuction, notification }) => {
       setAuction(updatedAuction);
       playTempleBell();
+
+      if (newBid) {
+        setLiveBidAlert({
+          bidderName: newBid.bidderName,
+          amount: newBid.amount
+        });
+        setTimeout(() => setLiveBidAlert(null), 6000);
+
+        // System / Browser Notification if permitted
+        if ('Notification' in window && Notification.permission === 'granted') {
+          try {
+            new Notification('🏆 Live Laddu Auction - New Bid!', {
+              body: `${newBid.bidderName} placed ₹${Number(newBid.amount).toLocaleString('en-IN')} on Maha Laddu!`,
+              icon: '/colony_logo.jpg'
+            });
+          } catch (e) {}
+        }
+      }
+
       if (updatedAuction) {
         const nextStep = (Number(updatedAuction.currentHighestBid) || 5001) + (Number(updatedAuction.minIncrement) || 50);
         setBidAmount(nextStep.toString());
@@ -147,7 +166,6 @@ export const LadduAuction = ({ onOpenDonation }) => {
   const handlePlaceBid = async (e) => {
     if (e) e.preventDefault();
     const bidderName = selectedBidder ? selectedBidder.name : customBidderName.trim();
-    const gotram = selectedBidder ? selectedBidder.gotram : (customBidderGotram.trim() || 'శివ గోత్రం');
     const numAmount = Number(bidAmount);
 
     if (!bidderName) {
@@ -164,7 +182,6 @@ export const LadduAuction = ({ onOpenDonation }) => {
     try {
       const res = await api.placeAuctionBid({
         bidderName,
-        gotram,
         amount: numAmount
       }, adminToken);
 
@@ -174,7 +191,6 @@ export const LadduAuction = ({ onOpenDonation }) => {
       // Clear custom fields if typed
       if (!selectedBidder) {
         setCustomBidderName('');
-        setCustomBidderGotram('');
       }
     } catch (err) {
       alert(err.message || 'Failed to place bid');
@@ -202,11 +218,11 @@ export const LadduAuction = ({ onOpenDonation }) => {
     e.preventDefault();
     if (!newBidderForm.name.trim()) return;
     try {
-      const res = await api.addAuctionBidder(newBidderForm, adminToken);
+      const res = await api.addAuctionBidder({ name: newBidderForm.name.trim(), phone: (newBidderForm.phone || '').trim() }, adminToken);
       setAuction(res.auction);
       setSelectedBidder(res.bidder);
       setShowAddBidderModal(false);
-      setNewBidderForm({ name: '', gotram: 'శివ గోత్రం', phone: '' });
+      setNewBidderForm({ name: '', phone: '' });
     } catch (err) {
       alert(err.message || 'Failed to add bidder');
     }
@@ -216,7 +232,6 @@ export const LadduAuction = ({ onOpenDonation }) => {
     setEditingBidder(bidder);
     setEditBidderForm({
       name: bidder.name || '',
-      gotram: bidder.gotram || 'శివ గోత్రం',
       phone: bidder.phone || ''
     });
     setShowEditBidderModal(true);
@@ -226,7 +241,7 @@ export const LadduAuction = ({ onOpenDonation }) => {
     e.preventDefault();
     if (!editingBidder || !editBidderForm.name.trim()) return;
     try {
-      const res = await api.updateAuctionBidder(editingBidder.id, editBidderForm, adminToken);
+      const res = await api.updateAuctionBidder(editingBidder.id, { name: editBidderForm.name.trim(), phone: (editBidderForm.phone || '').trim() }, adminToken);
       setAuction(res.auction);
       if (selectedBidder?.id === editingBidder.id) {
         setSelectedBidder(res.bidder);
@@ -253,7 +268,6 @@ export const LadduAuction = ({ onOpenDonation }) => {
   const handleDeclareWinner = async () => {
     const winnerName = auction?.highestBidderName;
     const winningBid = auction?.currentHighestBid;
-    const gotram = auction?.highestBidderGotram;
     const ladduWeight = auction?.ladduWeight || '21 KG';
 
     if (!winnerName || !winningBid) {
@@ -266,7 +280,6 @@ export const LadduAuction = ({ onOpenDonation }) => {
     try {
       const res = await api.declareAuctionWinner({
         winnerName,
-        gotram,
         winningBid,
         ladduWeight
       }, adminToken);
@@ -348,116 +361,125 @@ export const LadduAuction = ({ onOpenDonation }) => {
   const isUpcoming = !isLive && !isCompleted;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 relative">
       
-      {/* 1. Header Banner */}
-      <div className="temple-card p-6 rounded-3xl shadow-2xl border-2 border-amber-500/40 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
-        
-        {/* Glow background accent */}
-        <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-br from-amber-500/20 via-saffron-500/10 to-transparent rounded-full blur-3xl pointer-events-none"></div>
+      {/* Live Bid Alert Floating Toast Notification */}
+      {liveBidAlert && (
+        <div className="fixed top-16 sm:top-20 left-1/2 -translate-x-1/2 z-50 animate-bounce max-w-sm sm:max-w-md w-full px-4">
+          <div className="bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-amber-950 p-3 rounded-2xl shadow-2xl border-2 border-white flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-amber-950/20 flex items-center justify-center text-xl shrink-0">
+              🏆
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className="text-[10px] font-black uppercase tracking-wider block text-amber-950/80">New Live Highest Bid!</span>
+              <p className="font-extrabold text-sm truncate">
+                <strong>{liveBidAlert.bidderName}</strong> placed <span className="font-mono text-base font-black">₹{Number(liveBidAlert.amount).toLocaleString('en-IN')}</span>
+              </p>
+            </div>
+            <button onClick={() => setLiveBidAlert(null)} className="p-1 text-amber-950/70 hover:text-black">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
-        <div className="text-center md:text-left space-y-2 relative z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-extrabold shadow-sm bg-black/40 border border-amber-500/30">
-            {isLive ? (
-              <span className="flex items-center gap-1.5 text-red-400 animate-pulse">
-                <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping"></span>
-                <span>🔴 ప్రత్యక్ష ప్రసారం • LIVE AUCTION IN PROGRESS</span>
+      {/* 1. Header Banner & Status Badge */}
+      <div className="temple-card p-4 sm:p-6 rounded-3xl border border-amber-500/40 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-5 relative overflow-hidden">
+        
+        <div className="text-center md:text-left space-y-1.5 flex-1">
+          <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
+            <span className="text-xs font-bold text-amber-300 bg-amber-950/80 px-3 py-1 rounded-full border border-amber-500/30 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span>Day 3 Grand Celebration • ప్రత్యక్ష వేలం పాట</span>
+            </span>
+
+            {/* Current Status Pill */}
+            <span className={`text-xs font-black px-3 py-1 rounded-full flex items-center gap-1.5 ${
+              isLive 
+                ? 'bg-red-600 text-white animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.6)]' 
+                : isCompleted
+                ? 'bg-emerald-600 text-white'
+                : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+            }`}>
+              <Flame className="w-3.5 h-3.5" />
+              <span>
+                {isLive ? 'LIVE BIDDING ONGOING' : isCompleted ? 'AUCTION CONCLUDED' : 'UPCOMING LIVE AUCTION'}
               </span>
-            ) : isCompleted ? (
-              <span className="flex items-center gap-1 text-emerald-300">
-                <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-                <span>🏆 వేలం ముగిసింది • AUCTION CONCLUDED</span>
-              </span>
-            ) : (
-              <span className="flex items-center gap-1 text-amber-300">
-                <Flame className="w-3.5 h-3.5 text-amber-400" />
-                <span>🚩 3వ రోజు సాయంత్రం 07:00 PM • DAY 3 HIGHLIGHT</span>
-              </span>
-            )}
+            </span>
           </div>
 
-          <h2 className="font-devotional text-2xl sm:text-3xl lg:text-4xl font-extrabold gold-gradient-text">
-            శ్రీ వినాయక మహా లడ్డూ వేలం పాట
+          <h2 className="text-2xl sm:text-4xl font-extrabold gold-gradient-text font-devotional tracking-tight">
+            {auction?.itemTitle || 'శ్రీ వినాయక మహా లడ్డూ ప్రసాదం'}
           </h2>
-          <p className="text-xs sm:text-sm text-amber-200/80 max-w-xl">
-            {auction?.ladduWeight || '21 KG'} పవిత్ర మహా లడ్డూ ప్రసాదం ప్రత్యక్ష వేలం. స్వామివారి దివ్య ఆశీస్సులు పొందేందుకు వేలంలో పాల్గొనండి!
+          <p className="text-xs sm:text-sm text-amber-200/80 max-w-2xl">
+            {settings?.utsavName || 'విజయ కాలనీ గణేష్ డైరీస్'} • 4 రోజుల పూజలలో అత్యంత పవిత్రమైన మహా లడ్డూ ప్రసాదం ప్రత్యక్ష వేలం పాట.
           </p>
         </div>
 
-        {/* Right Header: Admin State Controls & Setup */}
-        <div className="flex flex-col sm:flex-row items-center gap-2 relative z-10">
+        {/* Action Controls (Admin & Public) */}
+        <div className="flex flex-wrap items-center justify-center gap-2">
           {isAdmin ? (
-            <div className="bg-black/50 p-2 rounded-2xl border border-amber-500/30 flex flex-wrap items-center gap-1.5">
-              <span className="text-[11px] font-bold text-amber-300 px-2 flex items-center gap-1">
-                <Shield className="w-3.5 h-3.5 text-amber-400" />
-                <span>Admin:</span>
-              </span>
-
-              {/* Setup Modal Trigger Button */}
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setShowSetupModal(true)}
-                className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-bold border border-amber-500/30 flex items-center gap-1"
-                title="Configure Starting Bid, Laddu Weight & Increment"
+                className="px-3 py-2 rounded-xl bg-[#240e06] hover:bg-[#34160b] border border-amber-500/40 text-amber-200 text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
+                title="Edit starting bid & laddu specs"
               >
-                <span>⚙️ Setup</span>
+                <span>⚙️ Settings</span>
               </button>
 
-              {isUpcoming && (
+              {/* Status Switchers */}
+              {!isLive && !isCompleted && (
                 <button
                   onClick={() => handleUpdateStatus('live')}
-                  className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center gap-1 shadow-md"
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-lg active:scale-95 transition-all"
                 >
-                  <Play className="w-3.5 h-3.5" />
-                  <span>Start Live</span>
+                  <Play className="w-3.5 h-3.5 fill-white" />
+                  <span>Start Live Auction (ప్రారంభించండి)</span>
                 </button>
               )}
+
               {isLive && (
                 <>
                   <button
+                    onClick={() => setShowDeclareWinnerModal(true)}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-lg active:scale-95 transition-all"
+                  >
+                    <Crown className="w-3.5 h-3.5" />
+                    <span>Crown Winner (విజేతను ప్రకటించండి)</span>
+                  </button>
+                  <button
                     onClick={() => handleUpdateStatus('upcoming')}
-                    className="px-3 py-1.5 rounded-xl bg-amber-600/30 text-amber-300 hover:bg-amber-600/50 text-xs font-semibold flex items-center gap-1"
+                    className="px-3 py-2 rounded-xl bg-[#34160b] text-amber-300 text-xs font-semibold"
                   >
                     <Pause className="w-3.5 h-3.5" />
                     <span>Pause</span>
                   </button>
-                  <button
-                    onClick={() => setShowDeclareWinnerModal(true)}
-                    className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-saffron-500 text-amber-950 font-extrabold text-xs flex items-center gap-1 shadow-gold hover:brightness-110"
-                  >
-                    <Crown className="w-3.5 h-3.5" />
-                    <span>Finalize Winner</span>
-                  </button>
                 </>
               )}
+
               {isCompleted && (
                 <button
                   onClick={() => handleUpdateStatus('live')}
-                  className="px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 text-xs font-semibold"
+                  className="px-3 py-2 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center gap-1"
                 >
-                  Re-open Live
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Re-open Bidding</span>
                 </button>
               )}
-              <button
-                onClick={handleResetAuction}
-                className="p-2 rounded-xl bg-red-950/40 text-red-400 hover:text-red-200 text-xs"
-                title="Reset Auction"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-              </button>
             </div>
           ) : (
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setIsAdminModalOpen(true)}
-                className="px-3 py-1.5 rounded-xl bg-[#240e06] border border-amber-500/30 text-amber-300/80 hover:text-amber-100 text-xs flex items-center gap-1"
+                className="text-xs text-amber-400/80 hover:text-amber-200 underline flex items-center gap-1 px-3 py-2 rounded-xl bg-black/30 border border-amber-500/20"
               >
-                <Shield className="w-3.5 h-3.5 text-amber-400" />
+                <Shield className="w-3.5 h-3.5" />
                 <span>Admin Login</span>
               </button>
             </div>
           )}
         </div>
-
       </div>
 
       {/* 2. COMPLETED STATE: Grand Winner Showcase Card */}
@@ -481,7 +503,7 @@ export const LadduAuction = ({ onOpenDonation }) => {
               {auction.winner.name}
             </h3>
             <p className="text-sm sm:text-base font-semibold text-amber-300">
-              గోత్రం: <span className="text-amber-100">{auction.winner.gotram || 'శివ గోత్రం'}</span> • లడ్డూ బరువు: <strong className="text-amber-200">{auction.ladduWeight || '21 KG'}</strong>
+              లడ్డూ బరువు: <strong className="text-amber-200">{auction.ladduWeight || '21 KG'}</strong>
             </p>
           </div>
 
@@ -562,9 +584,6 @@ export const LadduAuction = ({ onOpenDonation }) => {
                   <span className="text-xs text-amber-400/80">Highest Bidder (అత్యధిక బిడ్డర్):</span>
                   <p className="text-lg sm:text-xl font-bold text-amber-100 flex items-center justify-center gap-1.5">
                     <span>👑 {auction.highestBidderName}</span>
-                    {auction.highestBidderGotram && (
-                      <span className="text-xs text-amber-300 font-normal">({auction.highestBidderGotram})</span>
-                    )}
                   </p>
                 </div>
               ) : (
@@ -633,7 +652,7 @@ export const LadduAuction = ({ onOpenDonation }) => {
                       </span>
                       <div>
                         <strong className="text-amber-100 text-xs sm:text-sm block">{bid.bidderName}</strong>
-                        <span className="text-[10px] text-amber-400/70">{bid.gotram || 'శివ గోత్రం'} • {new Date(bid.timestamp).toLocaleTimeString('en-IN')}</span>
+                        <span className="text-[10px] text-amber-400/70">{new Date(bid.timestamp).toLocaleTimeString('en-IN')}</span>
                       </div>
                     </div>
 
@@ -736,7 +755,6 @@ export const LadduAuction = ({ onOpenDonation }) => {
                             }`}
                           >
                             <span>👤 {bidder.name}</span>
-                            {bidder.gotram && <span className="text-[10px] opacity-75">({bidder.gotram})</span>}
                             
                             {/* Inline Edit Icon */}
                             <button
@@ -769,29 +787,17 @@ export const LadduAuction = ({ onOpenDonation }) => {
                   </div>
                 </div>
 
-                {/* 2. Or Type Custom Bidder Name & Gotram */}
+                {/* 2. Or Type Custom Bidder Name */}
                 {!selectedBidder && (
-                  <div className="grid grid-cols-2 gap-2 bg-[#170702] p-2.5 rounded-xl border border-amber-500/30">
-                    <div>
-                      <label className="block text-amber-300/80 mb-0.5 text-[11px]">Or Type New Name:</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. రమేష్ కుమార్"
-                        value={customBidderName}
-                        onChange={(e) => setCustomBidderName(e.target.value)}
-                        className="w-full px-2.5 py-1.5 rounded-lg bg-[#240e06] border border-amber-500/40 text-amber-100 text-xs focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-amber-300/80 mb-0.5 text-[11px]">Gotram (గోత్రం):</label>
-                      <input
-                        type="text"
-                        placeholder="శివ గోత్రం"
-                        value={customBidderGotram}
-                        onChange={(e) => setCustomBidderGotram(e.target.value)}
-                        className="w-full px-2.5 py-1.5 rounded-lg bg-[#240e06] border border-amber-500/40 text-amber-100 text-xs focus:outline-none"
-                      />
-                    </div>
+                  <div className="bg-[#170702] p-2.5 rounded-xl border border-amber-500/30">
+                    <label className="block text-amber-300/80 mb-0.5 text-[11px]">Or Type New Bidder Name:</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. రమేష్ కుమార్"
+                      value={customBidderName}
+                      onChange={(e) => setCustomBidderName(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-lg bg-[#240e06] border border-amber-500/40 text-amber-100 text-xs focus:outline-none"
+                    />
                   </div>
                 )}
 
@@ -1005,12 +1011,12 @@ export const LadduAuction = ({ onOpenDonation }) => {
               </div>
 
               <div>
-                <label className="block text-amber-300 mb-1 font-semibold">Gotram (గోత్రం)</label>
+                <label className="block text-amber-300 mb-1 font-semibold">Phone Number (Optional)</label>
                 <input
-                  type="text"
-                  placeholder="శివ గోత్రం"
-                  value={newBidderForm.gotram}
-                  onChange={(e) => setNewBidderForm({ ...newBidderForm, gotram: e.target.value })}
+                  type="tel"
+                  placeholder="e.g. 98480 12345"
+                  value={newBidderForm.phone || ''}
+                  onChange={(e) => setNewBidderForm({ ...newBidderForm, phone: e.target.value })}
                   className="w-full px-3 py-2 rounded-xl bg-[#140502] border border-amber-500/40 text-amber-100 focus:outline-none"
                 />
               </div>
@@ -1058,16 +1064,6 @@ export const LadduAuction = ({ onOpenDonation }) => {
                   value={editBidderForm.name}
                   onChange={(e) => setEditBidderForm({ ...editBidderForm, name: e.target.value })}
                   className="w-full px-3 py-2 rounded-xl bg-[#140502] border border-amber-500/40 text-amber-100 font-semibold focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-amber-300 mb-1 font-semibold">Gotram (గోత్రం)</label>
-                <input
-                  type="text"
-                  value={editBidderForm.gotram}
-                  onChange={(e) => setEditBidderForm({ ...editBidderForm, gotram: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-[#140502] border border-amber-500/40 text-amber-100 focus:outline-none"
                 />
               </div>
 
