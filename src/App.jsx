@@ -34,9 +34,10 @@ function MainApp() {
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [chatToast, setChatToast] = useState(null);
 
-  // Clear unread messages when switching to chat
+  // Clear unread messages when switching to chat & scroll to top
   const handleTabChange = (tabId) => {
     setActiveTab(tabId);
+    window.scrollTo({ top: 0, behavior: 'instant' });
     if (tabId === 'chat') {
       setUnreadMessages(0);
       setChatToast(null);

@@ -54,15 +54,21 @@ export const YouthChat = ({ messages, onRefreshMessages, donors, settings, onRef
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const recordTimerRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // Auto-scroll on new messages
+  // Auto-scroll only INSIDE the messages container when new messages arrive (do not scroll the page window)
   useEffect(() => {
-    if (activeChatTab === 'messages') {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (activeChatTab === 'messages' && messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
-  }, [messages, activeChatTab]);
+  }, [messages?.length]);
+
+  // Ensure window is at the top whenever Chat tab opens or subtab switches
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [activeChatTab]);
 
   // Handle Voice Recording
   const startRecording = async () => {
@@ -402,7 +408,7 @@ export const YouthChat = ({ messages, onRefreshMessages, donors, settings, onRef
         </a>
 
         {/* Messages Feed */}
-        <div className="flex-1 p-4 overflow-y-auto space-y-4 custom-scrollbar">
+        <div ref={messagesContainerRef} className="flex-1 p-4 overflow-y-auto space-y-4 custom-scrollbar">
           {(!messages || messages.length === 0) ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-6 text-amber-300/60 space-y-2">
               <MessageSquare className="w-10 h-10 text-amber-500/40" />
