@@ -429,7 +429,62 @@ app.delete('/api/messages/:id', (req, res) => {
     io.emit('message:deleted', { id });
     return res.json({ success: true });
   }
-  res.status(500).json({ error: 'Failed to delete message' });
+// 5. Expenses & Committee Purse API (ఖర్చుల లెక్కలు & మిగులు నిధి)
+app.get('/api/expenses', (req, res) => {
+  res.json({
+    expenses: db.getExpenses(),
+    summary: db.getPurseSummary()
+  });
+});
+
+app.get('/api/expenses/summary', (req, res) => {
+  res.json(db.getPurseSummary());
+});
+
+app.post('/api/admin/expenses', authenticateAdmin, (req, res) => {
+  const { name, category, price, advance, status, paidBy, notes, receiptUrl } = req.body;
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: 'Item name is required' });
+  }
+
+  const newExpense = db.addExpense({
+    name: name.trim(),
+    category: category || 'General',
+    price: Number(price) || 0,
+    advance: Number(advance) || 0,
+    status: status || 'Pending',
+    paidBy: paidBy || 'కమిటీ నిధి',
+    notes: notes || '',
+    receiptUrl: receiptUrl || null
+  });
+
+  const summary = db.getPurseSummary();
+  io.emit('expense:created', { expense: newExpense, summary });
+  res.status(201).json({ success: true, expense: newExpense, summary });
+});
+
+app.put('/api/admin/expenses/:id', authenticateAdmin, (req, res) => {
+  const { id } = req.params;
+  const updatedExpense = db.updateExpense(id, req.body);
+  if (!updatedExpense) {
+    return res.status(404).json({ error: 'Expense item not found' });
+  }
+
+  const summary = db.getPurseSummary();
+  io.emit('expense:updated', { expense: updatedExpense, summary });
+  res.json({ success: true, expense: updatedExpense, summary });
+});
+
+app.delete('/api/admin/expenses/:id', authenticateAdmin, (req, res) => {
+  const { id } = req.params;
+  const success = db.deleteExpense(id);
+  if (!success) {
+    return res.status(404).json({ error: 'Expense item not found' });
+  }
+
+  const summary = db.getPurseSummary();
+  io.emit('expense:deleted', { id, summary });
+  res.json({ success: true, id, summary });
 });
 
 // 5. Upload Endpoints (Voice Notes & Photos)

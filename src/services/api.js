@@ -341,5 +341,58 @@ export const api = {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to import backup');
     return data;
+  },
+
+  // Expenses & Purse Calculations (ఖర్చుల లెక్కలు & మిగులు నిధి)
+  getExpenses: async () => {
+    const res = await fetch(`${API_BASE}/expenses`);
+    if (!res.ok) throw new Error('Failed to fetch expenses');
+    return res.json();
+  },
+
+  getExpenseSummary: async () => {
+    const res = await fetch(`${API_BASE}/expenses/summary`);
+    if (!res.ok) throw new Error('Failed to fetch expense summary');
+    return res.json();
+  },
+
+  createExpense: async (expenseData, token) => {
+    const res = await fetch(`${API_BASE}/admin/expenses`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(expenseData)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to create expense');
+    return data;
+  },
+
+  updateExpense: async (id, expenseData, token) => {
+    const res = await fetch(`${API_BASE}/admin/expenses/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(expenseData)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to update expense');
+    return data;
+  },
+
+  deleteExpense: async (id, token) => {
+    const res = await fetch(`${API_BASE}/admin/expenses/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to delete expense');
+    return data;
   }
 };

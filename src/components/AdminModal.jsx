@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { 
   X, Shield, Lock, KeyRound, Settings, CheckCircle2, AlertCircle, Save, 
-  Database, Download, Upload, Server, RefreshCw, Check, Sparkles 
+  Database, Download, Upload, Server, RefreshCw, Check, Sparkles, Wallet 
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
+import { ExpenseManager } from './ExpenseManager';
 
-export const AdminModal = ({ isOpen, onClose, settings, onRefreshSettings }) => {
+export const AdminModal = ({ isOpen, onClose, settings, donors = [], onRefreshSettings }) => {
   const { isAdmin, adminToken, login, logout } = useAuth();
   
-  const [activeTab, setActiveTab] = useState('settings'); // 'settings' | 'database'
+  const [activeTab, setActiveTab] = useState('settings'); // 'settings' | 'expenses' | 'database'
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -146,8 +147,8 @@ export const AdminModal = ({ isOpen, onClose, settings, onRefreshSettings }) => 
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-lg bg-gradient-to-b from-[#240e06] via-[#1c0803] to-[#120502] border-2 border-amber-500/40 rounded-3xl shadow-2xl overflow-hidden max-h-[92dvh] flex flex-col my-auto">
+    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200">
+      <div className={`w-full ${activeTab === 'expenses' ? 'max-w-5xl' : 'max-w-lg'} transition-all duration-300 bg-gradient-to-b from-[#240e06] via-[#1c0803] to-[#120502] border-2 border-amber-500/40 rounded-3xl shadow-2xl overflow-hidden max-h-[92dvh] flex flex-col my-auto`}>
         
         {/* Header */}
         <div className="bg-gradient-to-r from-crimson-900 via-saffron-800 to-crimson-900 p-3.5 sm:p-4 text-center relative border-b border-amber-500/30 shrink-0">
@@ -234,31 +235,44 @@ export const AdminModal = ({ isOpen, onClose, settings, onRefreshSettings }) => 
               </div>
 
               {/* Navigation Tabs */}
-              <div className="grid grid-cols-2 gap-2 bg-[#170602] p-1 rounded-xl border border-amber-500/30">
+              <div className="grid grid-cols-3 gap-1.5 bg-[#170602] p-1 rounded-xl border border-amber-500/30">
                 <button
                   type="button"
                   onClick={() => setActiveTab('settings')}
-                  className={`py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  className={`py-2 px-1 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 ${
                     activeTab === 'settings'
                       ? 'bg-gradient-to-r from-amber-500 to-saffron-500 text-amber-950 shadow-gold'
                       : 'text-amber-300/70 hover:text-amber-200'
                   }`}
                 >
                   <Settings className="w-3.5 h-3.5" />
-                  <span>Mandapam Settings</span>
+                  <span className="truncate">Settings</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('expenses')}
+                  className={`py-2 px-1 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 ${
+                    activeTab === 'expenses'
+                      ? 'bg-gradient-to-r from-amber-500 to-saffron-500 text-amber-950 shadow-gold font-black'
+                      : 'text-amber-300/70 hover:text-amber-200'
+                  }`}
+                >
+                  <Wallet className="w-3.5 h-3.5" />
+                  <span className="truncate">Expenses 💰</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setActiveTab('database')}
-                  className={`py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  className={`py-2 px-1 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 ${
                     activeTab === 'database'
                       ? 'bg-gradient-to-r from-amber-500 to-saffron-500 text-amber-950 shadow-gold'
                       : 'text-amber-300/70 hover:text-amber-200'
                   }`}
                 >
                   <Database className="w-3.5 h-3.5" />
-                  <span>Cloud Database & Backup</span>
+                  <span className="truncate">Database</span>
                 </button>
               </div>
 
@@ -345,7 +359,18 @@ export const AdminModal = ({ isOpen, onClose, settings, onRefreshSettings }) => 
                 </form>
               )}
 
-              {/* TAB 2: CLOUD DATABASE & BACKUP */}
+              {/* TAB 2: EXPENSES & PURSE MANAGER */}
+              {activeTab === 'expenses' && (
+                <div className="pt-1">
+                  <ExpenseManager 
+                    donors={donors} 
+                    settings={settings} 
+                    onRefresh={onRefreshSettings} 
+                  />
+                </div>
+              )}
+
+              {/* TAB 3: CLOUD DATABASE & BACKUP */}
               {activeTab === 'database' && (
                 <div className="space-y-4 pt-1 text-xs">
                   

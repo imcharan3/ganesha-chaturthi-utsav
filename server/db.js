@@ -22,9 +22,117 @@ const EVENTS_FILE = path.join(DATA_DIR, 'events.json');
 const MESSAGES_FILE = path.join(DATA_DIR, 'messages.json');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 const AUCTION_FILE = path.join(DATA_DIR, 'auction.json');
+const EXPENSES_FILE = path.join(DATA_DIR, 'expenses.json');
 const CONFIG_FILE = path.join(DATA_DIR, 'db_config.json');
 
-// Default Seed Data
+// Default Seed Data for Expenses / Budget Tracker
+const DEFAULT_EXPENSES = [
+  {
+    id: "exp-1",
+    name: "వినాయక విగ్రహం (Ganesha Idol)",
+    category: "Idol & Mandapam",
+    price: 18000,
+    advance: 8000,
+    balance: 10000,
+    status: "Partial",
+    paidBy: "కమిటీ నిధి (Committee Purse)",
+    notes: "మట్టి ప్రతిమ విగ్రహం అడ్వాన్స్ చెల్లించబడింది",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: "exp-2",
+    name: "టెంట్, స్టేజ్ & లైటింగ్ డెకరేషన్ (Tent, Stage & Lights)",
+    category: "Idol & Mandapam",
+    price: 15000,
+    advance: 5000,
+    balance: 10000,
+    status: "Partial",
+    paidBy: "కమిటీ నిధి",
+    notes: "4 రోజుల మండపం మరియు ఫోకస్ లైటింగ్ సెటప్",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: "exp-3",
+    name: "డిజె & సౌండ్ సిస్టమ్ (DJ & Sound System)",
+    category: "Sound & Lights",
+    price: 12000,
+    advance: 4000,
+    balance: 8000,
+    status: "Partial",
+    paidBy: "కమిటీ నిధి",
+    notes: "మండపం సౌండ్ & శోభాయాత్ర స్పీకర్లు",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: "exp-4",
+    name: "మహా అన్నదానం సరుకులు & కూరగాయలు (Annadanam Provisions)",
+    category: "Annadanam",
+    price: 16000,
+    advance: 0,
+    balance: 16000,
+    status: "Pending",
+    paidBy: "కమిటీ నిధి",
+    notes: "బియ్యం, పప్పులు, నూనె, కూరగాయలు & నెయ్యి",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: "exp-5",
+    name: "పూజా సామగ్రి, పండ్లు & పూలు (Pooja Items & Flowers)",
+    category: "Pooja & Prasadam",
+    price: 6000,
+    advance: 2000,
+    balance: 4000,
+    status: "Partial",
+    paidBy: "కమిటీ నిధి",
+    notes: "హోమం ద్రవ్యాలు మరియు 4 రోజుల పూల మాలలు",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: "exp-6",
+    name: "మహా లడ్డూ తయారీ & ప్రసాదాలు (Maha Laddu Preparation)",
+    category: "Pooja & Prasadam",
+    price: 5000,
+    advance: 2000,
+    balance: 3000,
+    status: "Partial",
+    paidBy: "కమిటీ నిధి",
+    notes: "21 కేజీల లడ్డూ ప్రసాదం తయారీ నేయి మరియు డ్రై ఫ్రూట్స్",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: "exp-7",
+    name: "డప్పులు, బ్యాండ్ & ఉట్టి సంబరాలు (Dappulu Band & Vutti)",
+    category: "Procession & Band",
+    price: 7000,
+    advance: 0,
+    balance: 7000,
+    status: "Pending",
+    paidBy: "కమిటీ నిధి",
+    notes: "3వ రోజు ఉట్టి కొట్టడం మరియు యువజన సంబరాలు",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: "exp-8",
+    name: "నిమజ్జనం వాహనం & రవాణా (Immersion Vehicle & Transport)",
+    category: "Procession & Band",
+    price: 8000,
+    advance: 0,
+    balance: 8000,
+    status: "Pending",
+    paidBy: "కమిటీ నిధి",
+    notes: "ట్రాక్టర్ / డిసిఎం నిమజ్జన శోభాయాత్ర వాహనం",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+];
+
 const DEFAULT_AUCTION = {
   status: "upcoming",
   itemTitle: "శ్రీ వినాయక మహా లడ్డూ ప్రసాదం",
@@ -234,11 +342,27 @@ const AuctionSchema = new mongoose.Schema({
   updatedAt: { type: String }
 }, { collection: 'auction', strict: false });
 
+const ExpenseSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  category: { type: String, default: 'General' },
+  price: { type: Number, required: true, default: 0 },
+  advance: { type: Number, default: 0 },
+  balance: { type: Number, default: 0 },
+  status: { type: String, default: 'Pending' },
+  paidBy: { type: String, default: 'కమిటీ నిధి (Committee Purse)' },
+  notes: { type: String, default: '' },
+  receiptUrl: { type: String, default: null },
+  createdAt: { type: String, default: () => new Date().toISOString() },
+  updatedAt: { type: String, default: () => new Date().toISOString() }
+}, { collection: 'expenses', strict: false });
+
 let DonorModel = null;
 let EventModel = null;
 let MessageModel = null;
 let SettingsModel = null;
 let AuctionModel = null;
+let ExpenseModel = null;
 
 try {
   DonorModel = mongoose.model('Donor', DonorSchema);
@@ -246,12 +370,14 @@ try {
   MessageModel = mongoose.model('Message', MessageSchema);
   SettingsModel = mongoose.model('Settings', SettingsSchema);
   AuctionModel = mongoose.model('Auction', AuctionSchema);
+  ExpenseModel = mongoose.model('Expense', ExpenseSchema);
 } catch (e) {
   DonorModel = mongoose.models.Donor;
   EventModel = mongoose.models.Event;
   MessageModel = mongoose.models.Message;
   SettingsModel = mongoose.models.Settings;
   AuctionModel = mongoose.models.Auction;
+  ExpenseModel = mongoose.models.Expense;
 }
 
 // In-Memory Database Store for Instant 0ms Read Response
@@ -260,6 +386,7 @@ let memEvents = readJsonFile(EVENTS_FILE, DEFAULT_EVENTS);
 let memMessages = readJsonFile(MESSAGES_FILE, DEFAULT_MESSAGES);
 let memSettings = readJsonFile(SETTINGS_FILE, DEFAULT_SETTINGS);
 let memAuction = readJsonFile(AUCTION_FILE, DEFAULT_AUCTION);
+let memExpenses = readJsonFile(EXPENSES_FILE, DEFAULT_EXPENSES);
 
 let dbStatus = {
   connected: false,
@@ -333,6 +460,24 @@ async function persistMongoEvent(event) {
   }
 }
 
+async function persistMongoExpense(expense) {
+  if (!dbStatus.connected || !ExpenseModel) return;
+  try {
+    await ExpenseModel.findOneAndUpdate({ id: expense.id }, expense, { upsert: true, new: true });
+  } catch (err) {
+    console.error('MongoDB Expense Save Error:', err.message);
+  }
+}
+
+async function deleteMongoExpense(id) {
+  if (!dbStatus.connected || !ExpenseModel) return;
+  try {
+    await ExpenseModel.deleteOne({ id });
+  } catch (err) {
+    console.error('MongoDB Expense Delete Error:', err.message);
+  }
+}
+
 // Connect to MongoDB & Auto-Sync
 async function connectDatabase(mongoUri) {
   if (!mongoUri) return false;
@@ -356,12 +501,13 @@ async function connectDatabase(mongoUri) {
     console.log(`✅ Connected to MongoDB Cloud Database: ${dbStatus.uriMasked}`);
 
     // Initial Data Sync: Load existing data from MongoDB into Memory
-    const [dbDonors, dbEvents, dbMessages, dbSettings, dbAuction] = await Promise.all([
+    const [dbDonors, dbEvents, dbMessages, dbSettings, dbAuction, dbExpenses] = await Promise.all([
       DonorModel.find({}).sort({ createdAt: -1 }).lean(),
       EventModel.find({}).sort({ dayNumber: 1 }).lean(),
       MessageModel.find({}).sort({ createdAt: 1 }).lean(),
       SettingsModel.findById('global_settings').lean(),
-      AuctionModel.findById('live_laddu_auction').lean()
+      AuctionModel.findById('live_laddu_auction').lean(),
+      ExpenseModel.find({}).sort({ createdAt: 1 }).lean()
     ]);
 
     // 1. Settings
@@ -400,12 +546,20 @@ async function connectDatabase(mongoUri) {
       await AuctionModel.findByIdAndUpdate('live_laddu_auction', memAuction, { upsert: true });
     }
 
+    // 6. Expenses / Budget Tracker
+    if (dbExpenses && dbExpenses.length > 0) {
+      memExpenses = dbExpenses;
+    } else if (memExpenses && memExpenses.length > 0) {
+      await ExpenseModel.insertMany(memExpenses);
+    }
+
     // Backup current synchronized data to local JSON
     writeJsonFile(DONORS_FILE, memDonors);
     writeJsonFile(EVENTS_FILE, memEvents);
     writeJsonFile(MESSAGES_FILE, memMessages);
     writeJsonFile(SETTINGS_FILE, memSettings);
     writeJsonFile(AUCTION_FILE, memAuction);
+    writeJsonFile(EXPENSES_FILE, memExpenses);
 
     dbStatus.lastSyncTime = new Date().toISOString();
     return true;
@@ -808,6 +962,99 @@ export const db = {
     db.saveAuction(memAuction);
     return memAuction;
   },
+
+  // Expenses & Purse Calculations (ఖర్చుల లెక్కలు & మిగులు నిధి)
+  getExpenses: () => memExpenses,
+  addExpense: (data) => {
+    const price = Math.max(0, Number(data.price) || 0);
+    const advance = Math.max(0, Number(data.advance) || 0);
+    const balance = Math.max(0, price - advance);
+    let status = 'Pending';
+    if (balance === 0 && price > 0) status = 'Paid';
+    else if (advance > 0) status = 'Partial';
+
+    const newExpense = {
+      id: `exp-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      name: (data.name || '').trim(),
+      category: data.category || 'General',
+      price,
+      advance,
+      balance,
+      status: data.status || status,
+      paidBy: data.paidBy || 'కమిటీ నిధి (Committee Purse)',
+      notes: data.notes || '',
+      receiptUrl: data.receiptUrl || null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    memExpenses.push(newExpense);
+    writeJsonFile(EXPENSES_FILE, memExpenses);
+    persistMongoExpense(newExpense);
+    return newExpense;
+  },
+  updateExpense: (id, data) => {
+    const index = memExpenses.findIndex(e => e.id === id);
+    if (index === -1) return null;
+
+    const existing = memExpenses[index];
+    const price = data.price !== undefined ? Math.max(0, Number(data.price) || 0) : existing.price;
+    const advance = data.advance !== undefined ? Math.max(0, Number(data.advance) || 0) : existing.advance;
+    const balance = Math.max(0, price - advance);
+    let status = existing.status;
+    if (balance === 0 && price > 0) status = 'Paid';
+    else if (advance > 0) status = 'Partial';
+    else if (advance === 0) status = 'Pending';
+
+    const updated = {
+      ...existing,
+      ...data,
+      price,
+      advance,
+      balance,
+      status: data.status || status,
+      updatedAt: new Date().toISOString()
+    };
+
+    memExpenses[index] = updated;
+    writeJsonFile(EXPENSES_FILE, memExpenses);
+    persistMongoExpense(updated);
+    return updated;
+  },
+  deleteExpense: (id) => {
+    const index = memExpenses.findIndex(e => e.id === id);
+    if (index === -1) return false;
+    memExpenses.splice(index, 1);
+    writeJsonFile(EXPENSES_FILE, memExpenses);
+    deleteMongoExpense(id);
+    return true;
+  },
+  getPurseSummary: () => {
+    // 1. Total verified donations
+    const verifiedDonationsSum = memDonors
+      .filter(d => d.status === 'Verified')
+      .reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+
+    // 2. Expenses breakdown
+    const totalExpenses = memExpenses.reduce((sum, e) => sum + (Number(e.price) || 0), 0);
+    const totalPaid = memExpenses.reduce((sum, e) => sum + (Number(e.advance) || 0), 0);
+    const totalBalanceToPay = memExpenses.reduce((sum, e) => sum + (Number(e.balance) || 0), 0);
+
+    // 3. Purse calculations
+    const cashInHandPurse = verifiedDonationsSum - totalPaid;
+    const projectedNetSurplus = verifiedDonationsSum - totalExpenses;
+
+    return {
+      totalDonations: verifiedDonationsSum,
+      totalExpenses,
+      totalPaid,
+      totalBalanceToPay,
+      cashInHandPurse,
+      projectedNetSurplus,
+      itemsCount: memExpenses.length
+    };
+  },
+
   resetAuction: (startingBid = 5001) => {
     const defaultData = {
       ...DEFAULT_AUCTION,

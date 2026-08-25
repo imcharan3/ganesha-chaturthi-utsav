@@ -450,7 +450,16 @@ export const downloadDonorsLedgerPdf = (donors = [], settings = {}) => {
     const tableRows = sortedDonors.map((d, index) => {
       let donorNameText = d.name || 'Donor';
       if (d.isSpecialDonor) {
-        donorNameText = `[SPECIAL DONOR] ${d.name}` + (d.specialContribution ? `\nContrib: ${d.specialContribution}` : '');
+        donorNameText = `★ [SPECIAL DONOR] ${d.name}` + (d.specialContribution ? `\nContrib: ${d.specialContribution}` : '');
+      }
+
+      // Ensure full absolute web URL so clicking in PDF opens the browser directly
+      let fullReceiptUrl = d.receiptUrl || '';
+      if (fullReceiptUrl && fullReceiptUrl.startsWith('/')) {
+        const origin = (typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost')) 
+          ? window.location.origin 
+          : 'https://ganesha-chaturthi-utsav.onrender.com';
+        fullReceiptUrl = `${origin}${fullReceiptUrl}`;
       }
 
       return {
@@ -460,8 +469,8 @@ export const downloadDonorsLedgerPdf = (donors = [], settings = {}) => {
         phone: d.phone ? `+91 ${d.phone}` : '-',
         amount: `Rs. ${Number(d.amount).toLocaleString('en-IN')}`,
         mode: `${d.paymentMode || 'UPI'}\n${d.referenceNo || 'VERIFIED'}`,
-        screenshot: d.receiptUrl ? 'Click to View Proof' : 'No Screenshot',
-        receiptUrl: d.receiptUrl,
+        screenshot: fullReceiptUrl ? 'View Proof 🔗' : 'No Proof',
+        receiptUrl: fullReceiptUrl,
         isSpecial: d.isSpecialDonor
       };
     });
@@ -474,7 +483,7 @@ export const downloadDonorsLedgerPdf = (donors = [], settings = {}) => {
       theme: 'grid',
       styles: {
         fontSize: 8,
-        cellPadding: 4,
+        cellPadding: 4.5,
         valign: 'middle',
         overflow: 'linebreak'
       },
@@ -485,13 +494,13 @@ export const downloadDonorsLedgerPdf = (donors = [], settings = {}) => {
         halign: 'center'
       },
       columnStyles: {
-        sno: { cellWidth: 20, halign: 'center' },
+        sno: { cellWidth: 22, halign: 'center' },
         receiptNo: { cellWidth: 70, halign: 'center', fontStyle: 'bold' },
         donorDetails: { cellWidth: 150 },
         phone: { cellWidth: 75, halign: 'center' },
-        amount: { cellWidth: 65, halign: 'right', fontStyle: 'bold', textColor: [180, 83, 9] },
+        amount: { cellWidth: 70, halign: 'right', fontStyle: 'bold', textColor: [180, 83, 9] },
         mode: { cellWidth: 75, halign: 'center', fontSize: 7 },
-        screenshot: { cellWidth: 80, halign: 'center', textColor: [37, 99, 235], fontStyle: 'bold' }
+        screenshot: { cellWidth: 75, halign: 'center', textColor: [29, 78, 216], fontStyle: 'bold' }
       },
       didParseCell: function(data) {
         // Highlight Special Donor Rows in light amber
@@ -515,18 +524,20 @@ export const downloadDonorsLedgerPdf = (donors = [], settings = {}) => {
           }
         }
       },
-      foot: [[
-        { content: 'TOTAL VERIFIED DONATIONS', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fillColor: [243, 244, 246] } },
-        { content: `Rs. ${totalVerifiedSum.toLocaleString('en-IN')}`, styles: { halign: 'right', fontStyle: 'bold', textColor: [180, 83, 9], fillColor: [243, 244, 246] } },
-        { content: `${sortedDonors.length} Donors`, colSpan: 2, styles: { halign: 'center', fontStyle: 'bold', fillColor: [243, 244, 246] } }
-      ]],
+      foot: [
+        [
+          { content: 'GRAND TOTAL VERIFIED DONATIONS (మొత్తం విరాళాలు):', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fontSize: 9, fillColor: [245, 230, 211], textColor: [120, 53, 15] } },
+          { content: `Rs. ${totalVerifiedSum.toLocaleString('en-IN')}/-`, styles: { halign: 'right', fontStyle: 'bold', fontSize: 9.5, textColor: [180, 83, 9], fillColor: [245, 230, 211] } },
+          { content: `${sortedDonors.length} Donors (${specialDonorsCount} Special)`, colSpan: 2, styles: { halign: 'center', fontStyle: 'bold', fontSize: 8, fillColor: [245, 230, 211], textColor: [80, 40, 10] } }
+        ]
+      ],
       margin: { top: 85, left: 20, right: 20, bottom: 35 },
       didDrawPage: function(data) {
         // Footer
-        pdf.setFontSize(7);
-        pdf.setTextColor(156, 163, 175);
+        pdf.setFontSize(7.5);
+        pdf.setTextColor(120, 53, 15);
         pdf.text(
-          `Generated on ${new Date().toLocaleString('en-IN')} | Page ${data.pageNumber}`,
+          `Official Ledger • Generated on ${new Date().toLocaleString('en-IN')} | Total: Rs. ${totalVerifiedSum.toLocaleString('en-IN')} | Page ${data.pageNumber}`,
           297.64,
           pdf.internal.pageSize.height - 15,
           { align: 'center' }

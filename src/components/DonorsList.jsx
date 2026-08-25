@@ -909,21 +909,49 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
             </div>
 
             <div className="p-4 sm:p-6 overflow-y-auto custom-scrollbar flex-1 space-y-4">
-              <div className="bg-black/70 p-2 rounded-2xl border border-amber-500/30 flex items-center justify-center relative group min-h-[220px]">
-                <img 
-                  src={selectedReceiptDonor.receiptUrl} 
-                  alt={`${selectedReceiptDonor.name} UPI Payment Screenshot`} 
-                  className="max-h-[50vh] sm:max-h-[55vh] w-auto max-w-full object-contain rounded-xl shadow-lg border border-amber-500/20"
-                />
-                <a
-                  href={selectedReceiptDonor.receiptUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="absolute bottom-4 right-4 bg-black/80 hover:bg-black text-amber-300 px-3 py-1.5 rounded-xl border border-amber-500/40 text-xs font-semibold flex items-center gap-1.5 shadow-md"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Open Full Size</span>
-                </a>
+              <div className="bg-black/70 p-3 rounded-2xl border border-amber-500/30 flex flex-col items-center justify-center relative group min-h-[260px]">
+                {selectedReceiptDonor.receiptUrl ? (
+                  <img 
+                    src={selectedReceiptDonor.receiptUrl} 
+                    alt={`${selectedReceiptDonor.name} UPI Payment Screenshot`} 
+                    className="max-h-[50vh] sm:max-h-[55vh] w-auto max-w-full object-contain rounded-xl shadow-lg border border-amber-500/20"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.style.display = 'none';
+                      const fallback = e.target.parentElement.querySelector('.img-fallback');
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
+                  />
+                ) : (
+                  <p className="text-amber-400/60 text-xs">No screenshot image recorded for this donor.</p>
+                )}
+
+                <div className="img-fallback hidden flex-col items-center justify-center text-center p-6 space-y-2 text-amber-200">
+                  <span className="text-2xl">📸</span>
+                  <p className="text-xs font-semibold">Payment screenshot image attached by donor.</p>
+                  <a
+                    href={selectedReceiptDonor.receiptUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-4 py-2 rounded-xl bg-amber-500 text-amber-950 font-bold text-xs shadow-md"
+                  >
+                    Open Image in New Window ➔
+                  </a>
+                </div>
+
+                {selectedReceiptDonor.receiptUrl && (
+                  <div className="mt-3 w-full flex items-center justify-end">
+                    <a
+                      href={selectedReceiptDonor.receiptUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="bg-black/80 hover:bg-black text-amber-300 px-3.5 py-2 rounded-xl border border-amber-500/40 text-xs font-semibold flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      <span>Open Full Size Image in New Tab</span>
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
           </div>

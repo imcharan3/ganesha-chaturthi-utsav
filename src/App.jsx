@@ -5,6 +5,7 @@ import { DonorsList } from './components/DonorsList';
 import { LadduAuction } from './components/LadduAuction';
 import { EventsTimeline } from './components/EventsTimeline';
 import { YouthChat } from './components/YouthChat';
+import { ExpenseManager } from './components/ExpenseManager';
 import { DonationModal } from './components/DonationModal';
 import { AdminModal } from './components/AdminModal';
 import { MobileNav } from './components/MobileNav';
@@ -239,6 +240,16 @@ function MainApp() {
           />
         )}
 
+        {activeTab === 'expenses' && (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <ExpenseManager
+              donors={donors}
+              settings={settings}
+              onRefresh={fetchData}
+            />
+          </div>
+        )}
+
         {activeTab === 'events' && (
           <EventsTimeline
             events={events}
@@ -310,6 +321,7 @@ function MainApp() {
         isOpen={isAdminModalOpen}
         onClose={() => setIsAdminModalOpen(false)}
         settings={settings}
+        donors={donors}
         onRefreshSettings={fetchData}
       />
 
