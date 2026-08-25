@@ -8,50 +8,6 @@ import { downloadDonorReceiptPdf, downloadDonorReceiptPng, sendWhatsAppReceipt }
 
 const PRESET_AMOUNTS = [101, 251, 501, 1116, 2116, 5116, 11116];
 
-const compressImage = (file, maxWidth = 1200, quality = 0.82) => {
-  return new Promise((resolve) => {
-    if (!file || !file.type.startsWith('image/')) {
-      return resolve(file);
-    }
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target.result;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-
-        if (width > maxWidth) {
-          height = Math.round((height * maxWidth) / width);
-          width = maxWidth;
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) return resolve(file);
-            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, '.jpg'), {
-              type: 'image/jpeg',
-              lastModified: Date.now()
-            });
-            resolve(compressedFile);
-          },
-          'image/jpeg',
-          quality
-        );
-      };
-      img.onerror = () => resolve(file);
-    };
-    reader.onerror = () => resolve(file);
-  });
-};
-
 export const DonationModal = ({ isOpen, onClose, settings, onDonationSuccess }) => {
   const [selectedAmount, setSelectedAmount] = useState(501);
   const [customAmount, setCustomAmount] = useState('');
@@ -61,7 +17,6 @@ export const DonationModal = ({ isOpen, onClose, settings, onDonationSuccess }) 
   const [referenceNo, setReferenceNo] = useState('');
   const [paymentMode, setPaymentMode] = useState('UPI');
   const [receiptImage, setReceiptImage] = useState(null);
-  const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [donationComplete, setDonationComplete] = useState(null);
   const [copiedUpi, setCopiedUpi] = useState(false);
@@ -83,20 +38,40 @@ export const DonationModal = ({ isOpen, onClose, settings, onDonationSuccess }) 
     setTimeout(() => setCopiedUpi(false), 2000);
   };
 
-  const handleReceiptUpload = async (e) => {
+  const handleReceiptUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setIsUploadingReceipt(true);
-      try {
-        const compressed = await compressImage(file);
-        const uploadRes = await api.uploadImage(compressed);
-        setReceiptImage(uploadRes.fileUrl);
-      } catch (err) {
-        console.error('Failed to upload receipt:', err);
-        alert('Failed to upload screenshot: ' + (err.message || 'Network error'));
-      } finally {
-        setIsUploadingReceipt(false);
-      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_DIM = 1024;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_DIM) {
+              height = Math.round((height * MAX_DIM) / width);
+              width = MAX_DIM;
+            }
+          } else {
+            if (height > MAX_DIM) {
+              width = Math.round((width * MAX_DIM) / height);
+              height = MAX_DIM;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.75);
+          setReceiptImage(compressedDataUrl);
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -544,12 +519,12 @@ export const DonationModal = ({ isOpen, onClose, settings, onDonationSuccess }) 
                   }`}>
                     <div className="flex items-center gap-2">
                       <Upload className={`w-4 h-4 ${receiptImage ? 'text-emerald-400' : (paymentMode === 'UPI' ? 'text-red-400' : 'text-amber-400')}`} />
-                      <span>{isUploadingReceipt ? 'Uploading & Optimizing Screenshot... ⏳' : receiptImage ? 'Payment Screenshot Attached ✅' : (paymentMode === 'UPI' ? 'Upload UPI screenshot (Required *)' : 'Choose screenshot from gallery')}</span>
+                      <span>{receiptImage ? 'Payment Screenshot Attached ✅' : (paymentMode === 'UPI' ? 'Upload UPI screenshot (Required *)' : 'Choose screenshot from gallery')}</span>
                     </div>
                     {receiptImage && (
                       <img src={receiptImage} alt="Receipt preview" className="w-7 h-7 object-cover rounded border border-emerald-400" />
                     )}
-                    <input type="file" accept="image/*" onChange={handleReceiptUpload} className="hidden" disabled={isUploadingReceipt} />
+                    <input type="file" accept="image/*" onChange={handleReceiptUpload} className="hidden" />
                   </label>
                   {paymentMode === 'UPI' && !receiptImage && (
                     <p className="text-[10px] text-red-300/90 mt-1 flex items-center gap-1">
@@ -563,13 +538,11 @@ export const DonationModal = ({ isOpen, onClose, settings, onDonationSuccess }) 
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={isSubmitting || isUploadingReceipt}
+                disabled={isSubmitting}
                 className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 via-saffron-500 to-amber-600 text-amber-950 font-bold text-base shadow-divine hover:brightness-110 active:scale-98 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {isSubmitting ? (
                   <span>Recording Donation...</span>
-                ) : isUploadingReceipt ? (
-                  <span>Uploading Screenshot... ⏳</span>
                 ) : (
                   <>
                     <Heart className="w-5 h-5 fill-crimson-900 text-crimson-900" />

@@ -50,35 +50,8 @@ const upload = multer({
 
 // Middleware
 app.use(cors());
-app.use(express.json());
-
-// Persistent uploads route with MongoDB Atlas fallback
-app.get('/uploads/:filename', async (req, res, next) => {
-  const { filename } = req.params;
-  const filePath = path.join(UPLOADS_DIR, filename);
-
-  if (fs.existsSync(filePath)) {
-    return res.sendFile(filePath);
-  }
-
-  // File not on local container disk (e.g. after Render redeploy) -> fetch from MongoDB Atlas
-  try {
-    const media = await db.getMedia(filename);
-    if (media && media.data) {
-      const buffer = Buffer.from(media.data, 'base64');
-      // Cache on local disk for subsequent instant hits
-      fs.promises.writeFile(filePath, buffer).catch(() => {});
-      res.setHeader('Content-Type', media.mimetype || 'image/jpeg');
-      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-      return res.send(buffer);
-    }
-  } catch (err) {
-    console.error('Error fetching media from MongoDB:', err);
-  }
-
-  res.status(404).send('File not found');
-});
-
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use('/uploads', express.static(UPLOADS_DIR));
 
 // Admin Auth Middleware helper
@@ -265,6 +238,51 @@ app.delete('/api/admin/donors/:id', verifyAdmin, (req, res) => {
     stats: calculateStats(donors)
   });
   res.json({ success: true });
+});
+
+// Permanent Payment Proof Image Viewer (Decodes Base64 or serves file with fallback)
+app.get('/api/donors/:id/proof', (req, res) => {
+  const { id } = req.params;
+  const donors = db.getDonors();
+  const donor = donors.find(d => d.id === id);
+  if (!donor || !donor.receiptUrl) {
+    return res.status(404).send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Payment Proof</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+        </head>
+        <body style="background:#140502;color:#fef08a;font-family:sans-serif;text-align:center;padding:50px 20px;">
+          <h2 style="color:#f59e0b;">🌺 విజయ కాలనీ గణేష్ డైరీస్ 🌺</h2>
+          <p style="color:#fed7aa;">No payment screenshot proof recorded for this donor.</p>
+        </body>
+      </html>
+    `);
+  }
+
+  // 1. If base64 Data URL (data:image/jpeg;base64,...), serve as decoded raw image buffer
+  if (donor.receiptUrl.startsWith('data:')) {
+    const matches = donor.receiptUrl.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
+    if (matches) {
+      const mimeType = matches[1];
+      const imageBuffer = Buffer.from(matches[2], 'base64');
+      res.setHeader('Content-Type', mimeType);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.send(imageBuffer);
+    }
+  }
+
+  // 2. If relative upload path
+  if (donor.receiptUrl.startsWith('/uploads/')) {
+    const filePath = path.join(__dirname, donor.receiptUrl);
+    if (fs.existsSync(filePath)) {
+      return res.sendFile(filePath);
+    }
+  }
+
+  // 3. Fallback redirect
+  return res.redirect(donor.receiptUrl);
 });
 
 // 3. Events API
@@ -525,25 +543,12 @@ app.delete('/api/admin/expenses/:id', verifyAdmin, (req, res) => {
   res.json({ success: true, id, summary });
 });
 
-// 5. Upload Endpoints (Voice Notes & Photos with Permanent Cloud MongoDB Persistence)
-app.post('/api/upload/audio', upload.single('audio'), async (req, res) => {
+// 5. Upload Endpoints (Voice Notes & Photos)
+app.post('/api/upload/audio', upload.single('audio'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No audio file uploaded' });
   }
   const fileUrl = `/uploads/${req.file.filename}`;
-  
-  try {
-    const fileBuffer = await fs.promises.readFile(req.file.path);
-    await db.saveMedia({
-      filename: req.file.filename,
-      mimetype: req.file.mimetype || 'audio/webm',
-      size: req.file.size,
-      data: fileBuffer.toString('base64')
-    });
-  } catch (err) {
-    console.error('Error saving audio to MongoDB:', err.message);
-  }
-
   res.json({
     success: true,
     fileUrl,
@@ -553,24 +558,11 @@ app.post('/api/upload/audio', upload.single('audio'), async (req, res) => {
   });
 });
 
-app.post('/api/upload/image', upload.single('image'), async (req, res) => {
+app.post('/api/upload/image', upload.single('image'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No image file uploaded' });
   }
   const fileUrl = `/uploads/${req.file.filename}`;
-  
-  try {
-    const fileBuffer = await fs.promises.readFile(req.file.path);
-    await db.saveMedia({
-      filename: req.file.filename,
-      mimetype: req.file.mimetype || 'image/jpeg',
-      size: req.file.size,
-      data: fileBuffer.toString('base64')
-    });
-  } catch (err) {
-    console.error('Error saving image to MongoDB:', err.message);
-  }
-
   res.json({
     success: true,
     fileUrl,
@@ -593,23 +585,19 @@ io.on('connection', (socket) => {
   });
 });
 
-// Android App APK Direct Download Endpoint
-app.get(['/download/app.apk', '/app.apk', '/download/android'], (req, res) => {
-  const possiblePaths = [
-    path.join(__dirname, '../public/downloads/Vijaya_Colony_Ganesha_Diaries.apk'),
-    path.join(__dirname, '../dist/downloads/Vijaya_Colony_Ganesha_Diaries.apk'),
-    path.join(__dirname, '../android/app/build/outputs/apk/debug/app-debug.apk')
-  ];
+// Direct APK Download Endpoint
+app.get(['/download/app', '/Ganesha_Diaries_2026.apk', '/app-release.apk'], (req, res) => {
+  const apkDist = path.join(DIST_DIR, 'Ganesha_Diaries_2026.apk');
+  const apkPublic = path.join(__dirname, '../public/Ganesha_Diaries_2026.apk');
+  const apkAndroid = path.join(__dirname, '../android/app/build/outputs/apk/debug/app-debug.apk');
 
-  for (const apkPath of possiblePaths) {
-    if (fs.existsSync(apkPath)) {
-      res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-      res.setHeader('Content-Disposition', 'attachment; filename="Vijaya_Colony_Ganesha_Diaries_2026.apk"');
-      return res.sendFile(apkPath);
-    }
+  const fileToSend = fs.existsSync(apkDist) ? apkDist : (fs.existsSync(apkPublic) ? apkPublic : (fs.existsSync(apkAndroid) ? apkAndroid : null));
+  if (fileToSend) {
+    res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+    res.setHeader('Content-Disposition', 'attachment; filename="Ganesha_Diaries_2026.apk"');
+    return res.sendFile(fileToSend);
   }
-
-  res.redirect('/#install');
+  res.status(404).send('APK is being prepared, please try again in a few moments.');
 });
 
 // Serve Vite Frontend Build if dist exists

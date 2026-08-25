@@ -453,14 +453,11 @@ export const downloadDonorsLedgerPdf = (donors = [], settings = {}) => {
         donorNameText = `★ [SPECIAL DONOR] ${d.name}` + (d.specialContribution ? `\nContrib: ${d.specialContribution}` : '');
       }
 
-      // Ensure full absolute web URL so clicking in PDF opens the browser directly
-      let fullReceiptUrl = d.receiptUrl || '';
-      if (fullReceiptUrl && fullReceiptUrl.startsWith('/')) {
-        const origin = (typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost')) 
-          ? window.location.origin 
-          : 'https://ganesha-chaturthi-utsav.onrender.com';
-        fullReceiptUrl = `${origin}${fullReceiptUrl}`;
-      }
+      const origin = (typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost')) 
+        ? window.location.origin 
+        : 'https://ganesha-chaturthi-utsav.onrender.com';
+      
+      const fullProofUrl = d.receiptUrl ? `${origin}/api/donors/${d.id}/proof` : '';
 
       return {
         sno: index + 1,
@@ -469,8 +466,8 @@ export const downloadDonorsLedgerPdf = (donors = [], settings = {}) => {
         phone: d.phone ? `+91 ${d.phone}` : '-',
         amount: `Rs. ${Number(d.amount).toLocaleString('en-IN')}`,
         mode: `${d.paymentMode || 'UPI'}\n${d.referenceNo || 'VERIFIED'}`,
-        screenshot: fullReceiptUrl ? 'View Proof 🔗' : 'No Proof',
-        receiptUrl: fullReceiptUrl,
+        screenshot: fullProofUrl ? 'View Proof 🔗' : 'No Proof',
+        receiptUrl: fullProofUrl,
         isSpecial: d.isSpecialDonor
       };
     });

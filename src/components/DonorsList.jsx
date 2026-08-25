@@ -139,55 +139,15 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
     });
   };
 
-  const compressImage = (file, maxWidth = 1200, quality = 0.82) => {
-    return new Promise((resolve) => {
-      if (!file || !file.type.startsWith('image/')) return resolve(file);
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target.result;
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-          if (width > maxWidth) {
-            height = Math.round((height * maxWidth) / width);
-            width = maxWidth;
-          }
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-          canvas.toBlob(
-            (blob) => {
-              if (!blob) return resolve(file);
-              const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, '.jpg'), {
-                type: 'image/jpeg',
-                lastModified: Date.now()
-              });
-              resolve(compressedFile);
-            },
-            'image/jpeg',
-            quality
-          );
-        };
-        img.onerror = () => resolve(file);
-      };
-      reader.onerror = () => resolve(file);
-    });
-  };
-
   const handleAdminReceiptUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     setIsUploadingReceipt(true);
     try {
-      const compressed = await compressImage(file);
-      const uploadRes = await api.uploadImage(compressed);
+      const uploadRes = await api.uploadImage(file);
       setEditForm(prev => ({ ...prev, receiptUrl: uploadRes.fileUrl }));
     } catch (err) {
-      alert('Failed to upload replacement receipt: ' + (err.message || 'Error'));
+      alert('Failed to upload replacement receipt');
     } finally {
       setIsUploadingReceipt(false);
     }
@@ -952,14 +912,18 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
               <div className="bg-black/70 p-3 rounded-2xl border border-amber-500/30 flex flex-col items-center justify-center relative group min-h-[260px]">
                 {selectedReceiptDonor.receiptUrl ? (
                   <img 
-                    src={selectedReceiptDonor.receiptUrl} 
+                    src={selectedReceiptDonor.receiptUrl.startsWith('data:') ? selectedReceiptDonor.receiptUrl : `/api/donors/${selectedReceiptDonor.id}/proof`} 
                     alt={`${selectedReceiptDonor.name} UPI Payment Screenshot`} 
                     className="max-h-[50vh] sm:max-h-[55vh] w-auto max-w-full object-contain rounded-xl shadow-lg border border-amber-500/20"
                     onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.style.display = 'none';
-                      const fallback = e.target.parentElement.querySelector('.img-fallback');
-                      if (fallback) fallback.style.display = 'flex';
+                      // If relative path failed, try /api/donors/:id/proof
+                      if (!e.target.src.includes('/api/donors/')) {
+                        e.target.src = `/api/donors/${selectedReceiptDonor.id}/proof`;
+                      } else {
+                        e.target.style.display = 'none';
+                        const fallback = e.target.parentElement.querySelector('.img-fallback');
+                        if (fallback) fallback.style.display = 'flex';
+                      }
                     }}
                   />
                 ) : (
@@ -968,9 +932,9 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
 
                 <div className="img-fallback hidden flex-col items-center justify-center text-center p-6 space-y-2 text-amber-200">
                   <span className="text-2xl">📸</span>
-                  <p className="text-xs font-semibold">Payment screenshot image attached by donor.</p>
+                  <p className="text-xs font-semibold">Payment screenshot proof attached.</p>
                   <a
-                    href={selectedReceiptDonor.receiptUrl}
+                    href={`/api/donors/${selectedReceiptDonor.id}/proof`}
                     target="_blank"
                     rel="noreferrer"
                     className="px-4 py-2 rounded-xl bg-amber-500 text-amber-950 font-bold text-xs shadow-md"
@@ -982,7 +946,7 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
                 {selectedReceiptDonor.receiptUrl && (
                   <div className="mt-3 w-full flex items-center justify-end">
                     <a
-                      href={selectedReceiptDonor.receiptUrl}
+                      href={selectedReceiptDonor.receiptUrl.startsWith('data:') ? selectedReceiptDonor.receiptUrl : `/api/donors/${selectedReceiptDonor.id}/proof`}
                       target="_blank"
                       rel="noreferrer"
                       className="bg-black/80 hover:bg-black text-amber-300 px-3.5 py-2 rounded-xl border border-amber-500/40 text-xs font-semibold flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
