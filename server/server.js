@@ -444,7 +444,7 @@ app.get('/api/expenses/summary', (req, res) => {
   res.json(db.getPurseSummary());
 });
 
-app.post('/api/admin/expenses', authenticateAdmin, (req, res) => {
+app.post('/api/admin/expenses', verifyAdmin, (req, res) => {
   const { name, category, price, advance, status, paidBy, notes, receiptUrl } = req.body;
   if (!name || !name.trim()) {
     return res.status(400).json({ error: 'Item name is required' });
@@ -466,7 +466,7 @@ app.post('/api/admin/expenses', authenticateAdmin, (req, res) => {
   res.status(201).json({ success: true, expense: newExpense, summary });
 });
 
-app.put('/api/admin/expenses/:id', authenticateAdmin, (req, res) => {
+app.put('/api/admin/expenses/:id', verifyAdmin, (req, res) => {
   const { id } = req.params;
   const updatedExpense = db.updateExpense(id, req.body);
   if (!updatedExpense) {
@@ -478,7 +478,7 @@ app.put('/api/admin/expenses/:id', authenticateAdmin, (req, res) => {
   res.json({ success: true, expense: updatedExpense, summary });
 });
 
-app.delete('/api/admin/expenses/:id', authenticateAdmin, (req, res) => {
+app.delete('/api/admin/expenses/:id', verifyAdmin, (req, res) => {
   const { id } = req.params;
   const success = db.deleteExpense(id);
   if (!success) {
