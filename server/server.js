@@ -429,6 +429,9 @@ app.delete('/api/messages/:id', (req, res) => {
     io.emit('message:deleted', { id });
     return res.json({ success: true });
   }
+  res.status(500).json({ error: 'Failed to delete message' });
+});
+
 // 5. Expenses & Committee Purse API (ఖర్చుల లెక్కలు & మిగులు నిధి)
 app.get('/api/expenses', (req, res) => {
   res.json({
