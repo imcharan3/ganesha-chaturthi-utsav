@@ -478,6 +478,13 @@ app.put('/api/admin/expenses/:id', verifyAdmin, (req, res) => {
   res.json({ success: true, expense: updatedExpense, summary });
 });
 
+app.delete('/api/admin/expenses-all', verifyAdmin, async (req, res) => {
+  await db.clearAllExpenses();
+  const summary = db.getPurseSummary();
+  io.emit('expense:cleared', { summary });
+  res.json({ success: true, message: 'All expenses cleared successfully', summary });
+});
+
 app.delete('/api/admin/expenses/:id', verifyAdmin, (req, res) => {
   const { id } = req.params;
   const success = db.deleteExpense(id);

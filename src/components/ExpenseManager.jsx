@@ -174,6 +174,19 @@ export const ExpenseManager = ({ donors = [], settings = {}, onRefresh }) => {
     }
   };
 
+  const handleClearAll = async () => {
+    if (!window.confirm('⚠️ మీరు మొత్తం ఖర్చుల వివరాలన్నింటినీ తొలగించాలనుకుంటున్నారా? (Are you sure you want to delete ALL expense records? This cannot be undone!)')) return;
+    try {
+      await api.clearAllExpenses(adminToken);
+      setFeedbackMessage('🗑️ అన్ని ఖర్చుల వివరాలు విజయవంతంగా తొలగించబడ్డాయి (All expenses cleared!)');
+      await loadExpenses();
+      if (onRefresh) onRefresh();
+      setTimeout(() => setFeedbackMessage(null), 4000);
+    } catch (err) {
+      alert('Failed to clear expenses: ' + err.message);
+    }
+  };
+
   // Filtered List
   const filteredExpenses = expenses.filter(item => {
     const matchesCat = selectedCategory === 'All' || item.category === selectedCategory;
@@ -358,6 +371,17 @@ export const ExpenseManager = ({ donors = [], settings = {}, onRefresh }) => {
             >
               <Plus className="w-4 h-4 stroke-[3]" />
               <span>Add Expense (కొత్త ఖర్చు)</span>
+            </button>
+          )}
+
+          {isAdmin && expenses.length > 0 && (
+            <button
+              onClick={handleClearAll}
+              className="px-3.5 py-2.5 rounded-2xl bg-red-950/80 hover:bg-red-900 border border-red-500/40 text-red-300 text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
+              title="Delete all expense records"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-red-400" />
+              <span>Clear All (అన్నీ తొలగించండి)</span>
             </button>
           )}
 

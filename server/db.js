@@ -25,113 +25,8 @@ const AUCTION_FILE = path.join(DATA_DIR, 'auction.json');
 const EXPENSES_FILE = path.join(DATA_DIR, 'expenses.json');
 const CONFIG_FILE = path.join(DATA_DIR, 'db_config.json');
 
-// Default Seed Data for Expenses / Budget Tracker
-const DEFAULT_EXPENSES = [
-  {
-    id: "exp-1",
-    name: "వినాయక విగ్రహం (Ganesha Idol)",
-    category: "Idol & Mandapam",
-    price: 18000,
-    advance: 8000,
-    balance: 10000,
-    status: "Partial",
-    paidBy: "కమిటీ నిధి (Committee Purse)",
-    notes: "మట్టి ప్రతిమ విగ్రహం అడ్వాన్స్ చెల్లించబడింది",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: "exp-2",
-    name: "టెంట్, స్టేజ్ & లైటింగ్ డెకరేషన్ (Tent, Stage & Lights)",
-    category: "Idol & Mandapam",
-    price: 15000,
-    advance: 5000,
-    balance: 10000,
-    status: "Partial",
-    paidBy: "కమిటీ నిధి",
-    notes: "4 రోజుల మండపం మరియు ఫోకస్ లైటింగ్ సెటప్",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: "exp-3",
-    name: "డిజె & సౌండ్ సిస్టమ్ (DJ & Sound System)",
-    category: "Sound & Lights",
-    price: 12000,
-    advance: 4000,
-    balance: 8000,
-    status: "Partial",
-    paidBy: "కమిటీ నిధి",
-    notes: "మండపం సౌండ్ & శోభాయాత్ర స్పీకర్లు",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: "exp-4",
-    name: "మహా అన్నదానం సరుకులు & కూరగాయలు (Annadanam Provisions)",
-    category: "Annadanam",
-    price: 16000,
-    advance: 0,
-    balance: 16000,
-    status: "Pending",
-    paidBy: "కమిటీ నిధి",
-    notes: "బియ్యం, పప్పులు, నూనె, కూరగాయలు & నెయ్యి",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: "exp-5",
-    name: "పూజా సామగ్రి, పండ్లు & పూలు (Pooja Items & Flowers)",
-    category: "Pooja & Prasadam",
-    price: 6000,
-    advance: 2000,
-    balance: 4000,
-    status: "Partial",
-    paidBy: "కమిటీ నిధి",
-    notes: "హోమం ద్రవ్యాలు మరియు 4 రోజుల పూల మాలలు",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: "exp-6",
-    name: "మహా లడ్డూ తయారీ & ప్రసాదాలు (Maha Laddu Preparation)",
-    category: "Pooja & Prasadam",
-    price: 5000,
-    advance: 2000,
-    balance: 3000,
-    status: "Partial",
-    paidBy: "కమిటీ నిధి",
-    notes: "21 కేజీల లడ్డూ ప్రసాదం తయారీ నేయి మరియు డ్రై ఫ్రూట్స్",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: "exp-7",
-    name: "డప్పులు, బ్యాండ్ & ఉట్టి సంబరాలు (Dappulu Band & Vutti)",
-    category: "Procession & Band",
-    price: 7000,
-    advance: 0,
-    balance: 7000,
-    status: "Pending",
-    paidBy: "కమిటీ నిధి",
-    notes: "3వ రోజు ఉట్టి కొట్టడం మరియు యువజన సంబరాలు",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: "exp-8",
-    name: "నిమజ్జనం వాహనం & రవాణా (Immersion Vehicle & Transport)",
-    category: "Procession & Band",
-    price: 8000,
-    advance: 0,
-    balance: 8000,
-    status: "Pending",
-    paidBy: "కమిటీ నిధి",
-    notes: "ట్రాక్టర్ / డిసిఎం నిమజ్జన శోభాయాత్ర వాహనం",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  }
-];
+// Default Seed Data for Expenses / Budget Tracker (Empty by default)
+const DEFAULT_EXPENSES = [];
 
 const DEFAULT_AUCTION = {
   status: "upcoming",
@@ -548,9 +443,14 @@ async function connectDatabase(mongoUri) {
 
     // 6. Expenses / Budget Tracker
     if (dbExpenses && dbExpenses.length > 0) {
-      memExpenses = dbExpenses;
-    } else if (memExpenses && memExpenses.length > 0) {
-      await ExpenseModel.insertMany(memExpenses);
+      // Purge any pre-installed sample demo expenses
+      const userExpenses = dbExpenses.filter(e => !['exp-1','exp-2','exp-3','exp-4','exp-5','exp-6','exp-7','exp-8'].includes(e.id));
+      memExpenses = userExpenses;
+      if (userExpenses.length !== dbExpenses.length) {
+        await ExpenseModel.deleteMany({ id: { $in: ['exp-1','exp-2','exp-3','exp-4','exp-5','exp-6','exp-7','exp-8'] } });
+      }
+    } else {
+      memExpenses = [];
     }
 
     // Backup current synchronized data to local JSON
@@ -1053,6 +953,19 @@ export const db = {
       projectedNetSurplus,
       itemsCount: memExpenses.length
     };
+  },
+
+  clearAllExpenses: async () => {
+    memExpenses = [];
+    writeJsonFile(EXPENSES_FILE, memExpenses);
+    if (dbStatus.connected && ExpenseModel) {
+      try {
+        await ExpenseModel.deleteMany({});
+      } catch (err) {
+        console.error('Error clearing Mongo expenses:', err.message);
+      }
+    }
+    return true;
   },
 
   resetAuction: (startingBid = 5001) => {

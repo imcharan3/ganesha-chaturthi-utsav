@@ -394,5 +394,17 @@ export const api = {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to delete expense');
     return data;
+  },
+
+  clearAllExpenses: async (token) => {
+    const res = await fetch(`${API_BASE}/admin/expenses-all`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to clear all expenses');
+    return data;
   }
 };
