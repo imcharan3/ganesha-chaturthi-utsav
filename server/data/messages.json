@@ -1,1 +1,17 @@
-[]
+[
+  {
+    "_id": "6a8c82d3b0675b68a5adb48f",
+    "id": "msg-1787593427730-0uua",
+    "__v": 0,
+    "createdAt": "2026-08-24T17:43:47.730Z",
+    "duration": null,
+    "mediaUrl": null,
+    "reactions": {},
+    "replyTo": null,
+    "role": "Youth Member",
+    "sender": "Devotee",
+    "senderId": "usr_1787422461605_opkua0l",
+    "text": "hi",
+    "type": "text"
+  }
+]

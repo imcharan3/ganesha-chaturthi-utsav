@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import express from 'express';
+import compression from 'compression';
 import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
@@ -49,9 +50,12 @@ const upload = multer({
 });
 
 // Middleware
+app.use(compression());
 app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static(UPLOADS_DIR));
+app.use('/uploads', express.static(UPLOADS_DIR, {
+  maxAge: '7d'
+}));
 
 // Admin Auth Middleware helper
 function verifyAdmin(req, res, next) {

@@ -6,7 +6,8 @@ import {
 import { 
   downloadDonorReceiptPdf, 
   downloadDonorReceiptPng, 
-  sendWhatsAppReceipt, 
+  sendWhatsAppReceipt,
+  shareDonorReceiptWithImage,
   generateDonorReceiptCanvas 
 } from '../utils/receiptGenerator';
 
@@ -312,12 +313,12 @@ export const ReceiptsArchiveModal = ({ isOpen, onClose, donors = [], settings })
                       {/* WhatsApp Receipt Button */}
                       <button
                         type="button"
-                        onClick={() => sendWhatsAppReceipt(receipt, settings)}
+                        onClick={() => shareDonorReceiptWithImage(receipt, settings)}
                         className="flex-1 py-1.5 px-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-[11px] flex items-center justify-center gap-1 shadow-sm active:scale-95 transition-all"
-                        title="Send Official Devotional Receipt via WhatsApp"
+                        title="Send Official Devotional Receipt via WhatsApp (with Attached PNG Image)"
                       >
                         <Share2 className="w-3.5 h-3.5" />
-                        <span>Send WhatsApp Receipt</span>
+                        <span>Send WhatsApp Receipt + Image</span>
                       </button>
 
                       {/* Download PDF */}
@@ -413,11 +414,11 @@ export const ReceiptsArchiveModal = ({ isOpen, onClose, donors = [], settings })
             <div className="p-3.5 bg-[#160602] border-t border-amber-500/20 flex flex-wrap items-center justify-center gap-2 shrink-0">
               <button
                 type="button"
-                onClick={() => sendWhatsAppReceipt(previewDonor, settings)}
+                onClick={() => shareDonorReceiptWithImage(previewDonor, settings)}
                 className="py-2 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
               >
                 <Share2 className="w-3.5 h-3.5" />
-                <span>Send to WhatsApp (+91 {previewDonor.phone || '...'})</span>
+                <span>Send to WhatsApp + Image (+91 {previewDonor.phone || '...'})</span>
               </button>
 
               <button

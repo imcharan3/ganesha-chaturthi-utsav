@@ -1,12 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Navbar } from './components/Navbar';
 import { HeroSection } from './components/HeroSection';
-import { DonorsList } from './components/DonorsList';
-import { LadduAuction } from './components/LadduAuction';
-import { EventsTimeline } from './components/EventsTimeline';
-import { YouthChat } from './components/YouthChat';
-import { DonationModal } from './components/DonationModal';
-import { AdminModal } from './components/AdminModal';
 import { MobileNav } from './components/MobileNav';
 import { InstallAppBanner } from './components/InstallAppBanner';
 import { AppSplashScreen } from './components/AppSplashScreen';
@@ -14,6 +8,22 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { SocketProvider, useSocket } from './context/SocketContext';
 import { api } from './services/api';
 import { playTempleBell } from './utils/audio';
+
+// Code-split heavy tabs for lightning-fast initial page load
+const DonorsList = lazy(() => import('./components/DonorsList').then(m => ({ default: m.DonorsList })));
+const LadduAuction = lazy(() => import('./components/LadduAuction').then(m => ({ default: m.LadduAuction })));
+const EventsTimeline = lazy(() => import('./components/EventsTimeline').then(m => ({ default: m.EventsTimeline })));
+const YouthChat = lazy(() => import('./components/YouthChat').then(m => ({ default: m.YouthChat })));
+const DonationModal = lazy(() => import('./components/DonationModal').then(m => ({ default: m.DonationModal })));
+const AdminModal = lazy(() => import('./components/AdminModal').then(m => ({ default: m.AdminModal })));
+
+// Lightweight tab loading fallback
+const TabLoader = () => (
+  <div className="flex flex-col items-center justify-center min-h-[40vh] space-y-3 p-8">
+    <div className="w-10 h-10 border-4 border-amber-500/30 border-t-amber-400 rounded-full animate-spin" />
+    <span className="text-xs text-amber-300 font-semibold animate-pulse">జై గణేష్... లోడ్ అవుతోంది...</span>
+  </div>
+);
 
 function MainApp() {
   const [activeTab, setActiveTab] = useState('home');
@@ -189,37 +199,39 @@ function MainApp() {
           </div>
         )}
 
-        {activeTab === 'donors' && (
-          <DonorsList
-            donors={donors}
-            stats={stats}
-            settings={settings}
-            onOpenDonation={() => setIsDonationOpen(true)}
-            onRefreshDonors={fetchData}
-          />
-        )}
+        <Suspense fallback={<TabLoader />}>
+          {activeTab === 'donors' && (
+            <DonorsList
+              donors={donors}
+              stats={stats}
+              settings={settings}
+              onOpenDonation={() => setIsDonationOpen(true)}
+              onRefreshDonors={fetchData}
+            />
+          )}
 
-        {activeTab === 'auction' && (
-          <LadduAuction
-            onOpenDonation={() => setIsDonationOpen(true)}
-          />
-        )}
+          {activeTab === 'auction' && (
+            <LadduAuction
+              onOpenDonation={() => setIsDonationOpen(true)}
+            />
+          )}
 
-        {activeTab === 'events' && (
-          <EventsTimeline
-            events={events}
-            settings={settings}
-            onRefreshEvents={fetchData}
-            setActiveTab={setActiveTab}
-          />
-        )}
+          {activeTab === 'events' && (
+            <EventsTimeline
+              events={events}
+              settings={settings}
+              onRefreshEvents={fetchData}
+              setActiveTab={setActiveTab}
+            />
+          )}
 
-        {activeTab === 'chat' && (
-          <YouthChat
-            messages={messages}
-            onRefreshMessages={fetchData}
-          />
-        )}
+          {activeTab === 'chat' && (
+            <YouthChat
+              messages={messages}
+              onRefreshMessages={fetchData}
+            />
+          )}
+        </Suspense>
       </main>
 
       {/* Devotional Footer */}
@@ -263,21 +275,28 @@ function MainApp() {
         </p>
       </footer>
 
-      {/* Donation Modal */}
-      <DonationModal
-        isOpen={isDonationOpen}
-        onClose={() => setIsDonationOpen(false)}
-        settings={settings}
-        onDonationSuccess={() => fetchData()}
-      />
+      {/* Lazy Modals */}
+      <Suspense fallback={null}>
+        {/* Donation Modal */}
+        {isDonationOpen && (
+          <DonationModal
+            isOpen={isDonationOpen}
+            onClose={() => setIsDonationOpen(false)}
+            settings={settings}
+            onDonationSuccess={() => fetchData()}
+          />
+        )}
 
-      {/* Admin PIN & Configuration Modal */}
-      <AdminModal
-        isOpen={isAdminModalOpen}
-        onClose={() => setIsAdminModalOpen(false)}
-        settings={settings}
-        onRefreshSettings={fetchData}
-      />
+        {/* Admin PIN & Configuration Modal */}
+        {isAdminModalOpen && (
+          <AdminModal
+            isOpen={isAdminModalOpen}
+            onClose={() => setIsAdminModalOpen(false)}
+            settings={settings}
+            onRefreshSettings={fetchData}
+          />
+        )}
+      </Suspense>
 
       {/* 1-Tap Mobile App Install Banner */}
       <InstallAppBanner />

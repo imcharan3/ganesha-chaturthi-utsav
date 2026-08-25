@@ -7,6 +7,22 @@ export default defineConfig({
   define: {
     'process.env': {}
   },
+  build: {
+    target: 'esnext',
+    minify: 'esbuild',
+    cssMinify: true,
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-icons': ['lucide-react'],
+          'vendor-pdf': ['jspdf', 'jspdf-autotable', 'html2canvas'],
+          'vendor-socket': ['socket.io-client', 'canvas-confetti', 'qrcode.react']
+        }
+      }
+    }
+  },
   server: {
     host: '0.0.0.0',
     port: 5173,

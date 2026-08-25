@@ -2,11 +2,11 @@
   "status": "upcoming",
   "itemTitle": "శ్రీ వినాయక మహా లడ్డూ ప్రసాదం",
   "itemTitleEnglish": "Lord Varasiddhi Vinayaka Sacred Maha Laddu Prasadam",
-  "ladduWeight": "21 KG",
+  "ladduWeight": "5 KG",
   "description": "Most sacred Maha Laddu blessed during the auspicious 4-day Ganesha Navaratri poojas. Brought to the grand live auction on Day 3.",
-  "startingBid": 5001,
+  "startingBid": 2000,
   "minIncrement": 0,
-  "currentHighestBid": 5001,
+  "currentHighestBid": 2000,
   "highestBidderName": "",
   "highestBidderGotram": "",
   "highestBidderPhone": "",
@@ -21,7 +21,7 @@
   ],
   "bidsHistory": [],
   "winner": null,
-  "updatedAt": "2026-08-23T09:05:00.000Z",
+  "updatedAt": "2026-08-24T17:44:05.006Z",
   "_id": "live_laddu_auction",
   "__v": 0
 }

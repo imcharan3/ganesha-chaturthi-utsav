@@ -3,8 +3,7 @@ import { X, Heart, QrCode, CheckCircle2, Copy, Download, Share2, Sparkles, Smart
 import { QRCodeSVG } from 'qrcode.react';
 import confetti from 'canvas-confetti';
 import { api } from '../services/api';
-import { playTempleBell } from '../utils/audio';
-import { downloadDonorReceiptPdf, downloadDonorReceiptPng, sendWhatsAppReceipt } from '../utils/receiptGenerator';
+import { downloadDonorReceiptPdf, downloadDonorReceiptPng, sendWhatsAppReceipt, shareDonorReceiptWithImage } from '../utils/receiptGenerator';
 
 const PRESET_AMOUNTS = [101, 251, 501, 1116, 2116, 5116, 11116];
 
@@ -231,11 +230,11 @@ export const DonationModal = ({ isOpen, onClose, settings, onDonationSuccess }) 
               <div className="flex flex-wrap items-center gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => sendWhatsAppReceipt(donationComplete, settings)}
+                  onClick={() => shareDonorReceiptWithImage(donationComplete, settings)}
                   className="flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs sm:text-sm shadow-md active:scale-95 transition-all flex items-center justify-center gap-1.5"
                 >
                   <Share2 className="w-4 h-4" />
-                  <span>Send to WhatsApp 📱</span>
+                  <span>Send to WhatsApp + Image 📱</span>
                 </button>
 
                 <button

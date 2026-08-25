@@ -10,7 +10,8 @@ import { ReceiptsArchiveModal } from './ReceiptsArchiveModal';
 import { 
   downloadDonorReceiptPdf, 
   downloadDonorReceiptPng, 
-  sendWhatsAppReceipt 
+  sendWhatsAppReceipt,
+  shareDonorReceiptWithImage
 } from '../utils/receiptGenerator';
 
 export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRefreshDonors }) => {
@@ -322,12 +323,12 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
                     {donor.status === 'Verified' && (
                       <button
                         type="button"
-                        onClick={() => sendWhatsAppReceipt(donor, settings)}
+                        onClick={() => shareDonorReceiptWithImage(donor, settings)}
                         className="py-1 px-2.5 rounded-lg bg-emerald-700/40 hover:bg-emerald-700/70 border border-emerald-500/40 text-emerald-200 text-[11px] font-semibold flex items-center gap-1 transition-all"
-                        title="Send / Share Receipt on WhatsApp"
+                        title="Send / Share Receipt with Attached Image on WhatsApp"
                       >
                         <Share2 className="w-3 h-3" />
-                        <span>WhatsApp Receipt</span>
+                        <span>WhatsApp Receipt (with Image)</span>
                       </button>
                     )}
                     {donor.receiptUrl && (
@@ -504,12 +505,12 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
                           <>
                             <button
                               type="button"
-                              onClick={() => sendWhatsAppReceipt(donor, settings)}
+                              onClick={() => shareDonorReceiptWithImage(donor, settings)}
                               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 text-white text-xs font-bold shadow-sm active:scale-95 transition-all"
-                              title={donor.phone ? `Send official receipt to donor WhatsApp (+91 ${donor.phone})` : 'Share Receipt on WhatsApp'}
+                              title={donor.phone ? `Send official receipt with image to WhatsApp (+91 ${donor.phone})` : 'Share Receipt with image on WhatsApp'}
                             >
                               <Share2 className="w-3.5 h-3.5" />
-                              <span>{donor.phone ? 'Send WhatsApp Receipt 📱' : 'Share WhatsApp'}</span>
+                              <span>{donor.phone ? 'Send WhatsApp Receipt (with Image) 📱' : 'Share Receipt (with Image)'}</span>
                             </button>
 
                             <button
@@ -614,18 +615,18 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
             {verifySuccessDonor.phone ? (
               <div className="p-3 bg-emerald-950/50 border border-emerald-500/30 rounded-2xl space-y-2">
                 <p className="text-xs text-emerald-200">
-                  📲 Send official receipt to donor on WhatsApp (+91 <strong>{verifySuccessDonor.phone}</strong>)?
+                  📲 Send official receipt with PNG image to donor on WhatsApp (+91 <strong>{verifySuccessDonor.phone}</strong>)?
                 </p>
                 <button
                   type="button"
-                  onClick={() => {
-                    sendWhatsAppReceipt(verifySuccessDonor, settings);
+                  onClick={async () => {
+                    await shareDonorReceiptWithImage(verifySuccessDonor, settings);
                     setVerifySuccessDonor(null);
                   }}
                   className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold text-xs shadow-md hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-1.5"
                 >
                   <Share2 className="w-4 h-4" />
-                  <span>Send WhatsApp Receipt Now 🚀</span>
+                  <span>Send WhatsApp Receipt + Image 🚀</span>
                 </button>
               </div>
             ) : (
@@ -641,10 +642,10 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
                   </button>
                   <button
                     type="button"
-                    onClick={() => sendWhatsAppReceipt(verifySuccessDonor, settings)}
+                    onClick={() => shareDonorReceiptWithImage(verifySuccessDonor, settings)}
                     className="py-1.5 px-3 rounded-lg bg-emerald-700 text-white text-xs font-semibold"
                   >
-                    Share
+                    Share with Image
                   </button>
                 </div>
               </div>

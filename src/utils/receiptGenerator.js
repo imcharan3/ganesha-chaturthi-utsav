@@ -362,6 +362,57 @@ https://ganesha-chaturthi-utsav.onrender.com/`;
 };
 
 /**
+ * Convert Canvas to PNG Blob
+ */
+export const generateDonorReceiptBlob = async (donor, settings) => {
+  const canvas = await generateDonorReceiptCanvas(donor, settings);
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), 'image/png', 1.0);
+  });
+};
+
+/**
+ * Share Devotional Receipt with Attached PNG Image and Message
+ * On mobile/PWA: Uses Web Share API to attach the PNG image directly to WhatsApp/Share sheet!
+ * On desktop fallback: Downloads PNG image and opens WhatsApp chat with text.
+ */
+export const shareDonorReceiptWithImage = async (donor, settings) => {
+  const text = getWhatsAppReceiptText(donor, settings);
+  const safeName = (donor.name || 'Donor').replace(/\s+/g, '_');
+  const receiptNo = donor.receiptNo || 'REC';
+  const fileName = `Ganesha_Receipt_${receiptNo}_${safeName}.png`;
+
+  try {
+    const blob = await generateDonorReceiptBlob(donor, settings);
+    if (!blob) throw new Error('Failed to generate image blob');
+
+    const file = new File([blob], fileName, { type: 'image/png' });
+
+    // Check if Web Share API with files is supported (Mobile Chrome, Safari, Android WebViews)
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        title: 'శ్రీ వినాయక చవితి అధికారిక విరాళ రశీదు',
+        text: text,
+        files: [file]
+      });
+      return { success: true, method: 'web-share' };
+    }
+  } catch (err) {
+    if (err.name === 'AbortError') return { success: false, cancelled: true };
+    console.warn('Web share with image failed or not supported, falling back:', err);
+  }
+
+  // Fallback for desktop & browsers without File Share support:
+  // 1. Download the PNG receipt image to Downloads folder
+  await downloadDonorReceiptPng(donor, settings);
+
+  // 2. Open WhatsApp chat with prefilled text
+  sendWhatsAppReceipt(donor, settings);
+
+  return { success: true, method: 'download-and-whatsapp' };
+};
+
+/**
  * Open WhatsApp with prefilled devotional receipt text directly to donor's phone
  */
 export const sendWhatsAppReceipt = (donor, settings) => {
@@ -373,7 +424,6 @@ export const sendWhatsAppReceipt = (donor, settings) => {
     const url = `https://wa.me/${rawPhone}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   } else {
-    // If donor didn't provide phone, open general WhatsApp share
     const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   }
