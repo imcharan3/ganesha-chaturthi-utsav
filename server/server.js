@@ -197,7 +197,7 @@ app.post('/api/donors', (req, res) => {
 // Admin 1-Click Verification Endpoint
 app.post('/api/admin/donors/:id/verify', verifyAdmin, (req, res) => {
   const { id } = req.params;
-  const updated = db.updateDonor(id, { status: 'Verified' });
+  const updated = db.verifyDonor(id);
   if (!updated) {
     return res.status(404).json({ error: 'Donor not found' });
   }

@@ -193,6 +193,7 @@ function MainApp() {
           <DonorsList
             donors={donors}
             stats={stats}
+            settings={settings}
             onOpenDonation={() => setIsDonationOpen(true)}
             onRefreshDonors={fetchData}
           />

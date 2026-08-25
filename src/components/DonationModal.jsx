@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { X, Heart, QrCode, CheckCircle2, Copy, Download, Share2, Sparkles, Smartphone, ArrowRight, ShieldCheck, Upload } from 'lucide-react';
+import { X, Heart, QrCode, CheckCircle2, Copy, Download, Share2, Sparkles, Smartphone, ArrowRight, ShieldCheck, Upload, FileText } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import confetti from 'canvas-confetti';
 import { api } from '../services/api';
 import { playTempleBell } from '../utils/audio';
+import { downloadDonorReceiptPdf, downloadDonorReceiptPng, sendWhatsAppReceipt } from '../utils/receiptGenerator';
 
 const PRESET_AMOUNTS = [101, 251, 501, 1116, 2116, 5116, 11116];
 
@@ -227,29 +228,44 @@ export const DonationModal = ({ isOpen, onClose, settings, onDonationSuccess }) 
               </div>
 
               {/* Receipt Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <div className="flex flex-wrap items-center gap-2 pt-2">
                 <button
-                  onClick={() => {
-                    const currentStatus = donationComplete.status === 'Verified' ? 'Verified ✅' : 'Submitted (Pending Verification) ⏳';
-                    const text = `🌺 Vinayaka Chavithi 2026 Donation Receipt 🌺\nDonor: ${donationComplete.name}\nAmount: ₹${donationComplete.amount}\nReference: ${donationComplete.referenceNo}\nStatus: ${currentStatus}\nMay Lord Ganesha bless all of us! 🙏🚩`;
-                    if (navigator.share) {
-                      navigator.share({ title: 'Donation Receipt', text }).catch(() => {});
-                    } else {
-                      navigator.clipboard.writeText(text);
-                      alert('Receipt copied! You can paste and share it on WhatsApp.');
-                    }
-                  }}
-                  className="flex-1 py-2.5 rounded-xl bg-[#34160b] hover:bg-[#431c0e] border border-amber-500/40 text-amber-200 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2"
+                  type="button"
+                  onClick={() => sendWhatsAppReceipt(donationComplete, settings)}
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs sm:text-sm shadow-md active:scale-95 transition-all flex items-center justify-center gap-1.5"
                 >
-                  <Share2 className="w-4 h-4 text-amber-400" />
-                  <span>Share on WhatsApp</span>
+                  <Share2 className="w-4 h-4" />
+                  <span>Send to WhatsApp 📱</span>
                 </button>
 
                 <button
-                  onClick={resetAndClose}
-                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-saffron-500 text-amber-950 font-bold text-xs sm:text-sm hover:brightness-110 shadow-gold"
+                  type="button"
+                  onClick={() => downloadDonorReceiptPdf(donationComplete, settings)}
+                  className="py-2.5 px-3 rounded-xl bg-[#2b1008] hover:bg-[#3d170b] border border-amber-500/40 text-amber-200 font-semibold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all"
+                  title="Download A4 PDF Official Bill"
                 >
-                  Close & View Donors List
+                  <FileText className="w-4 h-4 text-amber-400" />
+                  <span>PDF Bill</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => downloadDonorReceiptPng(donationComplete, settings)}
+                  className="py-2.5 px-3 rounded-xl bg-[#2b1008] hover:bg-[#3d170b] border border-amber-500/40 text-amber-200 font-semibold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all"
+                  title="Download PNG Image Receipt"
+                >
+                  <Download className="w-4 h-4 text-amber-400" />
+                  <span>PNG</span>
+                </button>
+              </div>
+
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={resetAndClose}
+                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-saffron-500 text-amber-950 font-bold text-xs sm:text-sm hover:brightness-110 shadow-gold"
+                >
+                  Close & View Donors List ➔
                 </button>
               </div>
 
@@ -418,12 +434,13 @@ export const DonationModal = ({ isOpen, onClose, settings, onDonationSuccess }) 
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-amber-300 mb-1">
-                      Phone Number (Optional for WhatsApp)
+                    <label className="block text-xs font-medium text-amber-300 mb-1 flex items-center justify-between">
+                      <span>Mobile / WhatsApp Number</span>
+                      <span className="text-[10px] text-emerald-400 font-bold">📲 WhatsApp Receipt</span>
                     </label>
                     <input
                       type="tel"
-                      placeholder="e.g. 98480 12345"
+                      placeholder="e.g. 98480 12345 (రశీదు పొందడానికి)"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       className="w-full px-3 py-2 rounded-xl bg-[#2b1008] border border-amber-500/30 text-amber-100 text-sm focus:outline-none focus:border-amber-400"

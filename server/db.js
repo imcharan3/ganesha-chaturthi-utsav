@@ -157,6 +157,7 @@ function writeJsonFile(filePath, data) {
 // Mongoose Schemas for MongoDB Persistence
 const DonorSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true, index: true },
+  receiptNo: { type: String, index: true },
   name: { type: String, required: true },
   gotram: { type: String, default: 'Shiva' },
   amount: { type: Number, required: true },
@@ -168,6 +169,8 @@ const DonorSchema = new mongoose.Schema({
   receiptUrl: { type: String, default: null },
   isSample: { type: Boolean, default: false },
   createdAt: { type: String, default: () => new Date().toISOString() },
+  verifiedAt: { type: String },
+  verifiedBy: { type: String, default: 'Admin' },
   updatedAt: { type: String }
 }, { collection: 'donors', strict: false });
 
@@ -527,10 +530,18 @@ export const db = {
     memDonors = donors;
     writeJsonFile(DONORS_FILE, donors);
   },
+  generateReceiptNo: () => {
+    const verifiedCount = memDonors.filter(d => d.receiptNo).length;
+    return `VCGD-REC-${1001 + verifiedCount}`;
+  },
   addDonor: (donor) => {
+    const isVerified = (donor.status === 'Verified');
     const newDonor = {
       id: `dn-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      receiptNo: isVerified ? `VCGD-REC-${1001 + memDonors.filter(d => d.receiptNo).length}` : null,
       createdAt: new Date().toISOString(),
+      verifiedAt: isVerified ? new Date().toISOString() : null,
+      verifiedBy: isVerified ? (donor.verifiedBy || 'Admin') : null,
       status: donor.status || "Pending Verification",
       ...donor
     };
@@ -539,10 +550,45 @@ export const db = {
     persistMongoDonor(newDonor);
     return newDonor;
   },
+  verifyDonor: (id, verifiedBy = 'Admin') => {
+    const index = memDonors.findIndex(d => d.id === id);
+    if (index !== -1) {
+      const existing = memDonors[index];
+      const receiptNo = existing.receiptNo || `VCGD-REC-${1001 + memDonors.filter(d => d.receiptNo).length}`;
+      const verifiedAt = existing.verifiedAt || new Date().toISOString();
+      memDonors[index] = {
+        ...existing,
+        status: 'Verified',
+        receiptNo,
+        verifiedAt,
+        verifiedBy,
+        updatedAt: new Date().toISOString()
+      };
+      writeJsonFile(DONORS_FILE, memDonors);
+      persistMongoDonor(memDonors[index]);
+      return memDonors[index];
+    }
+    return null;
+  },
   updateDonor: (id, updatedFields) => {
     const index = memDonors.findIndex(d => d.id === id);
     if (index !== -1) {
-      memDonors[index] = { ...memDonors[index], ...updatedFields, updatedAt: new Date().toISOString() };
+      const existing = memDonors[index];
+      let receiptNo = updatedFields.receiptNo || existing.receiptNo;
+      let verifiedAt = updatedFields.verifiedAt || existing.verifiedAt;
+      
+      if (updatedFields.status === 'Verified' && !receiptNo) {
+        receiptNo = `VCGD-REC-${1001 + memDonors.filter(d => d.receiptNo).length}`;
+        if (!verifiedAt) verifiedAt = new Date().toISOString();
+      }
+
+      memDonors[index] = { 
+        ...existing, 
+        ...updatedFields, 
+        receiptNo,
+        verifiedAt,
+        updatedAt: new Date().toISOString() 
+      };
       writeJsonFile(DONORS_FILE, memDonors);
       persistMongoDonor(memDonors[index]);
       return memDonors[index];

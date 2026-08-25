@@ -1,9 +1,19 @@
 import React, { useState, useMemo } from 'react';
-import { Heart, Search, Filter, ArrowUpDown, Trash2, Edit3, Shield, Download, Plus, CheckCircle, Sparkles, Trophy, UserCheck, Eye, Image as ImageIcon, ExternalLink, X, Upload } from 'lucide-react';
+import { 
+  Heart, Search, Filter, ArrowUpDown, Trash2, Edit3, Shield, Download, 
+  Plus, CheckCircle, Sparkles, Trophy, UserCheck, Eye, Image as ImageIcon, 
+  ExternalLink, X, Upload, Receipt, Share2, FileText, Phone, CheckCircle2 
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
+import { ReceiptsArchiveModal } from './ReceiptsArchiveModal';
+import { 
+  downloadDonorReceiptPdf, 
+  downloadDonorReceiptPng, 
+  sendWhatsAppReceipt 
+} from '../utils/receiptGenerator';
 
-export const DonorsList = ({ donors, stats, onOpenDonation, onRefreshDonors }) => {
+export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRefreshDonors }) => {
   const { isAdmin, adminToken, setIsAdminModalOpen } = useAuth();
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -13,11 +23,22 @@ export const DonorsList = ({ donors, stats, onOpenDonation, onRefreshDonors }) =
   // Public Screenshot Lightbox Modal State (Viewable by everyone)
   const [selectedReceiptDonor, setSelectedReceiptDonor] = useState(null);
 
+  // Bills & Receipts Archive Modal State
+  const [isReceiptsArchiveOpen, setIsReceiptsArchiveOpen] = useState(false);
+
+  // Verification Success Prompt State (Instant WhatsApp delivery)
+  const [verifySuccessDonor, setVerifySuccessDonor] = useState(null);
+
   // Edit State for Admin
   const [editingDonor, setEditingDonor] = useState(null);
-  const [editForm, setEditForm] = useState({ name: '', gotram: '', amount: '', message: '', status: 'Verified', receiptUrl: '' });
+  const [editForm, setEditForm] = useState({ name: '', gotram: '', phone: '', amount: '', message: '', status: 'Verified', receiptUrl: '' });
   const [isUpdating, setIsUpdating] = useState(false);
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
+
+  // Verified Donors Count for badge
+  const verifiedCount = useMemo(() => {
+    return donors.filter(d => d.status === 'Verified' || d.receiptNo).length;
+  }, [donors]);
 
   // Filtered & Sorted Donors
   const filteredDonors = useMemo(() => {
@@ -27,6 +48,8 @@ export const DonorsList = ({ donors, stats, onOpenDonation, onRefreshDonors }) =
         const matchesSearch = 
           d.name?.toLowerCase().includes(query) ||
           d.gotram?.toLowerCase().includes(query) ||
+          d.receiptNo?.toLowerCase().includes(query) ||
+          d.phone?.includes(query) ||
           d.referenceNo?.toLowerCase().includes(query) ||
           d.message?.toLowerCase().includes(query);
 
@@ -57,11 +80,15 @@ export const DonorsList = ({ donors, stats, onOpenDonation, onRefreshDonors }) =
   // Admin 1-Click Verify Donor
   const handleVerifyDonor = async (id, name) => {
     try {
-      await api.verifyDonor(id, adminToken);
+      const res = await api.verifyDonor(id, adminToken);
+      const updated = res.donor || res;
       if (selectedReceiptDonor?.id === id) {
-        setSelectedReceiptDonor(prev => ({ ...prev, status: 'Verified' }));
+        setSelectedReceiptDonor(prev => ({ ...prev, status: 'Verified', ...updated }));
       }
       if (onRefreshDonors) onRefreshDonors();
+      if (updated) {
+        setVerifySuccessDonor(updated);
+      }
     } catch (err) {
       alert(err.message || 'Failed to verify donor');
     }
@@ -85,6 +112,7 @@ export const DonorsList = ({ donors, stats, onOpenDonation, onRefreshDonors }) =
     setEditForm({
       name: donor.name,
       gotram: donor.gotram || '',
+      phone: donor.phone || '',
       amount: donor.amount,
       message: donor.message || '',
       status: donor.status || 'Verified',
@@ -113,6 +141,7 @@ export const DonorsList = ({ donors, stats, onOpenDonation, onRefreshDonors }) =
       await api.updateDonor(editingDonor.id, {
         name: editForm.name.trim(),
         gotram: editForm.gotram.trim(),
+        phone: editForm.phone.trim(),
         amount: Number(editForm.amount),
         message: editForm.message.trim(),
         status: editForm.status,
@@ -138,43 +167,36 @@ export const DonorsList = ({ donors, stats, onOpenDonation, onRefreshDonors }) =
     }
 
     const headers = [
-      'Receipt ID',
+      'Receipt No (రశీదు నెం)',
       'Donor Name (దాత పేరు)',
       'Gotram (గోత్రం)',
+      'Mobile Phone (ఫోన్)',
       'Amount (₹)',
       'Payment Mode',
       'Reference / UTR No',
       'Verification Status',
-      'Date & Time',
+      'Created Date & Time',
+      'Verified Date & Time',
       'Devotional Message / Wishes',
       'Screenshot Receipt URL'
     ];
 
-    const cleanField = (val) => {
-      if (val === null || val === undefined) return '""';
-      return `"${String(val).replace(/"/g, '""')}"`;
-    };
-
     const rows = donors.map(d => [
-      cleanField(d.id || ''),
-      cleanField(d.name || ''),
-      cleanField(d.gotram || 'Shiva'),
-      d.amount || 0,
-      cleanField(d.paymentMode || 'UPI'),
-      cleanField(d.referenceNo || ''),
-      cleanField(d.status || 'Verified'),
-      cleanField(new Date(d.createdAt).toLocaleString('en-IN')),
-      cleanField(d.message || ''),
-      cleanField(d.receiptUrl ? `${window.location.origin}${d.receiptUrl}` : '')
+      d.receiptNo || 'N/A',
+      `"${(d.name || '').replace(/"/g, '""')}"`,
+      `"${(d.gotram || 'Shiva').replace(/"/g, '""')}"`,
+      `"${d.phone || ''}"`,
+      Number(d.amount) || 0,
+      `"${d.paymentMode || 'UPI'}"`,
+      `"${d.referenceNo || ''}"`,
+      `"${d.status || 'Pending Verification'}"`,
+      `"${new Date(d.createdAt).toLocaleString('en-IN')}"`,
+      `"${d.verifiedAt ? new Date(d.verifiedAt).toLocaleString('en-IN') : 'N/A'}"`,
+      `"${(d.message || '').replace(/"/g, '""')}"`,
+      `"${d.receiptUrl || ''}"`
     ]);
 
-    // UTF-8 BOM (\uFEFF) forces Microsoft Excel to open Telugu script, ₹ symbols & names in pristine UTF-8
-    const BOM = '\uFEFF';
-    const csvContent = BOM + [
-      headers.join(','),
-      ...rows.map(r => r.join(','))
-    ].join('\r\n');
-
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -200,23 +222,34 @@ export const DonorsList = ({ donors, stats, onOpenDonation, onRefreshDonors }) =
             శ్రీ వినాయక చవితి దాతల వివరాలు (Donors List)
           </h2>
           <p className="text-xs sm:text-sm text-amber-200/80">
-            మండపం మరియు అన్నదాన కార్యక్రమాలకు విరాళాలు సమర్పించిన గౌరవనీయ భక్తుల వివరాలు.
+            మండపం మరియు అన్నదాన కార్యక్రమాలకు విరాళాలు సమర్పించిన గౌరవనీయ భక్తుల వివరాలు & అధికారిక రశీదులు.
           </p>
         </div>
 
         {/* Action CTAs */}
-        <div className="flex flex-wrap items-center justify-center gap-3">
+        <div className="flex flex-wrap items-center justify-center gap-2.5">
+          
+          {/* Bills & Receipts Archive Button */}
+          <button
+            onClick={() => setIsReceiptsArchiveOpen(true)}
+            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-800 via-teal-800 to-emerald-900 hover:from-emerald-700 hover:to-teal-700 border border-emerald-400/40 text-emerald-100 font-bold text-xs sm:text-sm shadow-md active:scale-95 transition-all flex items-center gap-1.5"
+            title="View All Verified Bills & Receipts Archive"
+          >
+            <Receipt className="w-4 h-4 text-emerald-300" />
+            <span>Bills & Receipts Archive ({verifiedCount})</span>
+          </button>
+
           <button
             onClick={onOpenDonation}
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-saffron-500 to-amber-600 text-amber-950 font-bold text-xs sm:text-sm shadow-gold hover:brightness-110 active:scale-95 transition-all flex items-center gap-2"
+            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-saffron-500 to-amber-600 text-amber-950 font-bold text-xs sm:text-sm shadow-gold hover:brightness-110 active:scale-95 transition-all flex items-center gap-1.5"
           >
             <Plus className="w-4 h-4" />
-            <span>Add My Donation (విరాళం ఇవ్వండి)</span>
+            <span>Add My Donation (విరాళం)</span>
           </button>
 
           <button
             onClick={handleExportCSV}
-            className="px-4 py-2.5 rounded-xl bg-[#2b1008] hover:bg-[#3c170b] border border-amber-500/40 text-amber-200 text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition-all"
+            className="px-3.5 py-2.5 rounded-xl bg-[#2b1008] hover:bg-[#3c170b] border border-amber-500/40 text-amber-200 text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition-all"
             title="Download CSV for Committee Records"
           >
             <Download className="w-4 h-4 text-amber-400" />
@@ -226,7 +259,7 @@ export const DonorsList = ({ donors, stats, onOpenDonation, onRefreshDonors }) =
           {isAdmin ? (
             <div className="flex items-center gap-1 bg-emerald-950/80 border border-emerald-500/50 px-3 py-2 rounded-xl text-xs text-emerald-300 font-semibold">
               <Shield className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Admin Mode: Edit / Delete Enabled</span>
+              <span>Admin Mode Active</span>
             </div>
           ) : (
             <button
@@ -260,9 +293,9 @@ export const DonorsList = ({ donors, stats, onOpenDonation, onRefreshDonors }) =
               return (
                 <div
                   key={donor.id}
-                  className={`bg-gradient-to-br ${rankColors[idx]} p-4 rounded-2xl border backdrop-blur-md relative overflow-hidden shadow-lg`}
+                  className={`bg-gradient-to-br ${rankColors[idx]} p-4 rounded-2xl border backdrop-blur-md relative overflow-hidden shadow-lg space-y-2`}
                 >
-                  <div className="flex justify-between items-start mb-2">
+                  <div className="flex justify-between items-start">
                     <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-black/40 border border-amber-500/30">
                       {rankBadges[idx]}
                     </span>
@@ -270,22 +303,45 @@ export const DonorsList = ({ donors, stats, onOpenDonation, onRefreshDonors }) =
                       ₹{Number(donor.amount).toLocaleString('en-IN')}
                     </span>
                   </div>
-                  <h4 className="font-bold text-base text-amber-100 line-clamp-1">{donor.name}</h4>
-                  <p className="text-xs text-amber-300/80">Gotram: {donor.gotram || 'Shiva'}</p>
+                  <div>
+                    <h4 className="font-bold text-base text-amber-100 line-clamp-1">{donor.name}</h4>
+                    <p className="text-xs text-amber-300/80">Gotram: {donor.gotram || 'Shiva'}</p>
+                  </div>
+
+                  {donor.receiptNo && (
+                    <span className="inline-block text-[10px] font-mono font-bold text-amber-300 bg-black/50 px-2 py-0.5 rounded border border-amber-500/30">
+                      Receipt: {donor.receiptNo}
+                    </span>
+                  )}
+
                   {donor.message && (
-                    <p className="text-xs italic text-amber-200/70 mt-2 line-clamp-1">"{donor.message}"</p>
+                    <p className="text-xs italic text-amber-200/70 line-clamp-1">"{donor.message}"</p>
                   )}
-                  {donor.receiptUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setSelectedReceiptDonor(donor)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 mt-2.5 rounded-lg bg-black/50 hover:bg-black/70 border border-amber-400/40 text-amber-300 hover:text-amber-100 text-[11px] font-semibold transition-all shadow-sm"
-                      title="View payment screenshot"
-                    >
-                      <Eye className="w-3 h-3 text-amber-400" />
-                      <span>View Screenshot (రసీదు)</span>
-                    </button>
-                  )}
+
+                  <div className="pt-1 flex flex-wrap items-center gap-1.5">
+                    {donor.status === 'Verified' && (
+                      <button
+                        type="button"
+                        onClick={() => sendWhatsAppReceipt(donor, settings)}
+                        className="py-1 px-2.5 rounded-lg bg-emerald-700/40 hover:bg-emerald-700/70 border border-emerald-500/40 text-emerald-200 text-[11px] font-semibold flex items-center gap-1 transition-all"
+                        title="Send / Share Receipt on WhatsApp"
+                      >
+                        <Share2 className="w-3 h-3" />
+                        <span>WhatsApp Receipt</span>
+                      </button>
+                    )}
+                    {donor.receiptUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedReceiptDonor(donor)}
+                        className="py-1 px-2.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[11px] font-semibold flex items-center gap-1"
+                      >
+                        <Eye className="w-3 h-3" />
+                        <span>Screenshot</span>
+                      </button>
+                    )}
+                  </div>
+
                 </div>
               );
             })}
@@ -293,126 +349,113 @@ export const DonorsList = ({ donors, stats, onOpenDonation, onRefreshDonors }) =
         </div>
       )}
 
-      {/* Search & Filter Bar */}
-      <div className="bg-[#240e06] p-4 rounded-2xl border border-amber-500/30 flex flex-col md:flex-row gap-3 items-center justify-between">
+      {/* Donors Ledger Table / List Card */}
+      <div className="temple-card p-4 sm:p-6 rounded-3xl shadow-xl space-y-4">
         
-        {/* Search Input */}
-        <div className="relative w-full md:w-80">
-          <Search className="w-4 h-4 text-amber-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search by name, gotram, note..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#170702] border border-amber-500/30 text-amber-100 text-xs sm:text-sm focus:outline-none focus:border-amber-400 placeholder:text-amber-400/40"
-          />
-        </div>
-
-        {/* Filter Controls */}
-        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-          
-          {/* Amount Tier Filter */}
-          <div className="flex items-center gap-1 bg-[#170702] border border-amber-500/30 rounded-xl p-1 text-xs max-w-full overflow-x-auto no-scrollbar">
-            <button
-              onClick={() => setFilterTier('all')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
-                filterTier === 'all' ? 'bg-amber-500 text-amber-950 font-bold' : 'text-amber-300 hover:text-white'
-              }`}
-            >
-              All ({donors?.length || 0})
-            </button>
-            <button
-              onClick={() => setFilterTier('maha')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
-                filterTier === 'maha' ? 'bg-amber-500 text-amber-950 font-bold' : 'text-amber-300 hover:text-white'
-              }`}
-            >
-              ≥ ₹5,000
-            </button>
-            <button
-              onClick={() => setFilterTier('above1000')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
-                filterTier === 'above1000' ? 'bg-amber-500 text-amber-950 font-bold' : 'text-amber-300 hover:text-white'
-              }`}
-            >
-              ≥ ₹1,000
-            </button>
+        {/* Controls & Search */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+          <div className="relative flex-1 w-full">
+            <Search className="w-4 h-4 text-amber-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search by Donor name, Gotram, Receipt No, Phone..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-[#1c0803] border border-amber-500/30 text-amber-100 text-xs sm:text-sm focus:outline-none focus:border-amber-400 placeholder:text-amber-400/40"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-amber-400/60 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
 
-          {/* Sort By Dropdown */}
-          <div className="flex items-center gap-1 bg-[#170702] border border-amber-500/30 rounded-xl px-2 py-1 text-xs">
-            <ArrowUpDown className="w-3.5 h-3.5 text-amber-400" />
+          <div className="flex items-center gap-2 w-full md:w-auto">
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="bg-transparent text-amber-200 focus:outline-none text-xs cursor-pointer py-1"
+              className="bg-[#1c0803] border border-amber-500/30 text-amber-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none flex-1 md:flex-none"
             >
-              <option value="newest" className="bg-[#240e06]">Latest Added</option>
-              <option value="highest" className="bg-[#240e06]">Highest Amount</option>
-              <option value="lowest" className="bg-[#240e06]">Lowest Amount</option>
+              <option value="newest">Newest First</option>
+              <option value="highest">Highest Amount</option>
+              <option value="lowest">Lowest Amount</option>
+            </select>
+
+            <select
+              value={filterTier}
+              onChange={(e) => setFilterTier(e.target.value)}
+              className="bg-[#1c0803] border border-amber-500/30 text-amber-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none flex-1 md:flex-none"
+            >
+              <option value="all">All Amounts</option>
+              <option value="maha">Maha Daatas (₹5000+)</option>
+              <option value="above1000">₹1000 & Above</option>
+              <option value="below1000">Below ₹1000</option>
             </select>
           </div>
-
         </div>
 
-      </div>
-
-      {/* Donors List Table / Card View */}
-      <div className="space-y-3">
+        {/* Donors List Items */}
         {filteredDonors.length === 0 ? (
-          <div className="temple-card p-10 text-center rounded-3xl border border-amber-500/30 space-y-3">
-            <Heart className="w-12 h-12 text-amber-500/40 mx-auto" />
-            <p className="text-base font-semibold text-amber-200">No donor records found</p>
-            <p className="text-xs text-amber-400/60">Try changing your search keywords or be the first to contribute!</p>
-            <button
-              onClick={onOpenDonation}
-              className="mt-2 px-5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-saffron-500 text-amber-950 font-bold text-xs"
-            >
-              Donate Now
-            </button>
+          <div className="p-8 text-center bg-[#180702] rounded-2xl border border-amber-500/20 text-amber-300/60 space-y-2">
+            <Heart className="w-10 h-10 mx-auto text-amber-500/30" />
+            <p className="text-sm font-semibold">No donor records found matching your query.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="space-y-3">
             {filteredDonors.map((donor) => {
-              const isMajor = Number(donor.amount) >= 5000;
+              const isVerified = donor.status === 'Verified';
+              const createdDateStr = new Date(donor.createdAt).toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'short'
+              });
+              const verifiedDateStr = donor.verifiedAt ? new Date(donor.verifiedAt).toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit'
+              }) : null;
 
               return (
                 <div
                   key={donor.id}
-                  className={`temple-card p-4 rounded-2xl border transition-all duration-200 relative group ${
-                    isMajor ? 'border-amber-400/50 bg-gradient-to-r from-[#2f1309] to-[#200b05]' : 'border-amber-500/20'
-                  }`}
+                  className="bg-[#1c0803]/80 hover:bg-[#250b04] border border-amber-500/30 hover:border-amber-500/60 p-4 rounded-2xl transition-all shadow-md"
                 >
                   <div className="flex items-start justify-between gap-3">
                     
-                    {/* Left: Donor Info */}
-                    <div className="space-y-1 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="font-bold text-sm sm:text-base text-amber-100 group-hover:text-amber-300 transition-colors">
+                    {/* Left: Donor Details */}
+                    <div className="space-y-1.5 flex-1 min-w-0">
+                      
+                      {/* Name & Verification Badge */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h4 className="font-bold text-sm sm:text-base text-white font-devotional truncate">
                           {donor.name}
                         </h4>
-                        {isMajor && (
-                          <span className="text-[10px] font-extrabold bg-gradient-to-r from-amber-500 to-yellow-400 text-amber-950 px-2 py-0.5 rounded-full shadow-gold">
-                            ⭐ Maha Daata
-                          </span>
-                        )}
 
-                        {/* Verification Status Badge / Admin Verify Button */}
-                        {donor.status === 'Verified' ? (
-                          <span className="text-[10px] bg-emerald-950/90 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full flex items-center gap-1 font-semibold shadow-sm">
-                            <CheckCircle className="w-2.5 h-2.5 text-emerald-400" />
-                            <span>Verified ✅</span>
-                          </span>
+                        {isVerified ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                              <span>Verified ✅</span>
+                            </span>
+                            {donor.receiptNo && (
+                              <span className="text-[10px] font-mono font-bold text-amber-300 bg-black/40 px-2 py-0.5 rounded border border-amber-500/30">
+                                {donor.receiptNo}
+                              </span>
+                            )}
+                          </div>
                         ) : (
-                          <div className="inline-flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5">
                             {isAdmin ? (
                               <button
                                 type="button"
                                 onClick={() => handleVerifyDonor(donor.id, donor.name)}
-                                className="text-[10px] font-bold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-md hover:scale-105 active:scale-95 transition-all border border-emerald-400/50"
-                                title="Admin: Click to verify this donor"
+                                className="text-[10px] bg-amber-500 hover:bg-amber-400 text-amber-950 font-extrabold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-sm active:scale-95 transition-all"
+                                title="Click to Verify and Issue Official Receipt"
                               >
-                                <CheckCircle className="w-3 h-3 text-white" />
+                                <CheckCircle className="w-3 h-3" />
                                 <span>Verify (ధృవీకరించండి) ✓</span>
                               </button>
                             ) : (
@@ -424,36 +467,78 @@ export const DonorsList = ({ donors, stats, onOpenDonation, onRefreshDonors }) =
                         )}
                       </div>
 
+                      {/* Meta: Gotram, Phone, Mode, Timestamp */}
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-amber-300/70">
                         {donor.gotram && <span>గోత్రం: <strong className="text-amber-200">{donor.gotram}</strong></span>}
+                        {donor.phone && <span>ఫోన్: <strong className="text-amber-200">+91 {donor.phone}</strong></span>}
                         <span>Mode: <strong className="text-amber-200">{donor.paymentMode || 'UPI'}</strong></span>
                         <span className="text-amber-400/50">•</span>
-                        <span>{new Date(donor.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>
+                        <span>Date: {createdDateStr}</span>
+                        {verifiedDateStr && <span className="text-emerald-400/80">• Verified: {verifiedDateStr}</span>}
                       </div>
 
                       {donor.message && (
-                        <p className="text-xs italic text-amber-200/80 pt-1">
+                        <p className="text-xs italic text-amber-200/80 pt-0.5">
                           "{donor.message}"
                         </p>
                       )}
 
-                      {/* Public Payment Screenshot Trigger (Viewable by everyone) */}
-                      {donor.receiptUrl && (
-                        <div className="pt-2">
+                      {/* Receipt & Delivery Actions */}
+                      <div className="pt-2 flex flex-wrap items-center gap-2">
+                        
+                        {/* Screenshot Lightbox Trigger */}
+                        {donor.receiptUrl && (
                           <button
                             type="button"
                             onClick={() => setSelectedReceiptDonor(donor)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 hover:text-white text-xs font-semibold shadow-sm transition-all group/btn"
-                            title="View uploaded payment screenshot receipt"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-500/15 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 hover:text-white text-xs font-semibold shadow-sm transition-all"
+                            title="View uploaded payment screenshot"
                           >
-                            <Eye className="w-3.5 h-3.5 text-amber-400 group-hover/btn:scale-110 transition-transform" />
-                            <span>View Payment Screenshot (రసీదు చూడండి)</span>
+                            <Eye className="w-3.5 h-3.5 text-amber-400" />
+                            <span>Payment Screenshot</span>
                           </button>
-                        </div>
-                      )}
+                        )}
+
+                        {/* Verified Devotional Receipt Actions */}
+                        {isVerified && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => sendWhatsAppReceipt(donor, settings)}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 text-white text-xs font-bold shadow-sm active:scale-95 transition-all"
+                              title={donor.phone ? `Send official receipt to donor WhatsApp (+91 ${donor.phone})` : 'Share Receipt on WhatsApp'}
+                            >
+                              <Share2 className="w-3.5 h-3.5" />
+                              <span>{donor.phone ? 'Send WhatsApp Receipt 📱' : 'Share WhatsApp'}</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => downloadDonorReceiptPdf(donor, settings)}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-xl bg-[#2b1008] hover:bg-[#3d170b] border border-amber-500/40 text-amber-200 text-xs font-semibold transition-all"
+                              title="Download Official A4 PDF Bill"
+                            >
+                              <FileText className="w-3.5 h-3.5 text-amber-400" />
+                              <span>PDF Bill</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => downloadDonorReceiptPng(donor, settings)}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-xl bg-[#2b1008] hover:bg-[#3d170b] border border-amber-500/40 text-amber-200 text-xs font-semibold transition-all"
+                              title="Download PNG Image Receipt"
+                            >
+                              <Download className="w-3.5 h-3.5 text-amber-400" />
+                              <span>PNG</span>
+                            </button>
+                          </>
+                        )}
+
+                      </div>
+
                     </div>
 
-                    {/* Right: Amount & Admin Actions */}
+                    {/* Right: Amount & Admin Controls */}
                     <div className="text-right flex flex-col items-end justify-between self-stretch shrink-0">
                       <p className="text-lg sm:text-xl font-extrabold gold-gradient-text font-mono">
                         ₹{Number(donor.amount).toLocaleString('en-IN')}
@@ -462,7 +547,7 @@ export const DonorsList = ({ donors, stats, onOpenDonation, onRefreshDonors }) =
                       {/* Admin Controls */}
                       {isAdmin && (
                         <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-amber-500/20">
-                          {donor.status !== 'Verified' && (
+                          {!isVerified && (
                             <button
                               onClick={() => handleVerifyDonor(donor.id, donor.name)}
                               className="px-2 py-1 rounded-lg bg-emerald-600/30 text-emerald-300 hover:bg-emerald-600 hover:text-white transition-all text-xs font-bold flex items-center gap-1"
@@ -498,7 +583,206 @@ export const DonorsList = ({ donors, stats, onOpenDonation, onRefreshDonors }) =
         )}
       </div>
 
-      {/* Public Payment Screenshot Lightbox Modal (Viewable by Everyone) */}
+      {/* Verification Success & Instant WhatsApp Send Modal */}
+      {verifySuccessDonor && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setVerifySuccessDonor(null)}
+        >
+          <div 
+            className="relative w-full max-w-md bg-gradient-to-b from-[#240e06] via-[#1c0803] to-[#120502] border-2 border-emerald-500/60 rounded-3xl shadow-2xl p-6 text-center space-y-4 my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-14 h-14 rounded-full bg-emerald-500/20 border-2 border-emerald-400 text-emerald-400 mx-auto flex items-center justify-center shadow-lg">
+              <CheckCircle2 className="w-8 h-8 animate-bounce" />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-xl font-bold text-emerald-300">
+                విరాళం ధృవీకరించబడింది!
+              </h3>
+              <p className="text-xs text-amber-200/80">
+                Payment verified successfully for <strong className="text-white">{verifySuccessDonor.name}</strong> (₹{Number(verifySuccessDonor.amount).toLocaleString('en-IN')}).
+              </p>
+              <div className="pt-1">
+                <span className="text-xs font-mono font-bold text-amber-300 bg-black/50 px-3 py-1 rounded-full border border-amber-500/30">
+                  Receipt No: {verifySuccessDonor.receiptNo || 'VCGD-REC'}
+                </span>
+              </div>
+            </div>
+
+            {verifySuccessDonor.phone ? (
+              <div className="p-3 bg-emerald-950/50 border border-emerald-500/30 rounded-2xl space-y-2">
+                <p className="text-xs text-emerald-200">
+                  📲 Send official receipt to donor on WhatsApp (+91 <strong>{verifySuccessDonor.phone}</strong>)?
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    sendWhatsAppReceipt(verifySuccessDonor, settings);
+                    setVerifySuccessDonor(null);
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold text-xs shadow-md hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                >
+                  <Share2 className="w-4 h-4" />
+                  <span>Send WhatsApp Receipt Now 🚀</span>
+                </button>
+              </div>
+            ) : (
+              <div className="p-3 bg-[#180702] border border-amber-500/20 rounded-2xl space-y-2 text-xs text-amber-300/80">
+                <p>No phone number was provided by this donor. You can download or share the bill manually.</p>
+                <div className="flex gap-2 justify-center">
+                  <button
+                    type="button"
+                    onClick={() => downloadDonorReceiptPdf(verifySuccessDonor, settings)}
+                    className="py-1.5 px-3 rounded-lg bg-[#2b1008] border border-amber-500/40 text-amber-200 text-xs font-semibold"
+                  >
+                    Download PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => sendWhatsAppReceipt(verifySuccessDonor, settings)}
+                    className="py-1.5 px-3 rounded-lg bg-emerald-700 text-white text-xs font-semibold"
+                  >
+                    Share
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setVerifySuccessDonor(null)}
+              className="text-xs text-amber-300/60 hover:text-amber-200 underline"
+            >
+              Done / Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Edit Modal */}
+      {editingDonor && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-gradient-to-b from-[#240e06] via-[#1c0803] to-[#120502] border-2 border-amber-500/40 rounded-3xl shadow-2xl overflow-hidden max-h-[92dvh] flex flex-col my-auto">
+            
+            <div className="bg-gradient-to-r from-crimson-900 via-saffron-800 to-crimson-900 p-3.5 text-center relative border-b border-amber-500/30 shrink-0">
+              <button
+                onClick={() => setEditingDonor(null)}
+                className="absolute top-3 right-3 p-1.5 rounded-full bg-black/40 text-amber-200 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <h3 className="font-devotional text-base font-bold gold-gradient-text">
+                దాత వివరాల సవరణ | Edit Donor
+              </h3>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="p-4 sm:p-6 space-y-3.5 overflow-y-auto custom-scrollbar flex-1 text-xs">
+              <div>
+                <label className="block text-amber-300/80 mb-1">Donor Name</label>
+                <input
+                  type="text"
+                  required
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-[#170702] border border-amber-500/30 text-amber-100 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-amber-300/80 mb-1">Gotram (గోత్రం)</label>
+                  <input
+                    type="text"
+                    value={editForm.gotram}
+                    onChange={(e) => setEditForm({ ...editForm, gotram: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-[#170702] border border-amber-500/30 text-amber-100 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-amber-300/80 mb-1">Mobile / WhatsApp</label>
+                  <input
+                    type="tel"
+                    placeholder="10 digit number"
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-[#170702] border border-amber-500/30 text-amber-100 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-amber-300/80 mb-1">Amount (₹)</label>
+                  <input
+                    type="number"
+                    required
+                    value={editForm.amount}
+                    onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-[#170702] border border-amber-500/30 text-amber-100 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-amber-300/80 mb-1">Status</label>
+                  <select
+                    value={editForm.status}
+                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-[#170702] border border-amber-500/30 text-amber-100 focus:outline-none"
+                  >
+                    <option value="Verified">Verified ✅</option>
+                    <option value="Pending Verification">Pending ⏳</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-amber-300/80 mb-1">Devotional Message</label>
+                <textarea
+                  rows="2"
+                  value={editForm.message}
+                  onChange={(e) => setEditForm({ ...editForm, message: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-[#170702] border border-amber-500/30 text-amber-100 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-amber-300/80 mb-1">Payment Screenshot</label>
+                <label className="w-full py-2 px-3 rounded-xl bg-[#1e0a04] hover:bg-[#2b1008] border border-amber-500/30 text-amber-200 text-center cursor-pointer flex items-center justify-center gap-2">
+                  <Upload className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{isUploadingReceipt ? 'Uploading...' : editForm.receiptUrl ? 'Change Screenshot' : 'Upload Screenshot'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAdminReceiptUpload}
+                  />
+                </label>
+              </div>
+
+              <div className="pt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingDonor(null)}
+                  className="flex-1 py-2.5 rounded-xl bg-[#2b1008] text-amber-300 font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdating}
+                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-saffron-500 text-amber-950 font-bold"
+                >
+                  {isUpdating ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+
+          </div>
+        </div>
+      )}
+
+      {/* Public Payment Screenshot Lightbox Modal */}
       {selectedReceiptDonor && (
         <div 
           className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200"
@@ -508,18 +792,13 @@ export const DonorsList = ({ donors, stats, onOpenDonation, onRefreshDonors }) =
             className="relative w-full max-w-xl bg-gradient-to-b from-[#240e06] via-[#1c0803] to-[#120502] border-2 border-amber-500/50 rounded-3xl shadow-2xl overflow-hidden max-h-[92dvh] flex flex-col my-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Modal Header */}
             <div className="bg-gradient-to-r from-crimson-900 via-saffron-800 to-crimson-900 p-4 text-center relative border-b border-amber-500/30 shrink-0">
               <button
                 onClick={() => setSelectedReceiptDonor(null)}
-                className="absolute top-3.5 right-3.5 p-1.5 rounded-full bg-black/40 text-amber-200 hover:text-white hover:bg-black/60 transition-all"
-                aria-label="Close modal"
+                className="absolute top-3.5 right-3.5 p-1.5 rounded-full bg-black/40 text-amber-200 hover:text-white"
               >
                 <X className="w-5 h-5" />
               </button>
-              <div className="inline-flex items-center gap-1.5 text-xs text-amber-300 font-semibold bg-black/30 px-3 py-0.5 rounded-full border border-amber-500/20 mb-1">
-                <span>🧾 అధికారిక చెల్లింపు రసీదు • Official Payment Proof</span>
-              </div>
               <h3 className="font-devotional text-lg sm:text-xl font-bold gold-gradient-text">
                 UPI చెల్లింపు స్క్రీన్‌షాట్ (Payment Screenshot)
               </h3>
@@ -528,10 +807,7 @@ export const DonorsList = ({ donors, stats, onOpenDonation, onRefreshDonors }) =
               </p>
             </div>
 
-            {/* Modal Body */}
             <div className="p-4 sm:p-6 overflow-y-auto custom-scrollbar flex-1 space-y-4">
-              
-              {/* High-Resolution Screenshot Image Box */}
               <div className="bg-black/70 p-2 rounded-2xl border border-amber-500/30 flex items-center justify-center relative group min-h-[220px]">
                 <img 
                   src={selectedReceiptDonor.receiptUrl} 
@@ -542,209 +818,24 @@ export const DonorsList = ({ donors, stats, onOpenDonation, onRefreshDonors }) =
                   href={selectedReceiptDonor.receiptUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="absolute bottom-4 right-4 bg-black/80 hover:bg-black text-amber-300 px-3 py-1.5 rounded-xl border border-amber-500/40 text-xs font-semibold flex items-center gap-1.5 shadow-md backdrop-blur-sm transition-all"
-                  title="Open full size in new tab"
+                  className="absolute bottom-4 right-4 bg-black/80 hover:bg-black text-amber-300 px-3 py-1.5 rounded-xl border border-amber-500/40 text-xs font-semibold flex items-center gap-1.5 shadow-md"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
                   <span>Open Full Size</span>
                 </a>
               </div>
-
-              {/* Donor Information Summary Ledger */}
-              <div className="bg-[#190703] border border-amber-500/30 rounded-2xl p-4 space-y-2.5 text-xs">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-                  <div className="bg-black/30 p-2 rounded-xl border border-amber-500/15">
-                    <span className="text-[10px] text-amber-400/70 block">Donor Name</span>
-                    <strong className="text-amber-100 text-xs sm:text-sm">{selectedReceiptDonor.name}</strong>
-                  </div>
-                  <div className="bg-black/30 p-2 rounded-xl border border-amber-500/15">
-                    <span className="text-[10px] text-amber-400/70 block">Gotram (గోత్రం)</span>
-                    <strong className="text-amber-100 text-xs sm:text-sm">{selectedReceiptDonor.gotram || 'Shiva'}</strong>
-                  </div>
-                  <div className="bg-black/30 p-2 rounded-xl border border-amber-500/15">
-                    <span className="text-[10px] text-amber-400/70 block">Amount</span>
-                    <strong className="text-amber-300 font-extrabold text-sm sm:text-base gold-gradient-text">
-                      ₹{Number(selectedReceiptDonor.amount).toLocaleString('en-IN')}
-                    </strong>
-                  </div>
-                  <div className="bg-black/30 p-2 rounded-xl border border-amber-500/15">
-                    <span className="text-[10px] text-amber-400/70 block">Status</span>
-                    {selectedReceiptDonor.status === 'Verified' ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400">
-                        <CheckCircle className="w-3 h-3" />
-                        <span>Verified ✅</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-400">
-                        <span>Pending Review ⏳</span>
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center justify-between text-[11px] text-amber-300/80 pt-1 border-t border-amber-500/15">
-                  <span>Payment Mode: <strong>{selectedReceiptDonor.paymentMode || 'UPI'}</strong></span>
-                  <span>Ref/UTR: <strong className="font-mono">{selectedReceiptDonor.referenceNo || 'N/A'}</strong></span>
-                  <span>Date: <strong>{new Date(selectedReceiptDonor.createdAt).toLocaleString('en-IN')}</strong></span>
-                </div>
-
-                {selectedReceiptDonor.message && (
-                  <div className="p-2.5 rounded-xl bg-amber-950/40 border border-amber-500/20 text-amber-200 italic">
-                    "{selectedReceiptDonor.message}"
-                  </div>
-                )}
-              </div>
-
-              {/* Admin Actions */}
-              {isAdmin ? (
-                <div className="flex flex-col sm:flex-row gap-2">
-                  {selectedReceiptDonor.status !== 'Verified' && (
-                    <button
-                      type="button"
-                      onClick={() => handleVerifyDonor(selectedReceiptDonor.id, selectedReceiptDonor.name)}
-                      className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md transition-all border border-emerald-400/50"
-                    >
-                      <CheckCircle className="w-4 h-4 text-white" />
-                      <span>Approve & Verify (ధృవీకరించండి) ✓</span>
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const donorToEdit = selectedReceiptDonor;
-                      setSelectedReceiptDonor(null);
-                      handleOpenEdit(donorToEdit);
-                    }}
-                    className="flex-1 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
-                  >
-                    <Edit3 className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Alter / Edit Record</span>
-                  </button>
-                </div>
-              ) : (
-                <p className="text-center text-[11px] text-amber-400/60">
-                  🔒 Verified by Vijaya Colony Ganesha Committee. Only admins can alter or verify donor records.
-                </p>
-              )}
-
             </div>
-
           </div>
         </div>
       )}
 
-      {/* Admin Edit Modal (Admin Only) */}
-      {editingDonor && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
-          <div className="w-full max-w-md bg-[#240e06] border border-amber-500/50 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92dvh] overflow-y-auto custom-scrollbar">
-            <h3 className="font-devotional text-lg font-bold gold-gradient-text flex items-center gap-2">
-              <Shield className="w-5 h-5 text-amber-400" />
-              <span>Admin: Alter / Edit Donor Record</span>
-            </h3>
-
-            <form onSubmit={handleSaveEdit} className="space-y-3 text-xs">
-              <div>
-                <label className="block text-amber-300 mb-1 font-semibold">Donor Name</label>
-                <input
-                  type="text"
-                  required
-                  value={editForm.name}
-                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-[#170702] border border-amber-500/40 text-amber-100 focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-amber-300 mb-1 font-semibold">Gotram</label>
-                  <input
-                    type="text"
-                    value={editForm.gotram}
-                    onChange={(e) => setEditForm({ ...editForm, gotram: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-[#170702] border border-amber-500/40 text-amber-100 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-amber-300 mb-1 font-semibold">Amount (₹)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    value={editForm.amount}
-                    onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-[#170702] border border-amber-500/40 text-amber-100 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-amber-300 mb-1 font-semibold">Payment Screenshot Receipt</label>
-                {editForm.receiptUrl ? (
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-[#170702] border border-amber-500/30">
-                    <div className="flex items-center gap-2">
-                      <img src={editForm.receiptUrl} alt="Receipt preview" className="w-8 h-8 object-cover rounded border border-amber-500/40" />
-                      <span className="text-xs text-amber-200">Screenshot Attached</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setEditForm({ ...editForm, receiptUrl: '' })}
-                      className="text-red-400 hover:text-red-300 text-xs font-bold px-2 py-1 bg-red-950/40 rounded border border-red-500/30"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ) : (
-                  <label className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-[#170702] border border-dashed border-amber-500/40 text-amber-300 text-xs cursor-pointer hover:border-amber-400">
-                    <Upload className="w-4 h-4 text-amber-400" />
-                    <span>{isUploadingReceipt ? 'Uploading screenshot...' : 'Upload Replacement Screenshot'}</span>
-                    <input type="file" accept="image/*" onChange={handleAdminReceiptUpload} className="hidden" />
-                  </label>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-amber-300 mb-1 font-semibold">Message / Prayer</label>
-                <textarea
-                  rows={2}
-                  value={editForm.message}
-                  onChange={(e) => setEditForm({ ...editForm, message: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-[#170702] border border-amber-500/40 text-amber-100 focus:outline-none resize-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-amber-300 mb-1 font-semibold">Verification Status</label>
-                <select
-                  value={editForm.status}
-                  onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-[#170702] border border-amber-500/40 text-amber-100 focus:outline-none"
-                >
-                  <option value="Verified">Verified ✅</option>
-                  <option value="Special Donor">Special Donor ⭐</option>
-                  <option value="Pending Verification">Pending Verification ⏳</option>
-                </select>
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingDonor(null)}
-                  className="flex-1 py-2.5 rounded-xl bg-[#34160b] text-amber-200 hover:bg-[#431c0e]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isUpdating}
-                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-saffron-500 text-amber-950 font-bold hover:brightness-110"
-                >
-                  {isUpdating ? 'Saving...' : 'Save Changes'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Dedicated Bills & Receipts Archive Modal */}
+      <ReceiptsArchiveModal
+        isOpen={isReceiptsArchiveOpen}
+        onClose={() => setIsReceiptsArchiveOpen(false)}
+        donors={donors}
+        settings={settings}
+      />
 
     </div>
   );
