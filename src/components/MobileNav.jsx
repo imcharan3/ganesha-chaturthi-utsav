@@ -1,11 +1,10 @@
 import React from 'react';
-import { Flame, Heart, Calendar, MessageSquare, PlusCircle, Trophy, Wallet } from 'lucide-react';
+import { Flame, Heart, Calendar, MessageSquare, PlusCircle, Trophy } from 'lucide-react';
 
 export const MobileNav = ({ activeTab, setActiveTab, onOpenDonation, unreadMessages = 0 }) => {
   const tabs = [
     { id: 'home', label: 'Home', icon: Flame },
     { id: 'donors', label: 'Donors', icon: Heart },
-    { id: 'expenses', label: 'Expenses', icon: Wallet },
     { id: 'donate_action', label: 'Donate', icon: PlusCircle, isAction: true },
     { id: 'auction', label: 'Auction', icon: Trophy },
     { id: 'chat', label: 'Chat', icon: MessageSquare, badge: unreadMessages }

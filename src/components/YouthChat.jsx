@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Send, Mic, Square, Trash2, Image as ImageIcon, CornerDownLeft, 
-  Smile, Play, Pause, Volume2, User, Sparkles, Check, X, Shield, Paperclip, MessageSquare 
+  Smile, Play, Pause, Volume2, User, Sparkles, Check, X, Shield, Paperclip, MessageSquare, Wallet 
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { api } from '../services/api';
+import { ExpenseManager } from './ExpenseManager';
 
 const DEVOTIONAL_EMOJIS = ['🪔', '🙏', '🌺', '🐘', '🚩', '🥥', '🍬'];
 const ROLE_SUGGESTIONS = [
@@ -18,9 +19,10 @@ const ROLE_SUGGESTIONS = [
   'Devotee'
 ];
 
-export const YouthChat = ({ messages, onRefreshMessages }) => {
+export const YouthChat = ({ messages, onRefreshMessages, donors, settings, onRefresh, activeSubTab = 'messages' }) => {
   const { isAdmin, adminToken } = useAuth();
   const { socket } = useSocket();
+  const [activeChatTab, setActiveChatTab] = useState(activeSubTab);
 
   // Persistent Client Sender ID & User Profile (zero login friction)
   const [senderId] = useState(() => {
@@ -57,8 +59,10 @@ export const YouthChat = ({ messages, onRefreshMessages }) => {
 
   // Auto-scroll on new messages
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (activeChatTab === 'messages') {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, activeChatTab]);
 
   // Handle Voice Recording
   const startRecording = async () => {
@@ -249,8 +253,45 @@ export const YouthChat = ({ messages, onRefreshMessages }) => {
   return (
     <div className="max-w-4xl mx-auto px-3 sm:px-6 py-6 space-y-4">
       
-      {/* Header Banner */}
-      <div className="temple-card p-4 sm:p-5 rounded-3xl border border-amber-500/30 flex flex-col sm:flex-row items-center justify-between gap-3">
+      {/* Sub-navigation Switcher inside Chat Tab */}
+      <div className="flex items-center p-1 rounded-2xl bg-[#1a0803] border border-amber-500/40 shadow-md">
+        <button
+          type="button"
+          onClick={() => setActiveChatTab('messages')}
+          className={`flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+            activeChatTab === 'messages'
+              ? 'bg-gradient-to-r from-amber-500 via-saffron-500 to-amber-600 text-amber-950 shadow-gold'
+              : 'text-amber-300/70 hover:text-amber-200'
+          }`}
+        >
+          <MessageSquare className="w-4 h-4" />
+          <span>Youth Chat (యువజన చర్చ)</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveChatTab('expenses')}
+          className={`flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+            activeChatTab === 'expenses'
+              ? 'bg-gradient-to-r from-amber-500 via-saffron-500 to-amber-600 text-amber-950 shadow-gold'
+              : 'text-amber-300/70 hover:text-amber-200'
+          }`}
+        >
+          <Wallet className="w-4 h-4" />
+          <span>Expenses 💰 (ఖర్చుల లెక్కలు)</span>
+        </button>
+      </div>
+
+      {activeChatTab === 'expenses' ? (
+        <ExpenseManager
+          donors={donors}
+          settings={settings}
+          onRefresh={onRefresh || onRefreshMessages}
+        />
+      ) : (
+        <>
+          {/* Header Banner */}
+          <div className="temple-card p-4 sm:p-5 rounded-3xl border border-amber-500/30 flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="flex items-center gap-3 text-center sm:text-left">
           <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-500 to-crimson-700 p-0.5 shadow-gold flex items-center justify-center shrink-0">
             <div className="w-full h-full rounded-2xl bg-[#200b05] flex items-center justify-center">
@@ -670,6 +711,8 @@ export const YouthChat = ({ messages, onRefreshMessages }) => {
             </button>
           </div>
         </div>
+      )}
+        </>
       )}
 
     </div>

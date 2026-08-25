@@ -10,10 +10,9 @@ export const Navbar = ({ activeTab, setActiveTab, onOpenDonation, settings, unre
   const navItems = [
     { id: 'home', label: 'Home', icon: Sparkles, telugu: 'ప్రారంభం' },
     { id: 'donors', label: 'Donors', icon: Heart, telugu: 'విరాళాలు' },
-    { id: 'expenses', label: 'Expenses 💰', icon: Wallet, telugu: 'ఖర్చులు' },
     { id: 'auction', label: 'Laddu Auction 🏆', icon: Trophy, telugu: 'లడ్డూ వేలం' },
     { id: 'events', label: 'Events', icon: Calendar, telugu: 'కార్యక్రమాలు' },
-    { id: 'chat', label: 'Youth Chat', icon: MessageSquare, telugu: 'యువజన చర్చ', badge: unreadMessages }
+    { id: 'chat', label: 'Chat', icon: MessageSquare, telugu: 'చర్చ & ఖర్చులు', badge: unreadMessages }
   ];
 
   const handleBellClick = () => {

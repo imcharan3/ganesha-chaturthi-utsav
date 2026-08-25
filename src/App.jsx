@@ -240,16 +240,6 @@ function MainApp() {
           />
         )}
 
-        {activeTab === 'expenses' && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <ExpenseManager
-              donors={donors}
-              settings={settings}
-              onRefresh={fetchData}
-            />
-          </div>
-        )}
-
         {activeTab === 'events' && (
           <EventsTimeline
             events={events}
@@ -263,6 +253,9 @@ function MainApp() {
           <YouthChat
             messages={messages}
             onRefreshMessages={fetchData}
+            donors={donors}
+            settings={settings}
+            onRefresh={fetchData}
           />
         )}
       </main>

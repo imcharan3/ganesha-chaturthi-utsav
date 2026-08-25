@@ -257,7 +257,7 @@ export const HeroSection = ({ stats, settings, auction, onOpenDonation, setActiv
               </button>
 
               <button
-                onClick={() => setActiveTab('expenses')}
+                onClick={() => setActiveTab('chat')}
                 className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-gradient-to-r from-[#2e1309] to-[#1c0803] hover:from-[#3d180a] hover:to-[#260c05] border border-amber-500/50 text-amber-300 font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-gold"
               >
                 <Wallet className="w-4 h-4 text-amber-400" />
