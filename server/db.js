@@ -252,12 +252,21 @@ const ExpenseSchema = new mongoose.Schema({
   updatedAt: { type: String, default: () => new Date().toISOString() }
 }, { collection: 'expenses', strict: false });
 
+const MediaSchema = new mongoose.Schema({
+  filename: { type: String, required: true, unique: true, index: true },
+  mimetype: { type: String, default: 'image/jpeg' },
+  size: { type: Number, default: 0 },
+  data: { type: String, required: true },
+  createdAt: { type: String, default: () => new Date().toISOString() }
+}, { collection: 'media', strict: false });
+
 let DonorModel = null;
 let EventModel = null;
 let MessageModel = null;
 let SettingsModel = null;
 let AuctionModel = null;
 let ExpenseModel = null;
+let MediaModel = null;
 
 try {
   DonorModel = mongoose.model('Donor', DonorSchema);
@@ -266,6 +275,7 @@ try {
   SettingsModel = mongoose.model('Settings', SettingsSchema);
   AuctionModel = mongoose.model('Auction', AuctionSchema);
   ExpenseModel = mongoose.model('Expense', ExpenseSchema);
+  MediaModel = mongoose.model('Media', MediaSchema);
 } catch (e) {
   DonorModel = mongoose.models.Donor;
   EventModel = mongoose.models.Event;
@@ -273,6 +283,7 @@ try {
   SettingsModel = mongoose.models.Settings;
   AuctionModel = mongoose.models.Auction;
   ExpenseModel = mongoose.models.Expense;
+  MediaModel = mongoose.models.Media;
 }
 
 // In-Memory Database Store for Instant 0ms Read Response
@@ -977,5 +988,30 @@ export const db = {
     };
     db.saveAuction(defaultData);
     return defaultData;
+  },
+
+  saveMedia: async ({ filename, mimetype, size, data }) => {
+    if (!dbStatus.connected || !MediaModel) return false;
+    try {
+      await MediaModel.findOneAndUpdate(
+        { filename },
+        { filename, mimetype, size, data, createdAt: new Date().toISOString() },
+        { upsert: true, new: true }
+      );
+      return true;
+    } catch (err) {
+      console.error('MongoDB Media Save Error:', err.message);
+      return false;
+    }
+  },
+
+  getMedia: async (filename) => {
+    if (!dbStatus.connected || !MediaModel) return null;
+    try {
+      return await MediaModel.findOne({ filename });
+    } catch (err) {
+      console.error('MongoDB Media Fetch Error:', err.message);
+      return null;
+    }
   }
 };

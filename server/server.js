@@ -51,6 +51,34 @@ const upload = multer({
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Persistent uploads route with MongoDB Atlas fallback
+app.get('/uploads/:filename', async (req, res, next) => {
+  const { filename } = req.params;
+  const filePath = path.join(UPLOADS_DIR, filename);
+
+  if (fs.existsSync(filePath)) {
+    return res.sendFile(filePath);
+  }
+
+  // File not on local container disk (e.g. after Render redeploy) -> fetch from MongoDB Atlas
+  try {
+    const media = await db.getMedia(filename);
+    if (media && media.data) {
+      const buffer = Buffer.from(media.data, 'base64');
+      // Cache on local disk for subsequent instant hits
+      fs.promises.writeFile(filePath, buffer).catch(() => {});
+      res.setHeader('Content-Type', media.mimetype || 'image/jpeg');
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      return res.send(buffer);
+    }
+  } catch (err) {
+    console.error('Error fetching media from MongoDB:', err);
+  }
+
+  res.status(404).send('File not found');
+});
+
 app.use('/uploads', express.static(UPLOADS_DIR));
 
 // Admin Auth Middleware helper
@@ -497,12 +525,25 @@ app.delete('/api/admin/expenses/:id', verifyAdmin, (req, res) => {
   res.json({ success: true, id, summary });
 });
 
-// 5. Upload Endpoints (Voice Notes & Photos)
-app.post('/api/upload/audio', upload.single('audio'), (req, res) => {
+// 5. Upload Endpoints (Voice Notes & Photos with Permanent Cloud MongoDB Persistence)
+app.post('/api/upload/audio', upload.single('audio'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No audio file uploaded' });
   }
   const fileUrl = `/uploads/${req.file.filename}`;
+  
+  try {
+    const fileBuffer = await fs.promises.readFile(req.file.path);
+    await db.saveMedia({
+      filename: req.file.filename,
+      mimetype: req.file.mimetype || 'audio/webm',
+      size: req.file.size,
+      data: fileBuffer.toString('base64')
+    });
+  } catch (err) {
+    console.error('Error saving audio to MongoDB:', err.message);
+  }
+
   res.json({
     success: true,
     fileUrl,
@@ -512,11 +553,24 @@ app.post('/api/upload/audio', upload.single('audio'), (req, res) => {
   });
 });
 
-app.post('/api/upload/image', upload.single('image'), (req, res) => {
+app.post('/api/upload/image', upload.single('image'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No image file uploaded' });
   }
   const fileUrl = `/uploads/${req.file.filename}`;
+  
+  try {
+    const fileBuffer = await fs.promises.readFile(req.file.path);
+    await db.saveMedia({
+      filename: req.file.filename,
+      mimetype: req.file.mimetype || 'image/jpeg',
+      size: req.file.size,
+      data: fileBuffer.toString('base64')
+    });
+  } catch (err) {
+    console.error('Error saving image to MongoDB:', err.message);
+  }
+
   res.json({
     success: true,
     fileUrl,
@@ -537,6 +591,25 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     // console.log(`Socket disconnected: ${socket.id}`);
   });
+});
+
+// Android App APK Direct Download Endpoint
+app.get(['/download/app.apk', '/app.apk', '/download/android'], (req, res) => {
+  const possiblePaths = [
+    path.join(__dirname, '../public/downloads/Vijaya_Colony_Ganesha_Diaries.apk'),
+    path.join(__dirname, '../dist/downloads/Vijaya_Colony_Ganesha_Diaries.apk'),
+    path.join(__dirname, '../android/app/build/outputs/apk/debug/app-debug.apk')
+  ];
+
+  for (const apkPath of possiblePaths) {
+    if (fs.existsSync(apkPath)) {
+      res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+      res.setHeader('Content-Disposition', 'attachment; filename="Vijaya_Colony_Ganesha_Diaries_2026.apk"');
+      return res.sendFile(apkPath);
+    }
+  }
+
+  res.redirect('/#install');
 });
 
 // Serve Vite Frontend Build if dist exists

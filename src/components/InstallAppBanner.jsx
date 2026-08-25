@@ -47,6 +47,11 @@ export const InstallAppBanner = () => {
   }, []);
 
   const handleInstallClick = async () => {
+    if (isAndroid) {
+      window.location.href = '/download/app.apk';
+      setShowBanner(false);
+      return;
+    }
     if (deferredPrompt) {
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
@@ -55,7 +60,6 @@ export const InstallAppBanner = () => {
       }
       setDeferredPrompt(null);
     } else {
-      // If native browser prompt is not ready, open visual guide modal
       setShowInstallModal(true);
     }
   };
@@ -146,17 +150,35 @@ export const InstallAppBanner = () => {
             {/* Modal Body */}
             <div className="p-4 sm:p-6 overflow-y-auto custom-scrollbar space-y-4 text-xs">
               
-              {/* Android Instructions */}
+              {/* Direct APK Download for Android Devices */}
+              <div className="bg-gradient-to-r from-amber-950/90 via-[#2a1107] to-[#170602] border-2 border-amber-500/60 rounded-2xl p-4 space-y-2.5 text-center shadow-gold">
+                <div className="flex items-center justify-center gap-2">
+                  <Smartphone className="w-5 h-5 text-amber-400" />
+                  <h4 className="font-extrabold text-amber-200 text-sm">Download Native Android App (.APK)</h4>
+                </div>
+                <p className="text-[11px] text-amber-300/85">
+                  ఆండ్రాయిడ్ ఫోన్‌లో నేరుగా యాప్ ఇన్‌స్టాల్ చేసుకోండి (Direct APK Installer).
+                </p>
+                <a
+                  href="/download/app.apk"
+                  download="Vijaya_Colony_Ganesha_Diaries_2026.apk"
+                  className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 via-saffron-500 to-amber-600 text-amber-950 font-black text-xs hover:brightness-110 shadow-gold flex items-center justify-center gap-2 transition-all active:scale-95"
+                >
+                  <Download className="w-4 h-4 stroke-[2.5]" />
+                  <span>Download Android App APK (డౌన్‌లోడ్)</span>
+                </a>
+              </div>
+
+              {/* Android Chrome Install / Web App */}
               <div className="bg-[#190703] border border-amber-500/30 rounded-2xl p-3.5 space-y-2">
                 <h4 className="font-bold text-amber-300 flex items-center gap-1.5 text-sm">
                   <Smartphone className="w-4 h-4 text-amber-400" />
-                  <span>Android (Google Chrome):</span>
+                  <span>Web App / Chrome:</span>
                 </h4>
                 <ol className="space-y-1.5 text-amber-200/90 pl-1 list-decimal list-inside">
                   <li>Open this page in <strong>Google Chrome</strong> on your phone.</li>
                   <li>Tap the <strong>3 dots (⋮)</strong> in the top-right corner.</li>
                   <li>Tap <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.</li>
-                  <li>The app will be installed with the Ganesha icon on your home screen!</li>
                 </ol>
               </div>
 

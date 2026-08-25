@@ -139,15 +139,55 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
     });
   };
 
+  const compressImage = (file, maxWidth = 1200, quality = 0.82) => {
+    return new Promise((resolve) => {
+      if (!file || !file.type.startsWith('image/')) return resolve(file);
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) return resolve(file);
+              const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, '.jpg'), {
+                type: 'image/jpeg',
+                lastModified: Date.now()
+              });
+              resolve(compressedFile);
+            },
+            'image/jpeg',
+            quality
+          );
+        };
+        img.onerror = () => resolve(file);
+      };
+      reader.onerror = () => resolve(file);
+    });
+  };
+
   const handleAdminReceiptUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     setIsUploadingReceipt(true);
     try {
-      const uploadRes = await api.uploadImage(file);
+      const compressed = await compressImage(file);
+      const uploadRes = await api.uploadImage(compressed);
       setEditForm(prev => ({ ...prev, receiptUrl: uploadRes.fileUrl }));
     } catch (err) {
-      alert('Failed to upload replacement receipt');
+      alert('Failed to upload replacement receipt: ' + (err.message || 'Error'));
     } finally {
       setIsUploadingReceipt(false);
     }
