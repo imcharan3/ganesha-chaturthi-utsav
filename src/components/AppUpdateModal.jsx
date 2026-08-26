@@ -183,10 +183,14 @@ export const AppUpdateModal = () => {
         )}
 
         {isCompleted ? (
-          <div className="bg-emerald-950/60 border border-emerald-500/50 p-4 rounded-2xl mb-4 text-emerald-200 text-xs flex flex-col items-center gap-1">
-            <CheckCircle2 className="w-7 h-7 text-emerald-400" />
-            <strong className="text-emerald-100 font-bold">డౌన్‌లోడ్ పూర్తయింది (Download Complete)!</strong>
-            <span>దయచేసి నోటిఫికేషన్ లేదా ఫైల్ పై క్లిక్ చేసి "Update" ఎంచుకోండి.</span>
+          <div className="bg-emerald-950/70 border-2 border-emerald-500/70 p-4 rounded-2xl mb-4 text-emerald-200 text-xs flex flex-col items-center gap-2 animate-in zoom-in duration-300">
+            <CheckCircle2 className="w-8 h-8 text-emerald-400 animate-bounce" />
+            <strong className="text-emerald-100 font-extrabold text-sm">డౌన్‌లోడ్ పూర్తయింది (Download Complete)!</strong>
+            <div className="text-left bg-black/40 p-2.5 rounded-xl border border-emerald-500/30 text-[11px] text-emerald-100/90 leading-relaxed space-y-1">
+              <p>👉 <strong>Step 1:</strong> మీ ఫోన్ పైభాగం నుండి నోటిఫికేషన్ బార్‌ను కిందకు లాగండి (Swipe down from top).</p>
+              <p>👉 <strong>Step 2:</strong> <strong>"Download complete"</strong> నోటిఫికేషన్ పై క్లిక్ చేయండి.</p>
+              <p>👉 <strong>Step 3:</strong> <strong>"Update"</strong> పై క్లిక్ చేస్తే కొత్త వెర్షన్ తక్షణమే ఇన్‌స్టాల్ అవుతుంది!</p>
+            </div>
           </div>
         ) : null}
 
