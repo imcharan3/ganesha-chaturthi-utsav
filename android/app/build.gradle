@@ -3,6 +3,26 @@ apply plugin: 'com.android.application'
 android {
     namespace = "org.vijayacolony.ganesh"
     compileSdk = rootProject.ext.compileSdkVersion
+
+    signingConfigs {
+        release {
+            storeFile file('release.keystore')
+            storePassword 'ganesh2026'
+            keyAlias 'ganeshkey'
+            keyPassword 'ganesh2026'
+            v1SigningEnabled true
+            v2SigningEnabled true
+        }
+        debug {
+            storeFile file('release.keystore')
+            storePassword 'ganesh2026'
+            keyAlias 'ganeshkey'
+            keyPassword 'ganesh2026'
+            v1SigningEnabled true
+            v2SigningEnabled true
+        }
+    }
+
     defaultConfig {
         applicationId "org.vijayacolony.ganesh"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -18,7 +38,7 @@ android {
     }
     buildTypes {
         release {
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
