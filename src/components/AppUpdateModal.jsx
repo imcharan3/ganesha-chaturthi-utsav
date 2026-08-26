@@ -3,8 +3,8 @@ import { Sparkles, Download, RefreshCw, X, ArrowUpCircle, CheckCircle2, ShieldCh
 import { api } from '../services/api';
 import { playTempleBell } from '../utils/audio';
 
-export const CURRENT_APP_VERSION = '1.5';
-export const CURRENT_VERSION_CODE = 6;
+export const CURRENT_APP_VERSION = '1.6';
+export const CURRENT_VERSION_CODE = 7;
 
 export const AppUpdateModal = () => {
   const [updateInfo, setUpdateInfo] = useState(null);

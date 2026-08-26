@@ -388,7 +388,7 @@ function MainApp() {
         <div className="pt-2 flex flex-wrap items-center justify-center gap-2 text-xs">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-[#240e06] border border-amber-500/30 text-amber-200 shadow-sm">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="font-bold">యాప్ వెర్షన్: v1.5</span>
+            <span className="font-bold">యాప్ వెర్షన్: v1.6</span>
             <span className="text-amber-500/50">•</span>
             <button
               type="button"
