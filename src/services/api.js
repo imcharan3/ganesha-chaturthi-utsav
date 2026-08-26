@@ -1,4 +1,26 @@
-const API_BASE = '/api';
+export const getBackendBaseUrl = () => {
+  if (typeof window === 'undefined') return 'https://ganesha-chaturthi-utsav.onrender.com';
+  
+  const isCapacitor = Boolean(
+    window.Capacitor?.isNativePlatform?.() ||
+    window.location.protocol === 'capacitor:' ||
+    window.location.protocol === 'file:' ||
+    (window.location.hostname === 'localhost' && window.location.port !== '5173' && window.location.port !== '5000')
+  );
+
+  if (isCapacitor) {
+    return 'https://ganesha-chaturthi-utsav.onrender.com';
+  }
+
+  if (window.location.origin && !window.location.origin.includes('localhost:5173')) {
+    return window.location.origin;
+  }
+
+  return '';
+};
+
+export const BACKEND_BASE_URL = getBackendBaseUrl();
+const API_BASE = `${BACKEND_BASE_URL}/api`;
 
 export const api = {
   // Settings

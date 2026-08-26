@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
+import { BACKEND_BASE_URL } from '../services/api';
 
 const SocketContext = createContext(null);
 
@@ -8,10 +9,11 @@ export const SocketProvider = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    // Connect to server (proxied in Vite dev, origin in prod)
-    const socketInstance = io(window.location.origin, {
+    // Connect to server (backend URL in Capacitor/prod, origin in browser)
+    const targetUrl = BACKEND_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+    const socketInstance = io(targetUrl, {
       transports: ['websocket', 'polling'],
-      reconnectionAttempts: 10,
+      reconnectionAttempts: 15,
       reconnectionDelay: 2000
     });
 

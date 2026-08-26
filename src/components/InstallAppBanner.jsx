@@ -10,7 +10,21 @@ export const InstallAppBanner = () => {
   const [isAndroid, setIsAndroid] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
 
+  // Detect if running inside native Android/Capacitor app
+  const isNativeApp = typeof window !== 'undefined' && Boolean(
+    window.Capacitor?.isNativePlatform?.() ||
+    window.location.protocol === 'capacitor:' ||
+    window.location.protocol === 'file:' ||
+    (window.location.hostname === 'localhost' && window.location.port !== '5173' && window.location.port !== '5000')
+  );
+
   useEffect(() => {
+    if (isNativeApp) {
+      setShowBanner(false);
+      setIsStandalone(true);
+      return;
+    }
+
     // Check if already in standalone PWA mode
     const standaloneMode = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
     setIsStandalone(standaloneMode);
@@ -67,7 +81,7 @@ export const InstallAppBanner = () => {
 
   const currentUrl = typeof window !== 'undefined' ? window.location.href : 'http://localhost:5173/';
 
-  if (isStandalone) return null;
+  if (isStandalone || isNativeApp) return null;
 
   return (
     <>
