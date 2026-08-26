@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "468159429516",
+    "project_id": "ganesh-diaries",
+    "storage_bucket": "ganesh-diaries.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:468159429516:android:d672b38f510d56cce934a9",
+        "android_client_info": {
+          "package_name": "com.vijayacolony.ganesh2026"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB7_ui5yaK8cQNNhI0FIES22bck6Gfnhrk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
