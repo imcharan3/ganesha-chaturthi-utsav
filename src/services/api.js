@@ -5,6 +5,17 @@ export const BACKEND_BASE_URL = (typeof window !== 'undefined' && window.locatio
 const API_BASE = `${BACKEND_BASE_URL}/api`;
 
 export const api = {
+  // App Version & Updates
+  getAppVersion: async () => {
+    try {
+      const res = await fetch(`${API_BASE}/app/version`);
+      if (!res.ok) throw new Error('Failed to fetch version');
+      return await res.json();
+    } catch (e) {
+      return null;
+    }
+  },
+
   // Settings
   getSettings: async () => {
     const res = await fetch(`${API_BASE}/settings`);

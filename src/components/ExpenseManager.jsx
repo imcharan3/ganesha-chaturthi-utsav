@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
+import { saveOfflineData, getOfflineData, enqueueOfflineAction } from '../utils/offlineStorage';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -57,15 +58,22 @@ export const ExpenseManager = ({ donors = [], settings = {}, onRefresh }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState(null);
 
-  // Fetch Expenses
+  // Fetch Expenses with Offline Cache
   const loadExpenses = async () => {
     try {
       setIsLoading(true);
+      const cached = getOfflineData('EXPENSES', []);
+      if (cached && cached.length > 0) {
+        setExpenses(cached);
+      }
       const res = await api.getExpenses();
       setExpenses(res.expenses || []);
       setSummary(res.summary || null);
+      saveOfflineData('EXPENSES', res.expenses || []);
     } catch (err) {
-      console.error('Failed to load expenses:', err);
+      console.warn('Running expenses in offline mode:', err);
+      const cached = getOfflineData('EXPENSES', []);
+      setExpenses(cached);
     } finally {
       setIsLoading(false);
     }
@@ -144,12 +152,40 @@ export const ExpenseManager = ({ donors = [], settings = {}, onRefresh }) => {
         notes: formData.notes.trim()
       };
 
-      if (editingExpense) {
-        await api.updateExpense(editingExpense.id, payload, adminToken);
-        setFeedbackMessage('✅ ఐటమ్ వివరాలు నవీకరించబడ్డాయి (Expense item updated!)');
+      if (!navigator.onLine) {
+        if (editingExpense) {
+          enqueueOfflineAction('UPDATE_EXPENSE', { id: editingExpense.id, data: payload });
+          setExpenses(prev => prev.map(e => e.id === editingExpense.id ? { ...e, ...payload, balance: (payload.price || 0) - (payload.advance || 0) } : e));
+          setFeedbackMessage('💾 ఆఫ్‌లైన్‌లో సేవ్ చేయబడింది (Saved offline, will sync when online)');
+        } else {
+          enqueueOfflineAction('CREATE_EXPENSE', payload);
+          const offlineItem = {
+            ...payload,
+            id: 'offline-exp-' + Date.now(),
+            balance: (payload.price || 0) - (payload.advance || 0),
+            status: payload.advance >= payload.price ? 'Paid' : (payload.advance > 0 ? 'Partial' : 'Pending'),
+            createdAt: new Date().toISOString()
+          };
+          setExpenses(prev => [offlineItem, ...prev]);
+          setFeedbackMessage('💾 ఆఫ్‌లైన్‌లో సేవ్ చేయబడింది (Saved offline, will sync when online)');
+        }
       } else {
-        await api.createExpense(payload, adminToken);
-        setFeedbackMessage('✅ కొత్త ఖర్చు ఐటమ్ విజయవంతంగా జోడించబడింది (Expense item added!)');
+        try {
+          if (editingExpense) {
+            await api.updateExpense(editingExpense.id, payload, adminToken);
+            setFeedbackMessage('✅ ఐటమ్ వివరాలు నవీకరించబడ్డాయి (Expense item updated!)');
+          } else {
+            await api.createExpense(payload, adminToken);
+            setFeedbackMessage('✅ కొత్త ఖర్చు ఐటమ్ విజయవంతంగా జోడించబడింది (Expense item added!)');
+          }
+        } catch (apiErr) {
+          if (editingExpense) {
+            enqueueOfflineAction('UPDATE_EXPENSE', { id: editingExpense.id, data: payload });
+          } else {
+            enqueueOfflineAction('CREATE_EXPENSE', payload);
+          }
+          setFeedbackMessage('💾 ఆఫ్‌లైన్‌లో సేవ్ చేయబడింది (Saved offline, will sync when online)');
+        }
       }
 
       setIsModalOpen(false);

@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { api } from '../services/api';
 import { ExpenseManager } from './ExpenseManager';
+import { enqueueOfflineAction } from '../utils/offlineStorage';
 
 const DEVOTIONAL_EMOJIS = ['🪔', '🙏', '🌺', '🐘', '🚩', '🥥', '🍬'];
 const ROLE_SUGGESTIONS = [
@@ -189,16 +190,26 @@ export const YouthChat = ({ messages, onRefreshMessages, donors, settings, onRef
     }
 
     setIsUploading(true);
+    const msgPayload = {
+      sender: effectiveName,
+      senderId: senderId,
+      role: userRole,
+      text: textToSend,
+      type: previewImage ? 'image' : 'text',
+      mediaUrl: previewImage || null,
+      replyTo: replyingTo ? { id: replyingTo.id, sender: replyingTo.sender, text: replyingTo.text || (replyingTo.type === 'voice' ? '🎤 Voice Note' : '📷 Image') } : null
+    };
+
     try {
-      await api.sendMessage({
-        sender: effectiveName,
-        senderId: senderId,
-        role: userRole,
-        text: textToSend,
-        type: previewImage ? 'image' : 'text',
-        mediaUrl: previewImage || null,
-        replyTo: replyingTo ? { id: replyingTo.id, sender: replyingTo.sender, text: replyingTo.text || (replyingTo.type === 'voice' ? '🎤 Voice Note' : '📷 Image') } : null
-      });
+      if (!navigator.onLine) {
+        enqueueOfflineAction('CREATE_MESSAGE', msgPayload);
+      } else {
+        try {
+          await api.sendMessage(msgPayload);
+        } catch (apiErr) {
+          enqueueOfflineAction('CREATE_MESSAGE', msgPayload);
+        }
+      }
 
       setInputText('');
       setPreviewImage(null);

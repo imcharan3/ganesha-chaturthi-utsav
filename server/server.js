@@ -594,6 +594,19 @@ io.on('connection', (socket) => {
   });
 });
 
+// App Version & Auto-Update Metadata Endpoint
+app.get('/api/app/version', (req, res) => {
+  res.json({
+    latestVersion: '1.3',
+    versionCode: 4,
+    minSupportedVersion: '1.0',
+    apkUrl: '/Ganesha_Diaries_2026.apk',
+    releaseDate: '2026-08-26',
+    releaseNotes: 'Offline caching with auto-sync, live auction bidding alerts, chat notifications, and in-app auto updates.',
+    title: 'విజయ కాలనీ గణేష్ డైరీస్ v1.3'
+  });
+});
+
 // Direct APK Download Endpoint
 app.get(['/download/app', '/Ganesha_Diaries_2026.apk', '/app-release.apk'], (req, res) => {
   const apkDist = path.join(DIST_DIR, 'Ganesha_Diaries_2026.apk');

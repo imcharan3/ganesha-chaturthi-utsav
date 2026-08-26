@@ -5,6 +5,7 @@ import confetti from 'canvas-confetti';
 import { api } from '../services/api';
 import { playTempleBell, compressImageToBase64 } from '../utils/audio';
 import { downloadDonorReceiptPdf, downloadDonorReceiptPng, sendWhatsAppReceipt } from '../utils/receiptGenerator';
+import { enqueueOfflineAction } from '../utils/offlineStorage';
 
 const PRESET_AMOUNTS = [101, 251, 501, 1116, 2116, 5116, 11116];
 
@@ -83,7 +84,33 @@ export const DonationModal = ({ isOpen, onClose, settings, onDonationSuccess }) 
         receiptUrl: receiptImage || null
       };
 
-      const result = await api.createDonor(payload);
+      let result;
+      if (!navigator.onLine) {
+        enqueueOfflineAction('CREATE_DONOR', payload);
+        result = {
+          newDonor: {
+            ...payload,
+            id: 'offline-' + Date.now(),
+            createdAt: new Date().toISOString(),
+            status: 'pending_sync'
+          }
+        };
+      } else {
+        try {
+          result = await api.createDonor(payload);
+        } catch (apiErr) {
+          // Fallback to offline queue on network drops
+          enqueueOfflineAction('CREATE_DONOR', payload);
+          result = {
+            newDonor: {
+              ...payload,
+              id: 'offline-' + Date.now(),
+              createdAt: new Date().toISOString(),
+              status: 'pending_sync'
+            }
+          };
+        }
+      }
       
       // Auspicious celebration effects
       playTempleBell();

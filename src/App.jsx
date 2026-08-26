@@ -11,10 +11,14 @@ import { AdminModal } from './components/AdminModal';
 import { MobileNav } from './components/MobileNav';
 import { InstallAppBanner } from './components/InstallAppBanner';
 import { AppSplashScreen } from './components/AppSplashScreen';
+import { DevotionalNotificationToast } from './components/DevotionalNotificationToast';
+import { AppUpdateModal } from './components/AppUpdateModal';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SocketProvider, useSocket } from './context/SocketContext';
 import { api } from './services/api';
 import { playTempleBell } from './utils/audio';
+import { showDevotionalNotification } from './utils/notifications';
+import { saveOfflineData, getOfflineData } from './utils/offlineStorage';
 import { X, MessageSquare } from 'lucide-react';
 
 function MainApp() {
@@ -23,14 +27,14 @@ function MainApp() {
   const { isAdminModalOpen, setIsAdminModalOpen } = useAuth();
   const { socket } = useSocket();
 
-  // Data States
-  const [settings, setSettings] = useState(null);
-  const [donors, setDonors] = useState([]);
-  const [stats, setStats] = useState({ totalDonors: 0, totalAmount: 0, targetAmount: 70000 });
-  const [events, setEvents] = useState([]);
-  const [messages, setMessages] = useState([]);
-  const [auction, setAuction] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // Data States (Pre-populated with Offline Cache for instant launch)
+  const [settings, setSettings] = useState(() => getOfflineData('SETTINGS', null));
+  const [donors, setDonors] = useState(() => getOfflineData('DONORS', []));
+  const [stats, setStats] = useState(() => getOfflineData('STATS', { totalDonors: 0, totalAmount: 0, targetAmount: 70000 }));
+  const [events, setEvents] = useState(() => getOfflineData('EVENTS', []));
+  const [messages, setMessages] = useState(() => getOfflineData('MESSAGES', []));
+  const [auction, setAuction] = useState(() => getOfflineData('AUCTION', null));
+  const [isLoading, setIsLoading] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [chatToast, setChatToast] = useState(null);
 
@@ -44,25 +48,43 @@ function MainApp() {
     }
   };
 
-  // Fetch initial data
+  // Fetch initial data & persist to offline cache
   const fetchData = async () => {
     try {
       const [settingsRes, donorsRes, eventsRes, messagesRes, auctionRes] = await Promise.all([
-        api.getSettings().catch(() => ({})),
-        api.getDonors().catch(() => ({ donors: [], stats: {} })),
-        api.getEvents().catch(() => ([])),
-        api.getMessages().catch(() => ([])),
-        api.getAuction().catch(() => null)
+        api.getSettings().catch(() => getOfflineData('SETTINGS', {})),
+        api.getDonors().catch(() => ({ donors: getOfflineData('DONORS', []), stats: getOfflineData('STATS', {}) })),
+        api.getEvents().catch(() => getOfflineData('EVENTS', [])),
+        api.getMessages().catch(() => getOfflineData('MESSAGES', [])),
+        api.getAuction().catch(() => getOfflineData('AUCTION', null))
       ]);
 
-      setSettings(settingsRes);
-      setDonors(donorsRes.donors || []);
-      setStats(donorsRes.stats || { totalDonors: 0, totalAmount: 0, targetAmount: 70000 });
-      setEvents(eventsRes || []);
-      setMessages(messagesRes || []);
-      setAuction(auctionRes);
+      if (settingsRes) {
+        setSettings(settingsRes);
+        saveOfflineData('SETTINGS', settingsRes);
+      }
+      if (donorsRes?.donors) {
+        setDonors(donorsRes.donors);
+        saveOfflineData('DONORS', donorsRes.donors);
+      }
+      if (donorsRes?.stats) {
+        setStats(donorsRes.stats);
+        saveOfflineData('STATS', donorsRes.stats);
+      }
+      if (eventsRes) {
+        setEvents(eventsRes);
+        saveOfflineData('EVENTS', eventsRes);
+      }
+      if (messagesRes) {
+        setMessages(messagesRes);
+        saveOfflineData('MESSAGES', messagesRes);
+      }
+      if (auctionRes) {
+        setAuction(auctionRes);
+        saveOfflineData('AUCTION', auctionRes);
+      }
     } catch (err) {
-      console.error('Error loading data:', err);
+      console.warn('Network fetch error, running in offline mode:', err);
     } finally {
       setIsLoading(false);
     }
@@ -70,78 +92,143 @@ function MainApp() {
 
   useEffect(() => {
     fetchData();
+
+    // Listen for tab switch events from notifications
+    const handleSwitchTabEvent = (e) => {
+      if (e.detail?.tab) {
+        handleTabChange(e.detail.tab);
+      }
+    };
+
+    window.addEventListener('switch-active-tab', handleSwitchTabEvent);
+    return () => {
+      window.removeEventListener('switch-active-tab', handleSwitchTabEvent);
+    };
   }, []);
 
-  // Real-time Socket.io Subscriptions
+  // Real-time Socket.io Subscriptions with Devotional Alerts & Offline Sync
   useEffect(() => {
     if (!socket) return;
 
     socket.on('donor:created', (data) => {
-      setDonors(prev => [data.newDonor, ...prev]);
-      if (data.stats) setStats(data.stats);
+      setDonors(prev => {
+        const next = [data.newDonor, ...prev];
+        saveOfflineData('DONORS', next);
+        return next;
+      });
+      if (data.stats) {
+        setStats(data.stats);
+        saveOfflineData('STATS', data.stats);
+      }
+      showDevotionalNotification({
+        title: `🙏 నూతన విరాళం: ₹${Number(data.newDonor?.amount || 0).toLocaleString('en-IN')}`,
+        body: `${data.newDonor?.name} గారు విజయ కాలనీ గణేష్ ఉత్సవానికి విరాళం సమర్పించారు.`,
+        tab: 'donors'
+      });
     });
 
     socket.on('donor:updated', (data) => {
-      setDonors(prev => prev.map(d => d.id === data.donor.id ? data.donor : d));
-      if (data.stats) setStats(data.stats);
+      setDonors(prev => {
+        const next = prev.map(d => d.id === data.donor.id ? data.donor : d);
+        saveOfflineData('DONORS', next);
+        return next;
+      });
+      if (data.stats) {
+        setStats(data.stats);
+        saveOfflineData('STATS', data.stats);
+      }
     });
 
     socket.on('donor:deleted', (data) => {
-      setDonors(prev => prev.filter(d => d.id !== data.id));
-      if (data.stats) setStats(data.stats);
+      setDonors(prev => {
+        const next = prev.filter(d => d.id !== data.id);
+        saveOfflineData('DONORS', next);
+        return next;
+      });
+      if (data.stats) {
+        setStats(data.stats);
+        saveOfflineData('STATS', data.stats);
+      }
     });
 
     socket.on('message:new', (msg) => {
-      setMessages(prev => [...prev, msg]);
+      setMessages(prev => {
+        const next = [...prev, msg];
+        saveOfflineData('MESSAGES', next);
+        return next;
+      });
       
-      // If user is currently not on the chat tab, notify them!
+      // Notify if user is not on chat tab
       setActiveTab(currentTab => {
         if (currentTab !== 'chat') {
           setUnreadMessages(prev => prev + 1);
-          setChatToast(msg);
-          setTimeout(() => setChatToast(null), 6000);
-          playTempleBell();
-
-          // Native browser push notification if permitted
-          if ('Notification' in window && Notification.permission === 'granted') {
-            try {
-              new Notification(`💬 ${msg.senderName || 'Youth Member'}`, {
-                body: msg.text || 'Shared an attachment/voice message',
-                icon: '/colony_logo.jpg'
-              });
-            } catch (e) {}
-          }
+          showDevotionalNotification({
+            title: `💬 ${msg.senderName || 'యూత్ సభ్యుడు'}`,
+            body: msg.text || 'వాయిస్ నోట్ / ఫోటో షేర్ చేశారు',
+            tab: 'chat'
+          });
         }
         return currentTab;
       });
     });
 
     socket.on('message:reaction', ({ id, reactions }) => {
-      setMessages(prev => prev.map(m => m.id === id ? { ...m, reactions } : m));
+      setMessages(prev => {
+        const next = prev.map(m => m.id === id ? { ...m, reactions } : m);
+        saveOfflineData('MESSAGES', next);
+        return next;
+      });
     });
 
     socket.on('message:deleted', ({ id }) => {
-      setMessages(prev => prev.filter(m => m.id !== id));
+      setMessages(prev => {
+        const next = prev.filter(m => m.id !== id);
+        saveOfflineData('MESSAGES', next);
+        return next;
+      });
     });
 
     socket.on('event:updated', (updatedEvt) => {
-      setEvents(prev => prev.map(e => e.id === updatedEvt.id ? updatedEvt : e));
+      setEvents(prev => {
+        const next = prev.map(e => e.id === updatedEvt.id ? updatedEvt : e);
+        saveOfflineData('EVENTS', next);
+        return next;
+      });
+      showDevotionalNotification({
+        title: `🔔 పూజా కార్యక్రమం అప్‌డేట్: ${updatedEvt.title}`,
+        body: `${updatedEvt.date} ${updatedEvt.time || ''} - ${updatedEvt.description || ''}`,
+        tab: 'events'
+      });
     });
 
     socket.on('settings:updated', (updatedSet) => {
       setSettings(updatedSet);
+      saveOfflineData('SETTINGS', updatedSet);
     });
 
     socket.on('auction:updated', (updatedAuction) => {
       setAuction(updatedAuction);
+      saveOfflineData('AUCTION', updatedAuction);
     });
 
     socket.on('auction:newBid', ({ newBid, auction: updatedAuction }) => {
       setAuction(updatedAuction);
+      saveOfflineData('AUCTION', updatedAuction);
+      showDevotionalNotification({
+        title: `🔥 లడ్డూ వేలం లైవ్ బిడ్: ₹${Number(newBid.amount || 0).toLocaleString('en-IN')}`,
+        body: `${newBid.bidderName} గారు లడ్డూ వేలంలో సరికొత్త బిడ్ దాఖలు చేశారు!`,
+        tab: 'auction'
+      });
     });
 
     socket.on('auction:winnerDeclared', (updatedAuction) => {
       setAuction(updatedAuction);
+      saveOfflineData('AUCTION', updatedAuction);
+      showDevotionalNotification({
+        title: `🏆 లడ్డూ వేలం విజేత ప్రకటించబడింది!`,
+        body: `${updatedAuction.winnerName} గారు ₹${Number(updatedAuction.currentBid || 0).toLocaleString('en-IN')} కు లడ్డూను గెలుచుకున్నారు!`,
+        tab: 'auction'
+      });
     });
 
     return () => {
@@ -344,6 +431,12 @@ function MainApp() {
           </button>
         </div>
       )}
+
+      {/* Devotional Live Notification Alerts, Offline Status Bar & Permission Prompts */}
+      <DevotionalNotificationToast onSwitchTab={handleTabChange} />
+
+      {/* In-App Auto-Updater Modal (1-Tap Package Upgrades) */}
+      <AppUpdateModal />
 
       {/* 1-Tap Mobile App Install Banner */}
       <InstallAppBanner />

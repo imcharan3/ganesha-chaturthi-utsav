@@ -11,6 +11,7 @@ import { api } from '../services/api';
 import { playTempleBell } from '../utils/audio';
 import { generateAuctionPoster, downloadAuctionPoster, shareAuctionPoster } from '../utils/generateAuctionPoster';
 import { generateAuctionPdf } from '../utils/generateAuctionPdf';
+import { enqueueOfflineAction } from '../utils/offlineStorage';
 
 export const LadduAuction = ({ onOpenDonation }) => {
   const { isAdmin, adminToken, setIsAdminModalOpen } = useAuth();
@@ -180,13 +181,40 @@ export const LadduAuction = ({ onOpenDonation }) => {
 
     setIsPlacingBid(true);
     try {
-      const res = await api.placeAuctionBid({
-        bidderName,
-        amount: numAmount
-      }, adminToken);
-
-      setAuction(res.auction);
-      playTempleBell();
+      if (!navigator.onLine) {
+        enqueueOfflineAction('PLACE_BID', {
+          itemId: 'main-laddu',
+          bidData: { bidderName, amount: numAmount }
+        });
+        setAuction(prev => ({
+          ...prev,
+          currentHighestBid: numAmount,
+          highestBidder: bidderName,
+          bidHistory: [{ bidderName, amount: numAmount, timestamp: new Date().toISOString() }, ...(prev?.bidHistory || [])]
+        }));
+        playTempleBell();
+      } else {
+        try {
+          const res = await api.placeAuctionBid({
+            bidderName,
+            amount: numAmount
+          }, adminToken);
+          setAuction(res.auction);
+          playTempleBell();
+        } catch (apiErr) {
+          enqueueOfflineAction('PLACE_BID', {
+            itemId: 'main-laddu',
+            bidData: { bidderName, amount: numAmount }
+          });
+          setAuction(prev => ({
+            ...prev,
+            currentHighestBid: numAmount,
+            highestBidder: bidderName,
+            bidHistory: [{ bidderName, amount: numAmount, timestamp: new Date().toISOString() }, ...(prev?.bidHistory || [])]
+          }));
+          playTempleBell();
+        }
+      }
 
       // Clear custom fields if typed
       if (!selectedBidder) {
