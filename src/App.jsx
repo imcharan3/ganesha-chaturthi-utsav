@@ -384,6 +384,22 @@ function MainApp() {
           </button>
         </div>
 
+        {/* Continuous App Upgrades & System Status Bar */}
+        <div className="pt-2 flex flex-wrap items-center justify-center gap-2 text-xs">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-[#240e06] border border-amber-500/30 text-amber-200 shadow-sm">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="font-bold">యాప్ వెర్షన్: v1.3</span>
+            <span className="text-amber-500/50">•</span>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('check-for-app-update', { detail: { force: true } }))}
+              className="text-amber-300 hover:text-white font-extrabold underline flex items-center gap-1 active:scale-95 transition-all"
+            >
+              <span>🔄 Check for Updates (అప్‌డేట్ తనిఖీ)</span>
+            </button>
+          </div>
+        </div>
+
         <p className="text-[11px] text-amber-500/50 pt-1">
           Vijaya Colony Ganesha Diaries 2026 • Live Donations, Laddu Auction & Community Platform
         </p>

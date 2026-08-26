@@ -77,23 +77,31 @@ export const AppUpdateModal = () => {
     }
 
     // Direct APK Download & Install Trigger for Android
-    const apkUrl = updateInfo?.apkUrl || '/Ganesha_Diaries_2026.apk';
+    const rawApkUrl = updateInfo?.apkUrl || '/Ganesha_Diaries_2026.apk';
+    const downloadUrl = rawApkUrl.startsWith('http') 
+      ? rawApkUrl 
+      : `https://ganesha-chaturthi-utsav.onrender.com${rawApkUrl.startsWith('/') ? '' : '/'}${rawApkUrl}`;
     
     // Simulate smooth devotional progress
-    let progress = 15;
+    let progress = 20;
     const interval = setInterval(() => {
-      progress += Math.floor(Math.random() * 20) + 10;
+      progress += Math.floor(Math.random() * 20) + 15;
       if (progress >= 95) {
         progress = 95;
         clearInterval(interval);
       }
       setDownloadProgress(progress);
-    }, 300);
+    }, 250);
 
     try {
-      // Trigger native download
+      // Trigger native download in Android system browser/installer
+      if (typeof window !== 'undefined') {
+        window.open(downloadUrl, '_system');
+      }
+
+      // Also fallback anchor trigger
       const link = document.createElement('a');
-      link.href = apkUrl;
+      link.href = downloadUrl;
       link.download = 'Vijaya_Colony_Ganesha_Diaries.apk';
       link.target = '_blank';
       document.body.appendChild(link);
@@ -105,11 +113,13 @@ export const AppUpdateModal = () => {
         setDownloadProgress(100);
         setIsCompleted(true);
         setIsDownloading(false);
-      }, 1800);
+      }, 1500);
     } catch (err) {
       clearInterval(interval);
       setIsDownloading(false);
-      alert('Could not start download automatically. Please tap Download again.');
+      if (typeof window !== 'undefined') {
+        window.location.href = downloadUrl;
+      }
     }
   };
 
