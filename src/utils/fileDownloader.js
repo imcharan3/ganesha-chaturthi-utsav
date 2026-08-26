@@ -1,28 +1,61 @@
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
-import { Share } from '@capacitor/share';
+import { LocalNotifications } from '@capacitor/local-notifications';
 
+/**
+ * Universal PDF Saver and Downloader
+ * Safely writes PDF to device storage without exiting or crashing the app
+ */
 export const downloadPdf = async (pdf, filename = 'document.pdf') => {
   if (!pdf) return false;
   try {
     if (typeof window !== 'undefined' && Capacitor.isNativePlatform()) {
       const dataUri = pdf.output('datauristring');
       const base64Data = dataUri.split(',')[1] || dataUri;
-      const savedFile = await Filesystem.writeFile({
-        path: filename,
-        data: base64Data,
-        directory: Directory.Cache
-      });
+
       try {
-        await Share.share({
-          title: filename,
-          text: 'విజయ కాలనీ గణేష్ డైరీస్ PDF డాక్యుమెంట్',
-          url: savedFile.uri,
-          dialogTitle: 'ఓపెన్ లేదా సేవ్ చేయండి: ' + filename
+        await Filesystem.writeFile({
+          path: filename,
+          data: base64Data,
+          directory: Directory.Documents,
+          recursive: true
         });
-      } catch (shareErr) {
-        console.warn('Share prompt skipped:', shareErr);
+      } catch (fsErr) {
+        await Filesystem.writeFile({
+          path: filename,
+          data: base64Data,
+          directory: Directory.Cache,
+          recursive: true
+        });
       }
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('devotional-toast-alert', {
+          detail: {
+            id: 'pdf-' + Date.now(),
+            title: '📄 PDF డౌన్‌లోడ్ పూర్తయింది!',
+            body: filename + ' మీ ఫోన్ Documents లో సేవ్ చేయబడింది.',
+            icon: '📄',
+            timestamp: new Date().toISOString()
+          }
+        }));
+      }
+
+      try {
+        await LocalNotifications.schedule({
+          notifications: [
+            {
+              title: '📄 PDF డౌన్‌లోడ్ పూర్తయింది',
+              body: filename + ' సేవ్ చేయబడింది. ఓపెన్ చేయడానికి క్లిక్ చేయండి.',
+              id: Math.floor(Math.random() * 1000000),
+              schedule: { at: new Date(Date.now() + 100) },
+              channelId: 'ganesh_devotional_alerts',
+              smallIcon: 'ic_launcher'
+            }
+          ]
+        });
+      } catch (notifErr) {}
+
       return true;
     } else {
       pdf.save(filename);
@@ -35,27 +68,43 @@ export const downloadPdf = async (pdf, filename = 'document.pdf') => {
   }
 };
 
+/**
+ * Universal Canvas / Image Saver and Downloader
+ */
 export const downloadCanvasImage = async (canvas, filename = 'image.png') => {
   if (!canvas) return false;
   try {
     const dataUrl = canvas.toDataURL('image/png', 0.95);
     if (typeof window !== 'undefined' && Capacitor.isNativePlatform()) {
       const base64Data = dataUrl.split(',')[1] || dataUrl;
-      const savedFile = await Filesystem.writeFile({
-        path: filename,
-        data: base64Data,
-        directory: Directory.Cache
-      });
       try {
-        await Share.share({
-          title: filename,
-          text: 'విజయ కాలనీ గణేష్ డైరీస్ ఫోటో / పోస్టర్',
-          url: savedFile.uri,
-          dialogTitle: 'ఓపెన్ లేదా సేవ్ చేయండి: ' + filename
+        await Filesystem.writeFile({
+          path: filename,
+          data: base64Data,
+          directory: Directory.Documents,
+          recursive: true
         });
-      } catch (shareErr) {
-        console.warn('Share prompt dismissed:', shareErr);
+      } catch (fsErr) {
+        await Filesystem.writeFile({
+          path: filename,
+          data: base64Data,
+          directory: Directory.Cache,
+          recursive: true
+        });
       }
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('devotional-toast-alert', {
+          detail: {
+            id: 'img-' + Date.now(),
+            title: '🖼️ ఫోటో డౌన్‌లోడ్ పూర్తయింది!',
+            body: filename + ' మీ ఫోన్‌లో సేవ్ చేయబడింది.',
+            icon: '🖼️',
+            timestamp: new Date().toISOString()
+          }
+        }));
+      }
+
       return true;
     } else {
       const link = document.createElement('a');

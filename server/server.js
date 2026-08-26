@@ -675,13 +675,13 @@ io.on('connection', (socket) => {
 // App Version & Auto-Update Metadata Endpoint
 app.get('/api/app/version', (req, res) => {
   res.json({
-    latestVersion: '1.4',
-    versionCode: 5,
+    latestVersion: '1.5',
+    versionCode: 6,
     minSupportedVersion: '1.0',
     apkUrl: '/download/app',
     releaseDate: '2026-08-26',
-    releaseNotes: '🎉 కొత్త అప్‌డేట్: మొబైల్ యాప్‌లో PDF రసీదులు, ఆక్షన్ రిపోర్ట్‌లు & స్టేట్‌మెంట్‌లు నేరుగా డౌన్‌లోడ్ & షేర్ చేసుకునే సదుపాయం జోడించబడింది.',
-    title: 'విజయ కాలనీ గణేష్ డైరీస్ v1.4'
+    releaseNotes: '🎉 కొత్త అప్‌డేట్ v1.5: PDF రశీదులు & రిపోర్ట్‌ల డౌన్‌లోడ్ మరింత వేగంగా & యాప్ నుండి బయటకు రాకుండా నేరుగా ఫోన్‌లో సేవ్ అయ్యేలా సరిచేయబడింది.',
+    title: 'విజయ కాలనీ గణేష్ డైరీస్ v1.5'
   });
 });
 
