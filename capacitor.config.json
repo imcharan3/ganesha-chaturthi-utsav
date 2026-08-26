@@ -4,6 +4,7 @@
   "webDir": "dist",
   "bundledWebRuntime": false,
   "server": {
+    "url": "https://ganesha-chaturthi-utsav.onrender.com",
     "androidScheme": "https",
     "cleartext": true
   },

@@ -10,11 +10,13 @@ export const InstallAppBanner = () => {
   const [isAndroid, setIsAndroid] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
 
-  // Detect if running inside native Android/Capacitor app
+  // Detect if running inside native Android/Capacitor app or Android WebView
   const isNativeApp = typeof window !== 'undefined' && Boolean(
     window.Capacitor?.isNativePlatform?.() ||
     window.location.protocol === 'capacitor:' ||
     window.location.protocol === 'file:' ||
+    window.navigator.userAgent.toLowerCase().includes('wv') ||
+    window.navigator.userAgent.toLowerCase().includes('capacitor') ||
     (window.location.hostname === 'localhost' && window.location.port !== '5173' && window.location.port !== '5000')
   );
 
