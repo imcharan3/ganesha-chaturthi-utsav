@@ -25,8 +25,10 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 5000;
 
-// Setup uploads directory
+// Setup directories
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
+const DIST_DIR = path.join(__dirname, '../dist');
+const PUBLIC_DIR = path.join(__dirname, '../public');
 if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
@@ -608,7 +610,6 @@ app.get(['/download/app', '/Ganesha_Diaries_2026.apk', '/app-release.apk'], (req
 });
 
 // Serve Vite Frontend Build if dist exists
-const DIST_DIR = path.join(__dirname, '../dist');
 if (fs.existsSync(DIST_DIR)) {
   app.use(express.static(DIST_DIR, {
     setHeaders: (res, filePath) => {
