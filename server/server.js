@@ -609,14 +609,17 @@ app.get('/api/app/version', (req, res) => {
 
 // Direct APK Download Endpoint
 app.get(['/download/app', '/Ganesha_Diaries_2026.apk', '/app-release.apk'], (req, res) => {
-  const apkDist = path.join(DIST_DIR, 'Ganesha_Diaries_2026.apk');
-  const apkPublic = path.join(__dirname, '../public/Ganesha_Diaries_2026.apk');
-  const apkAndroid = path.join(__dirname, '../android/app/build/outputs/apk/debug/app-debug.apk');
+  const candidates = [
+    path.join(__dirname, '../Vijaya_Colony_Ganesha_Release.apk'),
+    path.join(__dirname, '../Vijaya_Colony_Ganesha_Diaries.apk'),
+    path.join(__dirname, '../android/app/build/outputs/apk/release/app-release.apk'),
+    path.join(__dirname, '../android/app/build/outputs/apk/debug/app-debug.apk')
+  ];
 
-  const fileToSend = fs.existsSync(apkDist) ? apkDist : (fs.existsSync(apkPublic) ? apkPublic : (fs.existsSync(apkAndroid) ? apkAndroid : null));
+  const fileToSend = candidates.find(p => fs.existsSync(p));
   if (fileToSend) {
     res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-    res.setHeader('Content-Disposition', 'attachment; filename="Ganesha_Diaries_2026.apk"');
+    res.setHeader('Content-Disposition', 'attachment; filename="Vijaya_Colony_Ganesha_Diaries.apk"');
     return res.sendFile(fileToSend);
   }
   res.status(404).send('APK is being prepared, please try again in a few moments.');
