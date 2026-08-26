@@ -3,7 +3,7 @@ import { X, Heart, QrCode, CheckCircle2, Copy, Download, Share2, Sparkles, Smart
 import { QRCodeSVG } from 'qrcode.react';
 import confetti from 'canvas-confetti';
 import { api } from '../services/api';
-import { playTempleBell } from '../utils/audio';
+import { playTempleBell, compressImageToBase64 } from '../utils/audio';
 import { downloadDonorReceiptPdf, downloadDonorReceiptPng, sendWhatsAppReceipt } from '../utils/receiptGenerator';
 
 const PRESET_AMOUNTS = [101, 251, 501, 1116, 2116, 5116, 11116];
@@ -17,6 +17,7 @@ export const DonationModal = ({ isOpen, onClose, settings, onDonationSuccess }) 
   const [referenceNo, setReferenceNo] = useState('');
   const [paymentMode, setPaymentMode] = useState('UPI');
   const [receiptImage, setReceiptImage] = useState(null);
+  const [isCompressingImage, setIsCompressingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [donationComplete, setDonationComplete] = useState(null);
   const [copiedUpi, setCopiedUpi] = useState(false);
@@ -38,40 +39,17 @@ export const DonationModal = ({ isOpen, onClose, settings, onDonationSuccess }) 
     setTimeout(() => setCopiedUpi(false), 2000);
   };
 
-  const handleReceiptUpload = (e) => {
+  const handleReceiptUpload = async (e) => {
     const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const MAX_DIM = 1024;
-          let width = img.width;
-          let height = img.height;
-
-          if (width > height) {
-            if (width > MAX_DIM) {
-              height = Math.round((height * MAX_DIM) / width);
-              width = MAX_DIM;
-            }
-          } else {
-            if (height > MAX_DIM) {
-              width = Math.round((width * MAX_DIM) / height);
-              height = MAX_DIM;
-            }
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.75);
-          setReceiptImage(compressedDataUrl);
-        };
-        img.src = event.target.result;
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+    setIsCompressingImage(true);
+    try {
+      const compressedDataUrl = await compressImageToBase64(file);
+      setReceiptImage(compressedDataUrl);
+    } catch (err) {
+      alert(err.message || 'Failed to process image. Please select another image.');
+    } finally {
+      setIsCompressingImage(false);
     }
   };
 
@@ -499,8 +477,9 @@ export const DonationModal = ({ isOpen, onClose, settings, onDonationSuccess }) 
                 </div>
 
                 {/* Screenshot Upload (Compulsory for UPI) */}
+                {/* Screenshot Upload (Compulsory for UPI) */}
                 <div>
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center justify-between mb-1.5">
                     <label className="text-xs font-medium text-amber-300 flex items-center gap-1">
                       <span>Attach Payment Screenshot</span>
                       {paymentMode === 'UPI' ? (
@@ -510,23 +489,55 @@ export const DonationModal = ({ isOpen, onClose, settings, onDonationSuccess }) 
                       )}
                     </label>
                   </div>
-                  <label className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-xs cursor-pointer transition-all ${
-                    receiptImage 
-                      ? 'bg-emerald-950/40 border-emerald-500/60 text-emerald-300' 
-                      : (paymentMode === 'UPI' 
-                          ? 'bg-[#2b1008] border-red-500/50 hover:border-red-400 text-amber-200' 
-                          : 'bg-[#2b1008] border-amber-500/30 text-amber-300')
-                  }`}>
-                    <div className="flex items-center gap-2">
-                      <Upload className={`w-4 h-4 ${receiptImage ? 'text-emerald-400' : (paymentMode === 'UPI' ? 'text-red-400' : 'text-amber-400')}`} />
-                      <span>{receiptImage ? 'Payment Screenshot Attached ✅' : (paymentMode === 'UPI' ? 'Upload UPI screenshot (Required *)' : 'Choose screenshot from gallery')}</span>
+
+                  {receiptImage ? (
+                    <div className="p-3 bg-black/70 border-2 border-emerald-500/70 rounded-2xl space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-emerald-400 font-bold flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                          <span>Screenshot Ready & Attached ✓</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setReceiptImage(null)}
+                          className="text-[11px] text-red-400 hover:text-red-300 underline font-semibold"
+                        >
+                          Remove / Change
+                        </button>
+                      </div>
+                      <div className="flex justify-center bg-black/50 p-2 rounded-xl border border-emerald-500/30">
+                        <img
+                          src={receiptImage}
+                          alt="Attached payment screenshot preview"
+                          className="max-h-36 object-contain rounded-lg shadow-md"
+                        />
+                      </div>
                     </div>
-                    {receiptImage && (
-                      <img src={receiptImage} alt="Receipt preview" className="w-7 h-7 object-cover rounded border border-emerald-400" />
-                    )}
-                    <input type="file" accept="image/*" onChange={handleReceiptUpload} className="hidden" />
-                  </label>
-                  {paymentMode === 'UPI' && !receiptImage && (
+                  ) : (
+                    <label className={`flex items-center justify-between gap-2 px-3.5 py-3 rounded-xl border text-xs cursor-pointer transition-all ${
+                      paymentMode === 'UPI' 
+                        ? 'bg-[#2b1008] border-red-500/50 hover:border-red-400 text-amber-200 shadow-sm' 
+                        : 'bg-[#2b1008] border-amber-500/30 text-amber-300'
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        <Upload className={`w-4 h-4 ${paymentMode === 'UPI' ? 'text-red-400' : 'text-amber-400'}`} />
+                        <span className="font-semibold">
+                          {isCompressingImage 
+                            ? 'Processing & Securing Screenshot... ⏳' 
+                            : (paymentMode === 'UPI' ? 'Tap to Upload UPI Screenshot (Required *)' : 'Choose screenshot from gallery')}
+                        </span>
+                      </div>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        disabled={isCompressingImage}
+                        onChange={handleReceiptUpload} 
+                        className="hidden" 
+                      />
+                    </label>
+                  )}
+
+                  {paymentMode === 'UPI' && !receiptImage && !isCompressingImage && (
                     <p className="text-[10px] text-red-300/90 mt-1 flex items-center gap-1">
                       <span>⚠️ Please take a screenshot of your Google Pay / PhonePe transaction and attach it above.</span>
                     </p>

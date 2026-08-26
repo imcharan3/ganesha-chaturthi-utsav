@@ -73,3 +73,60 @@ export function playDevotionalChime() {
     console.warn('Devotional chime playback failed:', e);
   }
 }
+
+/**
+ * Image Compression Utility
+ * Compresses images client-side to lightweight, permanent Base64 Data URLs (JPEG).
+ * Ensures screenshots are stored permanently in MongoDB Atlas without relying on ephemeral server disks.
+ */
+export const compressImageToBase64 = (file, maxDimension = 1200, quality = 0.75) => {
+  return new Promise((resolve, reject) => {
+    if (!file) return resolve(null);
+
+    // Validate if file is an image
+    if (!file.type.startsWith('image/')) {
+      return reject(new Error('Selected file is not an image. Please choose a JPG or PNG photo.'));
+    }
+
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Failed to read selected image file.'));
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Failed to load image format.'));
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          let { width, height } = img;
+
+          if (width > height) {
+            if (width > maxDimension) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            }
+          } else {
+            if (height > maxDimension) {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, width, height);
+
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+          resolve(compressedDataUrl);
+        } catch (err) {
+          reject(err);
+        }
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+};
+

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
+import { playTempleBell, compressImageToBase64 } from '../utils/audio';
 import { ReceiptsArchiveModal } from './ReceiptsArchiveModal';
 import { 
   downloadDonorReceiptPdf, 
@@ -144,10 +145,30 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
     if (!file) return;
     setIsUploadingReceipt(true);
     try {
-      const uploadRes = await api.uploadImage(file);
-      setEditForm(prev => ({ ...prev, receiptUrl: uploadRes.fileUrl }));
+      const dataUrl = await compressImageToBase64(file);
+      setEditForm(prev => ({ ...prev, receiptUrl: dataUrl }));
     } catch (err) {
-      alert('Failed to upload replacement receipt');
+      alert(err.message || 'Failed to process screenshot image');
+    } finally {
+      setIsUploadingReceipt(false);
+    }
+  };
+
+  const handleQuickUploadScreenshot = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !selectedReceiptDonor) return;
+    setIsUploadingReceipt(true);
+    try {
+      const dataUrl = await compressImageToBase64(file);
+      await api.updateDonor(selectedReceiptDonor.id, {
+        ...selectedReceiptDonor,
+        receiptUrl: dataUrl
+      }, adminToken);
+      setSelectedReceiptDonor(prev => ({ ...prev, receiptUrl: dataUrl }));
+      if (onRefreshDonors) onRefreshDonors();
+      alert('✅ Screenshot proof attached & saved permanently to MongoDB database!');
+    } catch (err) {
+      alert(err.message || 'Failed to update screenshot');
     } finally {
       setIsUploadingReceipt(false);
     }
@@ -916,7 +937,6 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
                     alt={`${selectedReceiptDonor.name} UPI Payment Screenshot`} 
                     className="max-h-[50vh] sm:max-h-[55vh] w-auto max-w-full object-contain rounded-xl shadow-lg border border-amber-500/20"
                     onError={(e) => {
-                      // If relative path failed, try /api/donors/:id/proof
                       if (!e.target.src.includes('/api/donors/')) {
                         e.target.src = `/api/donors/${selectedReceiptDonor.id}/proof`;
                       } else {
@@ -930,17 +950,14 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
                   <p className="text-amber-400/60 text-xs">No screenshot image recorded for this donor.</p>
                 )}
 
-                <div className="img-fallback hidden flex-col items-center justify-center text-center p-6 space-y-2 text-amber-200">
-                  <span className="text-2xl">📸</span>
-                  <p className="text-xs font-semibold">Payment screenshot proof attached.</p>
-                  <a
-                    href={`/api/donors/${selectedReceiptDonor.id}/proof`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-4 py-2 rounded-xl bg-amber-500 text-amber-950 font-bold text-xs shadow-md"
-                  >
-                    Open Image in New Window ➔
-                  </a>
+                <div className="img-fallback hidden flex-col items-center justify-center text-center p-6 space-y-3 text-amber-200">
+                  <span className="text-3xl">📸</span>
+                  <p className="text-xs font-semibold text-amber-300">
+                    Payment screenshot recorded for this donor.
+                  </p>
+                  <p className="text-[11px] text-amber-400/70 max-w-sm">
+                    If this is an older record from before cloud storage migration, Admin can re-attach the screenshot below.
+                  </p>
                 </div>
 
                 {selectedReceiptDonor.receiptUrl && (
@@ -957,6 +974,28 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
                   </div>
                 )}
               </div>
+
+              {/* Admin Quick Re-upload / Fix Screenshot Tool */}
+              {isAdmin && (
+                <div className="bg-[#1c0803] p-3.5 rounded-2xl border border-amber-500/30 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-inner">
+                  <div className="text-left">
+                    <h5 className="text-xs font-bold text-amber-200">Admin Screenshot Manager:</h5>
+                    <p className="text-[10px] text-amber-400/70">Attach or update the payment screenshot proof directly</p>
+                  </div>
+
+                  <label className="w-full sm:w-auto px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 via-saffron-500 to-amber-600 text-amber-950 font-extrabold text-xs cursor-pointer hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 shadow-gold shrink-0">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>{isUploadingReceipt ? 'Compressing & Saving... ⏳' : '📷 Upload / Replace Screenshot Proof'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={isUploadingReceipt}
+                      onChange={handleQuickUploadScreenshot}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              )}
             </div>
           </div>
         </div>

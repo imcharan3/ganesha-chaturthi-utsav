@@ -562,7 +562,14 @@ app.post('/api/upload/image', upload.single('image'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No image file uploaded' });
   }
-  const fileUrl = `/uploads/${req.file.filename}`;
+  let fileUrl = `/uploads/${req.file.filename}`;
+  try {
+    const fileBuffer = fs.readFileSync(req.file.path);
+    const base64Str = fileBuffer.toString('base64');
+    fileUrl = `data:${req.file.mimetype};base64,${base64Str}`;
+  } catch (e) {
+    console.error('Error creating base64 for image:', e);
+  }
   res.json({
     success: true,
     fileUrl,
