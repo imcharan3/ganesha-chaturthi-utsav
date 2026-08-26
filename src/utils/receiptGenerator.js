@@ -279,10 +279,15 @@ export const generateDonorReceiptCanvas = async (donor, settings) => {
 };
 
 /**
- * Download Devotional Receipt as PNG
+ * Download Devotional Receipt as PNG & Open In-App Preview
  */
 export const downloadDonorReceiptPng = async (donor, settings) => {
   try {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('open-receipt-preview-modal', {
+        detail: { donor, settings }
+      }));
+    }
     const canvas = await generateDonorReceiptCanvas(donor, settings);
     const safeName = (donor.name || 'Donor').replace(/\s+/g, '_');
     const receiptNo = donor.receiptNo || 'REC';
@@ -290,15 +295,20 @@ export const downloadDonorReceiptPng = async (donor, settings) => {
     return await downloadCanvasImage(canvas, filename);
   } catch (err) {
     console.error('Error downloading PNG receipt:', err);
-    throw err;
+    return false;
   }
 };
 
 /**
- * Download Official Devotional Receipt as PDF
+ * Download Official Devotional Receipt as PDF & Open In-App Preview
  */
 export const downloadDonorReceiptPdf = async (donor, settings) => {
   try {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('open-receipt-preview-modal', {
+        detail: { donor, settings }
+      }));
+    }
     const canvas = await generateDonorReceiptCanvas(donor, settings);
     const pdf = new jsPDF({
       orientation: 'portrait',
@@ -306,7 +316,7 @@ export const downloadDonorReceiptPdf = async (donor, settings) => {
       format: 'a4'
     });
 
-    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const imgData = canvas.toDataURL('image/jpeg', 0.9);
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = pdf.internal.pageSize.getHeight();
 
@@ -317,7 +327,7 @@ export const downloadDonorReceiptPdf = async (donor, settings) => {
     return await downloadPdf(pdf, filename);
   } catch (err) {
     console.error('Error downloading PDF receipt:', err);
-    throw err;
+    return false;
   }
 };
 

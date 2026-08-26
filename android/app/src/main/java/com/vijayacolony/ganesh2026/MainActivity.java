@@ -38,6 +38,17 @@ public class MainActivity extends BridgeActivity {
                     notificationManager.createNotificationChannel(devotionalChannel);
                 }
             }
+
+            // 2. Set WebView Download Listener
+            if (getBridge() != null && getBridge().getWebView() != null) {
+                getBridge().getWebView().setDownloadListener((url, userAgent, contentDisposition, mimetype, contentLength) -> {
+                    try {
+                        android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_VIEW);
+                        intent.setData(android.net.Uri.parse(url));
+                        startActivity(intent);
+                    } catch (Exception ignored) {}
+                });
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
