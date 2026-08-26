@@ -10,26 +10,26 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { db } from './db.js';
-import admin from 'firebase-admin';
+import { initializeApp, cert } from 'firebase-admin/app';
+import { getMessaging } from 'firebase-admin/messaging';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Initialize Firebase Admin SDK if service account is provided
+// Initialize Firebase Admin SDK
 let firebaseApp = null;
+let messagingService = null;
 try {
   const serviceAccountPath = path.join(__dirname, 'firebase_service_account.json');
   if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-    firebaseApp = admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    });
+    firebaseApp = initializeApp({ credential: cert(serviceAccount) });
+    messagingService = getMessaging(firebaseApp);
     console.log('✅ Firebase Admin SDK initialized from environment');
   } else if (fs.existsSync(serviceAccountPath)) {
     const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
-    firebaseApp = admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    });
+    firebaseApp = initializeApp({ credential: cert(serviceAccount) });
+    messagingService = getMessaging(firebaseApp);
     console.log('✅ Firebase Admin SDK initialized from file');
   }
 } catch (err) {
@@ -42,8 +42,8 @@ export const sendPushAlert = async ({ title, body, tab = 'home', data = {} }) =>
     const deviceRecords = await db.getAllDeviceTokens();
     const tokens = deviceRecords.map(d => typeof d === 'string' ? d : d?.token).filter(Boolean);
     
-    if (tokens.length > 0 && firebaseApp) {
-      const response = await admin.messaging().sendEachForMulticast({
+    if (tokens.length > 0 && messagingService) {
+      const response = await messagingService.sendEachForMulticast({
         tokens,
         notification: { title, body },
         data: { tab, ...data },
