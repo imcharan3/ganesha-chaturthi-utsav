@@ -688,6 +688,7 @@ app.get('/api/app/version', (req, res) => {
 // Direct APK Download Endpoint
 app.get(['/download/app', '/Ganesha_Diaries_2026.apk', '/app-release.apk'], (req, res) => {
   const candidates = [
+    path.join(__dirname, 'Vijaya_Colony_Ganesha_Diaries.apk'),
     path.join(__dirname, '../Vijaya_Colony_Ganesha_Release.apk'),
     path.join(__dirname, '../Vijaya_Colony_Ganesha_Diaries.apk'),
     path.join(__dirname, '../android/app/build/outputs/apk/release/app-release.apk'),
