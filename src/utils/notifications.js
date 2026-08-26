@@ -1,6 +1,7 @@
 // Devotional Push & In-App Notification Manager for Vijaya Colony Ganesha Diaries
 import { playTempleBell } from './audio';
 import { PushNotifications } from '@capacitor/push-notifications';
+import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
 import { api } from '../services/api';
 
@@ -20,6 +21,18 @@ export const initPushNotifications = async () => {
         });
       } catch (e) {}
 
+      try {
+        await LocalNotifications.createChannel({
+          id: 'ganesh_devotional_alerts',
+          name: 'Ganesha Utsav Live Alerts',
+          description: 'Live Laddu Auction Bids & Chat Notifications',
+          importance: 5,
+          visibility: 1,
+          vibration: true,
+          lights: true
+        });
+      } catch (e) {}
+
       let permStatus = await PushNotifications.checkPermissions();
       if (permStatus.receive === 'prompt') {
         permStatus = await PushNotifications.requestPermissions();
@@ -28,6 +41,14 @@ export const initPushNotifications = async () => {
       if (permStatus.receive === 'granted') {
         await PushNotifications.register();
       }
+
+      // Request Local Notification Permissions
+      try {
+        let localPerm = await LocalNotifications.checkPermissions();
+        if (localPerm.display === 'prompt') {
+          await LocalNotifications.requestPermissions();
+        }
+      } catch (e) {}
 
       // On registration success, get FCM Device Token and send to backend
       PushNotifications.addListener('registration', async (token) => {
@@ -62,6 +83,13 @@ export const initPushNotifications = async () => {
           window.dispatchEvent(new CustomEvent('switch-active-tab', { detail: { tab } }));
         }
       });
+
+      LocalNotifications.addListener('localNotificationActionPerformed', (notification) => {
+        const tab = notification.notification.extra?.tab;
+        if (tab && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('switch-active-tab', { detail: { tab } }));
+        }
+      });
     } catch (err) {
       console.warn('Push notification initialization error:', err);
     }
@@ -70,6 +98,14 @@ export const initPushNotifications = async () => {
 
 // Request notification permission from user
 export const requestNotificationPermission = async () => {
+  if (typeof window !== 'undefined' && Capacitor.isNativePlatform()) {
+    try {
+      const res = await LocalNotifications.requestPermissions();
+      await PushNotifications.requestPermissions();
+      return res.display === 'granted' ? 'granted' : 'denied';
+    } catch (e) {}
+  }
+
   if (typeof window === 'undefined' || !('Notification' in window)) {
     return 'unsupported';
   }
@@ -119,8 +155,29 @@ export const showDevotionalNotification = ({
     }));
   }
 
-  // 3. Trigger Native Device / Browser Push Notification if permitted
-  if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+  // 3. Trigger Real Native Android Status Bar Notification if on Android/iOS
+  if (typeof window !== 'undefined' && Capacitor.isNativePlatform()) {
+    try {
+      LocalNotifications.schedule({
+        notifications: [
+          {
+            title,
+            body,
+            id: Math.floor(Math.random() * 1000000),
+            schedule: { at: new Date(Date.now() + 100) },
+            channelId: 'ganesh_devotional_alerts',
+            smallIcon: 'ic_launcher',
+            extra: { tab, actionData }
+          }
+        ]
+      });
+    } catch (e) {
+      console.warn('Local notification trigger error:', e);
+    }
+  }
+
+  // 4. Trigger HTML5 Notification in desktop/mobile web browsers
+  if (typeof window !== 'undefined' && !Capacitor.isNativePlatform() && 'Notification' in window && Notification.permission === 'granted') {
     try {
       const notification = new Notification(title, {
         body,
