@@ -1,4 +1,4 @@
-package org.vijayacolony.ganesh;
+package com.vijayacolony.ganesh2026;
 
 import com.getcapacitor.BridgeActivity;
 
