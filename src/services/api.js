@@ -5,6 +5,22 @@ export const BACKEND_BASE_URL = (typeof window !== 'undefined' && window.locatio
 const API_BASE = `${BACKEND_BASE_URL}/api`;
 
 export const api = {
+  // Push Notifications
+  registerPushToken: async (tokenData) => {
+    try {
+      const payload = typeof tokenData === 'string' ? { token: tokenData } : tokenData;
+      const res = await fetch(`${API_BASE}/notifications/register-device`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      return await res.json();
+    } catch (e) {
+      console.warn('Failed to register push token:', e);
+      return null;
+    }
+  },
+
   // App Version & Updates
   getAppVersion: async () => {
     try {

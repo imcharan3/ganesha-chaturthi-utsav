@@ -18,12 +18,14 @@
     "@capacitor/android": "^8.5.0",
     "@capacitor/cli": "^8.5.0",
     "@capacitor/core": "^8.5.0",
+    "@capacitor/push-notifications": "^8.1.2",
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "firebase-admin": "^14.3.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "lucide-react": "^0.475.0",
@@ -34,7 +36,8 @@
     "react-dom": "^18.3.1",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
-    "tailwind-merge": "^3.0.2"
+    "tailwind-merge": "^3.0.2",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@types/react": "^18.3.18",

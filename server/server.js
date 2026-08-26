@@ -10,9 +10,54 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { db } from './db.js';
+import admin from 'firebase-admin';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Initialize Firebase Admin SDK if service account is provided
+let firebaseApp = null;
+try {
+  const serviceAccountPath = path.join(__dirname, 'firebase_service_account.json');
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    firebaseApp = admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+    console.log('✅ Firebase Admin SDK initialized from environment');
+  } else if (fs.existsSync(serviceAccountPath)) {
+    const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+    firebaseApp = admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+    console.log('✅ Firebase Admin SDK initialized from file');
+  }
+} catch (err) {
+  console.warn('Firebase Admin SDK setup note:', err.message);
+}
+
+// Background Push Notification Dispatcher
+export const sendPushAlert = async ({ title, body, tab = 'home', data = {} }) => {
+  try {
+    const deviceRecords = await db.getAllDeviceTokens();
+    const tokens = deviceRecords.map(d => typeof d === 'string' ? d : d?.token).filter(Boolean);
+    
+    if (tokens.length > 0 && firebaseApp) {
+      const response = await admin.messaging().sendEachForMulticast({
+        tokens,
+        notification: { title, body },
+        data: { tab, ...data },
+        android: {
+          priority: 'high',
+          notification: { sound: 'default', channelId: 'ganesh_devotional_alerts' }
+        }
+      });
+      console.log(`📡 Dispatched FCM push to ${response.successCount}/${tokens.length} devices`);
+    }
+  } catch (err) {
+    console.warn('Failed to broadcast push notification:', err.message);
+  }
+};
 
 const app = express();
 const server = http.createServer(app);
@@ -196,6 +241,11 @@ app.post('/api/donors', (req, res) => {
   };
 
   io.emit('donor:created', payload);
+  sendPushAlert({
+    title: `🙏 నూతన విరాళం: ₹${Number(newDonor.amount).toLocaleString('en-IN')}`,
+    body: `${newDonor.name} గారు విజయ కాలనీ గణేష్ ఉత్సవానికి విరాళం సమర్పించారు.`,
+    tab: 'donors'
+  });
   res.status(201).json(payload);
 });
 
@@ -385,6 +435,11 @@ app.post('/api/admin/auction/bid', verifyAdmin, (req, res) => {
       bidderName: bidderName.trim()
     }
   });
+  sendPushAlert({
+    title: `🔥 లైవ్ వేలం బిడ్: ₹${numAmount.toLocaleString('en-IN')}`,
+    body: `${bidderName.trim()} గారు శ్రీ వినాయక మహా లడ్డూపై బిడ్ సమర్పించారు.`,
+    tab: 'auction'
+  });
   res.json({ success: true, newBid: result.newBid, auction: result.auction });
 });
 
@@ -401,6 +456,11 @@ app.post('/api/admin/auction/winner', verifyAdmin, (req, res) => {
   const { winnerName, winningBid, phone, message } = req.body;
   const updated = db.declareWinner({ winnerName, winningBid, phone, message });
   io.emit('auction:winnerDeclared', updated);
+  sendPushAlert({
+    title: '🏆 లడ్డూ ఆక్షన్ విజేత ప్రకటించబడ్డారు!',
+    body: `మహా లడ్డూ విజేత: ${winnerName} (₹${Number(winningBid).toLocaleString('en-IN')})`,
+    tab: 'auction'
+  });
   res.json({ success: true, auction: updated });
 });
 
@@ -433,6 +493,11 @@ app.post('/api/messages', (req, res) => {
   });
 
   io.emit('message:new', newMsg);
+  sendPushAlert({
+    title: `💬 ${newMsg.sender}: కొత్త సందేశం`,
+    body: newMsg.text || (newMsg.type === 'voice' ? '🎙️ వాయిస్ మెసేజ్' : '📷 ఫోటో'),
+    tab: 'chat'
+  });
   res.status(201).json(newMsg);
 });
 
@@ -579,6 +644,19 @@ app.post('/api/upload/image', upload.single('image'), (req, res) => {
     mimetype: req.file.mimetype,
     size: req.file.size
   });
+});
+
+// Register Push Device Endpoint
+app.post('/api/notifications/register-device', async (req, res) => {
+  try {
+    const { token, deviceType = 'android' } = req.body;
+    if (!token) return res.status(400).json({ error: 'Device token required' });
+    await db.saveDeviceToken({ token, deviceType, updatedAt: new Date().toISOString() });
+    res.json({ success: true, message: 'Device registered successfully for push notifications' });
+  } catch (err) {
+    console.error('Error registering device token:', err);
+    res.status(500).json({ error: 'Failed to register push token' });
+  }
 });
 
 // WebSocket Handling

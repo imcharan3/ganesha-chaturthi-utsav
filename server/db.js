@@ -977,5 +977,22 @@ export const db = {
     };
     db.saveAuction(defaultData);
     return defaultData;
+  },
+
+  saveDeviceToken: async (deviceData) => {
+    let tokens = readJsonFile(path.join(DATA_DIR, 'device_tokens.json')) || [];
+    const tokenStr = typeof deviceData === 'string' ? deviceData : deviceData.token;
+    const index = tokens.findIndex(t => (typeof t === 'string' ? t : t.token) === tokenStr);
+    if (index >= 0) {
+      tokens[index] = typeof deviceData === 'string' ? { token: deviceData, updatedAt: new Date().toISOString() } : deviceData;
+    } else {
+      tokens.push(typeof deviceData === 'string' ? { token: deviceData, updatedAt: new Date().toISOString() } : deviceData);
+    }
+    writeJsonFile(path.join(DATA_DIR, 'device_tokens.json'), tokens);
+    return true;
+  },
+
+  getAllDeviceTokens: async () => {
+    return readJsonFile(path.join(DATA_DIR, 'device_tokens.json')) || [];
   }
 };

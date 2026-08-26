@@ -16,8 +16,7 @@ import { AppUpdateModal } from './components/AppUpdateModal';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SocketProvider, useSocket } from './context/SocketContext';
 import { api } from './services/api';
-import { playTempleBell } from './utils/audio';
-import { showDevotionalNotification } from './utils/notifications';
+import { showDevotionalNotification, initPushNotifications } from './utils/notifications';
 import { saveOfflineData, getOfflineData } from './utils/offlineStorage';
 import { X, MessageSquare } from 'lucide-react';
 
@@ -92,6 +91,7 @@ function MainApp() {
 
   useEffect(() => {
     fetchData();
+    initPushNotifications();
 
     // Listen for tab switch events from notifications
     const handleSwitchTabEvent = (e) => {
