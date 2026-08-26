@@ -685,8 +685,8 @@ app.get('/api/app/version', (req, res) => {
   });
 });
 
-// Direct APK Download Endpoint
-app.get(['/download/app', '/Ganesha_Diaries_2026.apk', '/app-release.apk'], (req, res) => {
+// Direct APK Download Endpoint & Download Landing Page
+app.get(['/download/app', '/download/apk', '/Ganesha_Diaries_2026.apk', '/app-release.apk', '/app.apk'], (req, res) => {
   const candidates = [
     path.join(__dirname, 'Vijaya_Colony_Ganesha_Diaries.apk'),
     path.join(__dirname, '../Vijaya_Colony_Ganesha_Release.apk'),
@@ -697,11 +697,66 @@ app.get(['/download/app', '/Ganesha_Diaries_2026.apk', '/app-release.apk'], (req
 
   const fileToSend = candidates.find(p => fs.existsSync(p));
   if (fileToSend) {
-    res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-    res.setHeader('Content-Disposition', 'attachment; filename="Vijaya_Colony_Ganesha_Diaries.apk"');
-    return res.sendFile(fileToSend);
+    return res.download(fileToSend, 'Vijaya_Colony_Ganesha_Diaries.apk', (err) => {
+      if (err && !res.headersSent) {
+        res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+        res.sendFile(fileToSend);
+      }
+    });
   }
   res.status(404).send('APK is being prepared, please try again in a few moments.');
+});
+
+// Dedicated Web Install & Download Page
+app.get(['/download', '/install', '/app'], (req, res) => {
+  res.send(`<!DOCTYPE html>
+<html lang="te">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>విజయ కాలనీ గణేష్ డైరీస్ • యాప్ డౌన్‌లోడ్</title>
+  <link rel="icon" type="image/png" href="/icon-192.png">
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: linear-gradient(135deg, #240e06 0%, #170502 50%, #0d0201 100%); color: #fff; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; text-align: center; }
+    .card { background: rgba(36, 14, 6, 0.85); border: 2px solid #f59e0b; border-radius: 28px; padding: 36px 24px; max-width: 440px; width: 100%; box-shadow: 0 10px 40px rgba(245, 158, 11, 0.25); backdrop-filter: blur(10px); }
+    .logo { width: 90px; height: 90px; border-radius: 22px; border: 2px solid #fbbf24; margin: 0 auto 16px; object-fit: cover; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+    h1 { font-size: 22px; color: #fbbf24; margin-bottom: 6px; font-weight: 900; }
+    p.sub { font-size: 13px; color: #fde68a; margin-bottom: 24px; line-height: 1.5; }
+    .btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 16px; border-radius: 18px; font-weight: 800; font-size: 15px; text-decoration: none; margin-bottom: 12px; transition: transform 0.2s, filter 0.2s; cursor: pointer; border: none; }
+    .btn-android { background: linear-gradient(90deg, #f59e0b, #d97706); color: #240e06; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4); }
+    .btn-web { background: rgba(255,255,255,0.1); color: #fde68a; border: 1px solid rgba(251, 191, 36, 0.3); }
+    .btn:hover { transform: scale(1.02); filter: brightness(1.1); }
+    .badge { display: inline-block; background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; color: #6ee7b7; padding: 4px 12px; border-radius: 999px; font-size: 11px; font-weight: bold; margin-bottom: 18px; }
+    .steps { background: rgba(0,0,0,0.35); border: 1px solid rgba(251,191,36,0.2); border-radius: 16px; padding: 14px; text-align: left; font-size: 12px; color: #fef3c7; line-height: 1.6; margin-top: 18px; }
+    .steps strong { color: #fbbf24; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <img src="/icon-192.png" alt="Ganesha Diaries" class="logo" onerror="this.src='/colony_logo.png'">
+    <div class="badge">● తాజా వెర్షన్ v1.5 • 8.2 MB</div>
+    <h1>విజయ కాలనీ గణేష్ డైరీస్</h1>
+    <p class="sub">మహా లడ్డూ లైవ్ వేలం, డిజిటల్ రసీదులు, ఆఫ్‌లైన్ సింక్ & లైవ్ నోటిఫికేషన్లు</p>
+
+    <a href="/download/app" class="btn btn-android">
+      <span>📥</span>
+      <span>Download Android App (8 MB)</span>
+    </a>
+
+    <a href="/" class="btn btn-web">
+      <span>🌐</span>
+      <span>Open Web App / iPhone (Safari)</span>
+    </a>
+
+    <div class="steps">
+      <p>👉 <strong>Step 1:</strong> పై బటన్ నొక్కి <strong>Download anyway</strong> ఎంచుకోండి.</p>
+      <p>👉 <strong>Step 2:</strong> డౌన్‌లోడ్ పూర్తయ్యాక ఫైల్ పై నొక్కి <strong>Install</strong> చేయండి.</p>
+      <p>👉 <strong>iPhone వినియోగదారులు:</strong> Safari లో ఓపెన్ చేసి Share ➔ <strong>Add to Home Screen</strong> ఎంచుకోండి.</p>
+    </div>
+  </div>
+</body>
+</html>`);
 });
 
 // Serve Vite Frontend Build if dist exists
