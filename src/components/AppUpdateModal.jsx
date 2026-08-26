@@ -15,20 +15,27 @@ export const AppUpdateModal = () => {
 
   useEffect(() => {
     // Check for updates on mount and when app resumes from background
-    const checkForUpdates = async () => {
+    const checkForUpdates = async (force = false) => {
       try {
         const info = await api.getAppVersion();
-        if (info && info.versionCode > CURRENT_VERSION_CODE) {
-          // Check if user dismissed this specific version in this session
-          const dismissedVersion = sessionStorage.getItem('ganesh_dismissed_update_version');
-          if (dismissedVersion !== String(info.versionCode)) {
-            setUpdateInfo(info);
-            setIsOpen(true);
-            playTempleBell();
+        if (info) {
+          if (force || info.versionCode > CURRENT_VERSION_CODE) {
+            // Check if user dismissed this specific version in this session
+            const dismissedVersion = sessionStorage.getItem('ganesh_dismissed_update_version');
+            if (force || dismissedVersion !== String(info.versionCode)) {
+              setUpdateInfo(info);
+              setIsOpen(true);
+              playTempleBell();
+            }
+          } else if (force) {
+            alert(`✅ మీరు తాజా వెర్షన్ (v${CURRENT_APP_VERSION}) వాడుతున్నారు! మీ యాప్ అప్‌డేట్‌గా ఉంది.`);
           }
         }
       } catch (err) {
         console.warn('Update check failed:', err);
+        if (force) {
+          alert('ఆఫ్‌లైన్‌లో ఉన్నందున అప్‌డేట్ తనిఖీ చేయలేకపోయాము. దయచేసి ఇంటర్నెట్ కనెక్ట్ చేయండి.');
+        }
       }
     };
 
@@ -36,12 +43,12 @@ export const AppUpdateModal = () => {
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        checkForUpdates();
+        checkForUpdates(false);
       }
     };
 
-    const handleManualUpdateCheck = () => {
-      checkForUpdates();
+    const handleManualUpdateCheck = (e) => {
+      checkForUpdates(e.detail?.force !== false);
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { 
   X, Shield, Lock, KeyRound, Settings, CheckCircle2, AlertCircle, Save, 
-  Database, Download, Upload, Server, RefreshCw, Check, Sparkles, Wallet 
+  Database, Download, Upload, Server, RefreshCw, Check, Sparkles, Wallet, BellRing, ArrowUpCircle 
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { ExpenseManager } from './ExpenseManager';
+import { showDevotionalNotification, requestNotificationPermission } from '../utils/notifications';
 
 export const AdminModal = ({ isOpen, onClose, settings, donors = [], onRefreshSettings }) => {
   const { isAdmin, adminToken, login, logout } = useAuth();
@@ -356,6 +357,35 @@ export const AdminModal = ({ isOpen, onClose, settings, donors = [], onRefreshSe
                     <Save className="w-4 h-4" />
                     <span>Save Mandapam Settings</span>
                   </button>
+
+                  <div className="pt-2 border-t border-amber-500/20 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await requestNotificationPermission();
+                        showDevotionalNotification({
+                          title: '🔔 భక్తిశ్రద్ధల నోటిఫికేషన్ టెస్ట్ (Devotional Alert Test)',
+                          body: 'విజయ కాలనీ గణేష్ ఉత్సవ లైవ్ అలర్ట్స్ మీ ఫోన్‌లో విజయవంతంగా పని చేస్తున్నాయి! 🙏',
+                          tab: 'home'
+                        });
+                      }}
+                      className="py-2 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
+                    >
+                      <BellRing className="w-3.5 h-3.5" />
+                      <span>నోటిఫికేషన్ టెస్ట్ (Test Alert)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        window.dispatchEvent(new CustomEvent('check-for-app-update', { detail: { force: true } }));
+                      }}
+                      className="py-2 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
+                    >
+                      <ArrowUpCircle className="w-3.5 h-3.5" />
+                      <span>యాప్ అప్‌డేట్ (Check Update)</span>
+                    </button>
+                  </div>
                 </form>
               )}
 

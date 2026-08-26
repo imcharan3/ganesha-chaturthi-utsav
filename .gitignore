@@ -33,3 +33,7 @@ lerna-debug.log*
 *.njsproj
 *.sln
 *.sw?
+
+# Android APK binaries (Compiled locally, not tracked in git to prevent GitHub 100MB limit)
+*.apk
+*.idsig
