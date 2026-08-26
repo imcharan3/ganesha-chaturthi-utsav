@@ -8,6 +8,18 @@ import { api } from '../services/api';
 export const initPushNotifications = async () => {
   if (typeof window !== 'undefined' && Capacitor.isNativePlatform()) {
     try {
+      try {
+        await PushNotifications.createChannel({
+          id: 'ganesh_devotional_alerts',
+          name: 'Ganesha Utsav Live Alerts',
+          description: 'Live Laddu Auction Bids & Chat Notifications',
+          importance: 5,
+          visibility: 1,
+          vibration: true,
+          lights: true
+        });
+      } catch (e) {}
+
       let permStatus = await PushNotifications.checkPermissions();
       if (permStatus.receive === 'prompt') {
         permStatus = await PushNotifications.requestPermissions();
