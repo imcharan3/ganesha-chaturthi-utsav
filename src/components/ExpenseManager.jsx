@@ -22,6 +22,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { saveOfflineData, getOfflineData, enqueueOfflineAction } from '../utils/offlineStorage';
+import { downloadPdf } from '../utils/fileDownloader';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -234,7 +235,7 @@ export const ExpenseManager = ({ donors = [], settings = {}, onRefresh }) => {
   });
 
   // Export Expenses PDF
-  const handleExportPdf = () => {
+  const handleExportPdf = async () => {
     try {
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
       const utsavTitle = settings?.utsavName || 'విజయ కాలనీ గణేష్ డైరీస్ 2026';
@@ -331,7 +332,8 @@ export const ExpenseManager = ({ donors = [], settings = {}, onRefresh }) => {
         pdf.text(`NET PROJECTED SURPLUS (అన్ని బాకీల తర్వాత): Rs. ${netProjectedSurplus.toLocaleString('en-IN')}`, 310, finalY + 48);
       }
 
-      pdf.save(`Committee_Expenses_Purse_Statement_${new Date().toISOString().slice(0, 10)}.pdf`);
+      const filename = `Committee_Expenses_Purse_Statement_${new Date().toISOString().slice(0, 10)}.pdf`;
+      await downloadPdf(pdf, filename);
     } catch (err) {
       alert('Error creating PDF: ' + err.message);
     }

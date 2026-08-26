@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { downloadPdf, downloadCanvasImage } from './fileDownloader';
 
 /**
  * Generate a high-resolution, divine Devotional Receipt Canvas
@@ -283,15 +284,10 @@ export const generateDonorReceiptCanvas = async (donor, settings) => {
 export const downloadDonorReceiptPng = async (donor, settings) => {
   try {
     const canvas = await generateDonorReceiptCanvas(donor, settings);
-    const downloadLink = document.createElement('a');
     const safeName = (donor.name || 'Donor').replace(/\s+/g, '_');
     const receiptNo = donor.receiptNo || 'REC';
-    downloadLink.download = `Ganesha_Receipt_${receiptNo}_${safeName}.png`;
-    downloadLink.href = canvas.toDataURL('image/png', 1.0);
-    document.body.appendChild(downloadLink);
-    downloadLink.click();
-    document.body.removeChild(downloadLink);
-    return true;
+    const filename = `Ganesha_Receipt_${receiptNo}_${safeName}.png`;
+    return await downloadCanvasImage(canvas, filename);
   } catch (err) {
     console.error('Error downloading PNG receipt:', err);
     throw err;
@@ -317,8 +313,8 @@ export const downloadDonorReceiptPdf = async (donor, settings) => {
     pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
     const safeName = (donor.name || 'Donor').replace(/\s+/g, '_');
     const receiptNo = donor.receiptNo || 'REC';
-    pdf.save(`Ganesha_Receipt_${receiptNo}_${safeName}.pdf`);
-    return true;
+    const filename = `Ganesha_Receipt_${receiptNo}_${safeName}.pdf`;
+    return await downloadPdf(pdf, filename);
   } catch (err) {
     console.error('Error downloading PDF receipt:', err);
     throw err;
@@ -389,7 +385,7 @@ export const sendWhatsAppReceipt = (donor, settings) => {
 /**
  * Download Complete Donors List PDF (Verified Donors Only, Special Donors at Top, Clickable Screenshot Links)
  */
-export const downloadDonorsLedgerPdf = (donors = [], settings = {}) => {
+export const downloadDonorsLedgerPdf = async (donors = [], settings = {}) => {
   try {
     // 1. Filter ONLY VERIFIED DONORS
     const verifiedDonors = donors.filter(d => d.status === 'Verified' || d.receiptNo);
@@ -543,8 +539,8 @@ export const downloadDonorsLedgerPdf = (donors = [], settings = {}) => {
     });
 
     // Save PDF
-    pdf.save(`Vijaya_Colony_Verified_Donors_Ledger_${new Date().toISOString().slice(0, 10)}.pdf`);
-    return true;
+    const filename = `Vijaya_Colony_Verified_Donors_Ledger_${new Date().toISOString().slice(0, 10)}.pdf`;
+    return await downloadPdf(pdf, filename);
   } catch (err) {
     console.error('Error generating Donors Ledger PDF:', err);
     alert('Failed to generate Donors List PDF: ' + err.message);

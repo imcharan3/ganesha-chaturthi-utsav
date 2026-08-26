@@ -675,13 +675,13 @@ io.on('connection', (socket) => {
 // App Version & Auto-Update Metadata Endpoint
 app.get('/api/app/version', (req, res) => {
   res.json({
-    latestVersion: '1.3',
-    versionCode: 4,
+    latestVersion: '1.4',
+    versionCode: 5,
     minSupportedVersion: '1.0',
-    apkUrl: '/Ganesha_Diaries_2026.apk',
+    apkUrl: '/download/app',
     releaseDate: '2026-08-26',
-    releaseNotes: 'Offline caching with auto-sync, live auction bidding alerts, chat notifications, and in-app auto updates.',
-    title: 'విజయ కాలనీ గణేష్ డైరీస్ v1.3'
+    releaseNotes: '🎉 కొత్త అప్‌డేట్: మొబైల్ యాప్‌లో PDF రసీదులు, ఆక్షన్ రిపోర్ట్‌లు & స్టేట్‌మెంట్‌లు నేరుగా డౌన్‌లోడ్ & షేర్ చేసుకునే సదుపాయం జోడించబడింది.',
+    title: 'విజయ కాలనీ గణేష్ డైరీస్ v1.4'
   });
 });
 

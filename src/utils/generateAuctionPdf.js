@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf';
+import { downloadPdf } from './fileDownloader';
 
 /**
  * Generates and downloads a high-definition, devotional A4 PDF report of the entire Laddu Auction
@@ -221,7 +222,7 @@ export const generateAuctionPdf = async (auction, settings) => {
     }
 
     const filename = `Vijaya_Colony_Ganesha_Laddu_Auction_Report_${Date.now()}.pdf`;
-    pdf.save(filename);
+    await downloadPdf(pdf, filename);
     return true;
   } catch (err) {
     console.error('Error generating PDF report:', err);

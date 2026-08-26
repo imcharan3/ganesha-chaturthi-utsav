@@ -193,16 +193,13 @@ export const generateAuctionPoster = async (winnerData, settings) => {
   return canvas;
 };
 
+import { downloadCanvasImage } from './fileDownloader';
+
 /**
  * Downloads the generated poster canvas as a high-res PNG
  */
-export const downloadAuctionPoster = (canvas, filename = 'Vijaya_Colony_Ganesha_Laddu_Winner.png') => {
-  const link = document.createElement('a');
-  link.download = filename;
-  link.href = canvas.toDataURL('image/png', 1.0);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+export const downloadAuctionPoster = async (canvas, filename = 'Vijaya_Colony_Ganesha_Laddu_Winner.png') => {
+  return await downloadCanvasImage(canvas, filename);
 };
 
 /**
