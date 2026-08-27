@@ -162,6 +162,8 @@ const DonorSchema = new mongoose.Schema({
   name: { type: String, required: true },
   gotram: { type: String, default: '' },
   amount: { type: Number, required: true },
+  paidAmount: { type: Number, default: 0 },
+  paymentStatus: { type: String, default: 'Paid' }, // 'Paid' | 'Unpaid' | 'Partially Paid'
   paymentMode: { type: String, default: 'UPI' },
   referenceNo: { type: String },
   status: { type: String, default: 'Verified' },
@@ -590,6 +592,12 @@ export const db = {
   },
   addDonor: (donor) => {
     const isVerified = (donor.status === 'Verified');
+    const paymentStatus = donor.paymentStatus || 'Paid';
+    const amount = Number(donor.amount) || 0;
+    const paidAmount = (paymentStatus === 'Unpaid') 
+      ? 0 
+      : (donor.paidAmount !== undefined ? Number(donor.paidAmount) : amount);
+
     const newDonor = {
       id: `dn-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       receiptNo: isVerified ? `VCGD-REC-${1001 + memDonors.filter(d => d.receiptNo).length}` : null,
@@ -597,6 +605,9 @@ export const db = {
       verifiedAt: isVerified ? new Date().toISOString() : null,
       verifiedBy: isVerified ? (donor.verifiedBy || 'Admin') : null,
       status: donor.status || "Pending Verification",
+      paymentStatus,
+      amount,
+      paidAmount,
       ...donor
     };
     memDonors.unshift(newDonor);
@@ -610,9 +621,16 @@ export const db = {
       const existing = memDonors[index];
       const receiptNo = existing.receiptNo || `VCGD-REC-${1001 + memDonors.filter(d => d.receiptNo).length}`;
       const verifiedAt = existing.verifiedAt || new Date().toISOString();
+      const paymentStatus = existing.paymentStatus || 'Paid';
+      const paidAmount = (existing.paidAmount !== undefined) 
+        ? Number(existing.paidAmount) 
+        : (paymentStatus === 'Unpaid' ? 0 : Number(existing.amount || 0));
+
       memDonors[index] = {
         ...existing,
         status: 'Verified',
+        paymentStatus,
+        paidAmount,
         receiptNo,
         verifiedAt,
         verifiedBy,
@@ -636,9 +654,21 @@ export const db = {
         if (!verifiedAt) verifiedAt = new Date().toISOString();
       }
 
+      const paymentStatus = updatedFields.paymentStatus !== undefined ? updatedFields.paymentStatus : (existing.paymentStatus || 'Paid');
+      const amount = updatedFields.amount !== undefined ? Number(updatedFields.amount) : Number(existing.amount || 0);
+      let paidAmount = updatedFields.paidAmount !== undefined ? Number(updatedFields.paidAmount) : (existing.paidAmount !== undefined ? Number(existing.paidAmount) : amount);
+      if (paymentStatus === 'Unpaid') {
+        paidAmount = 0;
+      } else if (paymentStatus === 'Paid' && updatedFields.paidAmount === undefined) {
+        paidAmount = amount;
+      }
+
       memDonors[index] = { 
         ...existing, 
         ...updatedFields, 
+        amount,
+        paidAmount,
+        paymentStatus,
         receiptNo,
         verifiedAt,
         updatedAt: new Date().toISOString() 

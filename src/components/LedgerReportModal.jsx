@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Printer, Share2, FileText, Download, Heart, Sparkles, CheckCircle2 } from 'lucide-react';
 
 export const LedgerReportModal = () => {
@@ -24,18 +24,25 @@ export const LedgerReportModal = () => {
 
   const utsavTitle = settingsData?.utsavName || 'విజయ కాలనీ గణేష్ డైరీస్ 2026';
 
-  // For Donors Ledger
-  const verifiedDonors = Array.isArray(reportData) 
-    ? reportData.filter(d => d.status === 'Verified' || d.receiptNo)
+  // For Donors Ledger (Include real records)
+  const allReportDonors = Array.isArray(reportData) 
+    ? reportData.filter(d => !d.isSample)
     : [];
 
-  const sortedDonors = [...verifiedDonors].sort((a, b) => {
+  const sortedDonors = [...allReportDonors].sort((a, b) => {
     if (a.isSpecialDonor && !b.isSpecialDonor) return -1;
     if (!a.isSpecialDonor && b.isSpecialDonor) return 1;
     return (Number(b.amount) || 0) - (Number(a.amount) || 0);
   });
 
-  const totalAmount = sortedDonors.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+  const totalPledged = sortedDonors.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+  const totalPaid = sortedDonors.reduce((sum, d) => {
+    const pStatus = d.paymentStatus || (d.status === 'Verified' ? 'Paid' : 'Unpaid');
+    if (pStatus === 'Paid') return sum + (d.paidAmount !== undefined ? Number(d.paidAmount) : Number(d.amount || 0));
+    if (pStatus === 'Partially Paid') return sum + (Number(d.paidAmount) || 0);
+    return sum;
+  }, 0);
+  const totalPending = Math.max(0, totalPledged - totalPaid);
   const specialCount = sortedDonors.filter(d => d.isSpecialDonor).length;
 
   const handlePrint = () => {
@@ -48,18 +55,28 @@ export const LedgerReportModal = () => {
     let rowsHtml = '';
     sortedDonors.forEach((d, idx) => {
       const isSpecial = d.isSpecialDonor;
+      const isVerified = d.status === 'Verified' || d.receiptNo;
+      const pStatus = d.paymentStatus || (isVerified ? 'Paid' : 'Unpaid');
+      const promised = Number(d.amount) || 0;
+      const paid = pStatus === 'Unpaid' ? 0 : (d.paidAmount !== undefined ? Number(d.paidAmount) : promised);
+
+      let statusBadge = '';
+      if (pStatus === 'Paid') statusBadge = '<span style="color: #059669; font-weight: bold;">Paid (జమయింది)</span>';
+      else if (pStatus === 'Partially Paid') statusBadge = `<span style="color: #d97706; font-weight: bold;">Paid: ₹${paid} | Bal: ₹${promised - paid}</span>`;
+      else statusBadge = `<span style="color: #dc2626; font-weight: bold;">Unpaid (బకాయి: ₹${promised})</span>`;
+
       rowsHtml += `
         <tr style="background-color: ${isSpecial ? '#fef3c7' : idx % 2 === 0 ? '#ffffff' : '#f9fafb'}; font-weight: ${isSpecial ? 'bold' : 'normal'};">
           <td style="padding: 6px 8px; border: 1px solid #d1d5db; text-align: center;">${idx + 1}</td>
-          <td style="padding: 6px 8px; border: 1px solid #d1d5db; text-align: center; font-family: monospace; font-weight: bold;">${d.receiptNo || 'REC'}</td>
+          <td style="padding: 6px 8px; border: 1px solid #d1d5db; text-align: center; font-family: monospace; font-weight: bold;">${d.receiptNo || 'PENDING'}</td>
           <td style="padding: 6px 8px; border: 1px solid #d1d5db;">
             ${isSpecial ? '★ [విశిష్ట దాత] ' : ''}${d.name || 'Donor'}
             ${d.specialContribution ? `<div style="font-size: 11px; color: #92400e;">సేవ: ${d.specialContribution}</div>` : ''}
             ${d.gotram ? `<div style="font-size: 11px; color: #6b7280;">గోత్రం: ${d.gotram}</div>` : ''}
           </td>
           <td style="padding: 6px 8px; border: 1px solid #d1d5db; text-align: center;">${d.phone ? '+91 ' + d.phone : '-'}</td>
-          <td style="padding: 6px 8px; border: 1px solid #d1d5db; text-align: right; font-weight: bold; color: #b45309;">₹ ${Number(d.amount || 0).toLocaleString('en-IN')}</td>
-          <td style="padding: 6px 8px; border: 1px solid #d1d5db; text-align: center; font-size: 11px;">${d.paymentMode || 'UPI'} ${d.referenceNo ? '<br/>' + d.referenceNo : ''}</td>
+          <td style="padding: 6px 8px; border: 1px solid #d1d5db; text-align: right; font-weight: bold; color: #b45309;">₹ ${promised.toLocaleString('en-IN')}</td>
+          <td style="padding: 6px 8px; border: 1px solid #d1d5db; text-align: center; font-size: 11px;">${statusBadge}</td>
         </tr>
       `;
     });
@@ -75,7 +92,7 @@ export const LedgerReportModal = () => {
             .header { background: #7c2d12; color: #fef08a; text-align: center; padding: 16px; border-radius: 8px; margin-bottom: 14px; }
             .header h1 { margin: 0 0 4px; font-size: 20px; }
             .header p { margin: 0; font-size: 12px; color: #fed7aa; }
-            .summary-box { display: flex; justify-content: space-between; margin-bottom: 12px; background: #fffbeb; border: 1px solid #fde68a; padding: 10px 14px; border-radius: 6px; font-size: 13px; font-weight: bold; color: #92400e; }
+            .summary-box { display: flex; justify-content: space-between; margin-bottom: 12px; background: #fffbeb; border: 1px solid #fde68a; padding: 10px 14px; border-radius: 6px; font-size: 12px; font-weight: bold; }
             table { width: 100%; border-collapse: collapse; font-size: 12px; }
             th { background: #b45309; color: #ffffff; padding: 8px; border: 1px solid #92400e; text-align: center; font-size: 12px; }
             tfoot tr { background: #fef3c7; font-weight: bold; }
@@ -90,9 +107,9 @@ export const LedgerReportModal = () => {
           </div>
 
           <div class="summary-box">
-            <span>మొత్తం ధృవీకరించిన దాతలు: ${sortedDonors.length}</span>
-            <span>విశిష్ట దాతలు: ${specialCount}</span>
-            <span style="color: #b45309; font-size: 14px;">మొత్తం విరాళాలు: ₹ ${totalAmount.toLocaleString('en-IN')}</span>
+            <span>మొత్తం హామీ విరాళాలు: <strong style="color: #92400e;">₹ ${totalPledged.toLocaleString('en-IN')}</strong></span>
+            <span>వసూలైన మొత్తం: <strong style="color: #059669;">₹ ${totalPaid.toLocaleString('en-IN')}</strong></span>
+            <span>రావలసిన బకాయి: <strong style="color: #dc2626;">₹ ${totalPending.toLocaleString('en-IN')}</strong></span>
           </div>
 
           <table>
@@ -102,8 +119,8 @@ export const LedgerReportModal = () => {
                 <th style="width: 90px;">రశీదు నెం</th>
                 <th>దాత పేరు & వివరాలు</th>
                 <th style="width: 100px;">ఫోన్ నెం</th>
-                <th style="width: 90px;">మొత్తం</th>
-                <th style="width: 100px;">చెల్లింపు మోడ్</th>
+                <th style="width: 90px;">హామీ మొత్తం</th>
+                <th style="width: 130px;">చెల్లింపు స్థితి</th>
               </tr>
             </thead>
             <tbody>
@@ -111,9 +128,9 @@ export const LedgerReportModal = () => {
             </tbody>
             <tfoot>
               <tr>
-                <td colspan="4" style="text-align: right;">మొత్తం విరాళాల మొత్తం (Grand Total):</td>
-                <td style="text-align: right; color: #b45309; font-size: 13px;">₹ ${totalAmount.toLocaleString('en-IN')}</td>
-                <td style="text-align: center;">${sortedDonors.length} Donors</td>
+                <td colspan="4" style="text-align: right;">మొత్తం హామీ (Pledged) / వసూలైన మొత్తం (Paid):</td>
+                <td style="text-align: right; color: #b45309; font-size: 13px;">₹ ${totalPledged.toLocaleString('en-IN')}</td>
+                <td style="text-align: center; color: #059669; font-size: 11px;">Paid: ₹ ${totalPaid.toLocaleString('en-IN')}</td>
               </tr>
             </tfoot>
           </table>
@@ -169,7 +186,7 @@ export const LedgerReportModal = () => {
                 అధికారిక దాతల జాబితా & లెడ్జర్ (Donors Ledger)
               </h3>
               <p className="text-amber-400/80 text-xs">
-                మొత్తం దాతలు: <span className="font-bold text-amber-200">{sortedDonors.length}</span> • మొత్తం మొత్తం: <span className="font-bold text-amber-300">₹ {totalAmount.toLocaleString('en-IN')}</span>
+                మొత్తం హామీ: <span className="font-bold text-amber-200">₹ {totalPledged.toLocaleString('en-IN')}</span> • వసూలైనవి: <span className="font-bold text-emerald-400">₹ {totalPaid.toLocaleString('en-IN')}</span>
               </p>
             </div>
           </div>
@@ -185,10 +202,11 @@ export const LedgerReportModal = () => {
         <div className="px-4 py-2.5 bg-[#1a0702] border-b border-amber-500/20 flex flex-wrap items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-3">
             <span className="text-amber-300 font-medium">✨ విశిష్ట దాతలు: <strong className="text-amber-100">{specialCount}</strong></span>
-            <span className="text-amber-300 font-medium">🧾 ధృవీకరించిన రశీదులు: <strong className="text-amber-100">{sortedDonors.length}</strong></span>
+            <span className="text-emerald-400 font-medium">✅ వసూలైనవి: <strong>₹ {totalPaid.toLocaleString('en-IN')}</strong></span>
+            <span className="text-rose-400 font-medium">⏳ బకాయి: <strong>₹ {totalPending.toLocaleString('en-IN')}</strong></span>
           </div>
-          <span className="text-emerald-400 font-bold bg-emerald-950/60 px-2.5 py-1 rounded-full border border-emerald-500/30">
-            మొత్తం: ₹ {totalAmount.toLocaleString('en-IN')}
+          <span className="text-amber-300 font-bold bg-amber-950/80 px-2.5 py-1 rounded-full border border-amber-500/30">
+            మొత్తం హామీ: ₹ {totalPledged.toLocaleString('en-IN')}
           </span>
         </div>
 
@@ -202,20 +220,25 @@ export const LedgerReportModal = () => {
                   <th className="p-2.5 border-b border-amber-500/30 w-24">రశీదు నెం</th>
                   <th className="p-2.5 border-b border-amber-500/30 text-left">దాత పేరు & వివరాలు</th>
                   <th className="p-2.5 border-b border-amber-500/30 w-24">ఫోన్ నెం</th>
-                  <th className="p-2.5 border-b border-amber-500/30 text-right w-24">విరాళం (₹)</th>
-                  <th className="p-2.5 border-b border-amber-500/30 w-24">మోడ్</th>
+                  <th className="p-2.5 border-b border-amber-500/30 text-right w-24">హామీ (₹)</th>
+                  <th className="p-2.5 border-b border-amber-500/30 w-28">చెల్లింపు స్థితి</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-amber-500/20">
                 {sortedDonors.map((d, index) => {
                   const isSpecial = d.isSpecialDonor;
+                  const isVerified = d.status === 'Verified' || d.receiptNo;
+                  const pStatus = d.paymentStatus || (isVerified ? 'Paid' : 'Unpaid');
+                  const promised = Number(d.amount) || 0;
+                  const paid = pStatus === 'Unpaid' ? 0 : (d.paidAmount !== undefined ? Number(d.paidAmount) : promised);
+
                   return (
                     <tr 
                       key={d.id || index}
                       className={isSpecial ? "bg-amber-500/15 hover:bg-amber-500/25 transition-colors font-semibold" : "hover:bg-amber-950/30 transition-colors"}
                     >
                       <td className="p-2 text-center text-amber-400 font-mono">{index + 1}</td>
-                      <td className="p-2 text-center font-mono text-amber-300 font-bold">{d.receiptNo || 'REC'}</td>
+                      <td className="p-2 text-center font-mono text-amber-300 font-bold">{d.receiptNo || 'PENDING'}</td>
                       <td className="p-2 text-amber-100">
                         <div className="flex items-center gap-1.5">
                           {isSpecial && <span className="text-amber-400 text-sm">★</span>}
@@ -229,8 +252,18 @@ export const LedgerReportModal = () => {
                         )}
                       </td>
                       <td className="p-2 text-center text-amber-300/80 font-mono">{d.phone ? `+91 ${d.phone}` : '-'}</td>
-                      <td className="p-2 text-right font-bold text-amber-300 font-mono">₹ {Number(d.amount || 0).toLocaleString('en-IN')}</td>
-                      <td className="p-2 text-center text-[10px] text-amber-300/70">{d.paymentMode || 'UPI'}</td>
+                      <td className="p-2 text-right font-bold text-amber-300 font-mono">₹ {promised.toLocaleString('en-IN')}</td>
+                      <td className="p-2 text-center text-[10px]">
+                        {pStatus === 'Paid' && (
+                          <span className="text-emerald-400 font-bold">✅ Paid</span>
+                        )}
+                        {pStatus === 'Partially Paid' && (
+                          <span className="text-amber-300 font-bold">⚠️ జమ: ₹{paid}</span>
+                        )}
+                        {pStatus === 'Unpaid' && (
+                          <span className="text-rose-400 font-bold">❌ బకాయి</span>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}

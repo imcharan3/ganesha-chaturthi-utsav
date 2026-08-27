@@ -20,7 +20,7 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
   
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('newest'); // 'newest' | 'highest' | 'lowest' | 'special'
-  const [filterTier, setFilterTier] = useState('all'); // 'all' | 'special' | 'maha' | 'above1000' | 'below1000'
+  const [filterTier, setFilterTier] = useState('all'); // 'all' | 'unverified' | 'unpaid' | 'special' | 'maha' | 'above1000' | 'below1000'
   
   // Public Screenshot Lightbox Modal State
   const [selectedReceiptDonor, setSelectedReceiptDonor] = useState(null);
@@ -37,6 +37,8 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
     name: '',
     phone: '',
     amount: '',
+    paidAmount: '',
+    paymentStatus: 'Paid', // 'Paid' | 'Partially Paid' | 'Unpaid'
     message: '',
     status: 'Verified',
     receiptUrl: '',
@@ -47,10 +49,50 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
   const [isDownloadingPdfList, setIsDownloadingPdfList] = useState(false);
 
-  // Verified Donors Count for badge
-  const verifiedCount = useMemo(() => {
-    return donors.filter(d => d.status === 'Verified' || d.receiptNo).length;
+  // Real donors (exclude sample)
+  const realDonors = useMemo(() => {
+    return (donors || []).filter(d => !d.isSample);
   }, [donors]);
+
+  // Verified Donors Count
+  const verifiedCount = useMemo(() => {
+    return realDonors.filter(d => d.status === 'Verified' || d.receiptNo).length;
+  }, [realDonors]);
+
+  // Unverified Donors Count
+  const unverifiedCount = useMemo(() => {
+    return realDonors.filter(d => d.status !== 'Verified' && !d.receiptNo).length;
+  }, [realDonors]);
+
+  // Unpaid or Partially Paid Donors Count
+  const unpaidCount = useMemo(() => {
+    return realDonors.filter(d => d.paymentStatus === 'Unpaid' || d.paymentStatus === 'Partially Paid').length;
+  }, [realDonors]);
+
+  // Comprehensive Financial Totals for Donors List
+  const { totalPledgedAmount, totalCollectedPaidAmount, totalPendingBalance } = useMemo(() => {
+    let pledged = 0;
+    let paid = 0;
+
+    realDonors.forEach(d => {
+      const amt = Number(d.amount) || 0;
+      pledged += amt;
+
+      const pStatus = d.paymentStatus || (d.status === 'Verified' ? 'Paid' : 'Unpaid');
+      if (pStatus === 'Paid') {
+        paid += (d.paidAmount !== undefined ? Number(d.paidAmount) : amt);
+      } else if (pStatus === 'Partially Paid') {
+        paid += (Number(d.paidAmount) || 0);
+      }
+    });
+
+    const pending = Math.max(0, pledged - paid);
+    return {
+      totalPledgedAmount: pledged,
+      totalCollectedPaidAmount: paid,
+      totalPendingBalance: pending
+    };
+  }, [realDonors]);
 
   // Filtered & Sorted Donors
   const filteredDonors = useMemo(() => {
@@ -68,11 +110,15 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
 
         if (!matchesSearch) return false;
 
-        const amt = Number(d.amount) || 0;
-        if (filterTier === 'special') return d.isSpecialDonor;
-        if (filterTier === 'maha') return amt >= 5000;
-        if (filterTier === 'above1000') return amt >= 1000;
-        if (filterTier === 'below1000') return amt < 1000;
+        const isVerified = d.status === 'Verified' || d.receiptNo;
+        const pStatus = d.paymentStatus || (isVerified ? 'Paid' : 'Unpaid');
+
+        if (filterTier === 'unverified') return !isVerified;
+        if (filterTier === 'unpaid') return pStatus === 'Unpaid' || pStatus === 'Partially Paid';
+        if (filterTier === 'special') return isVerified && d.isSpecialDonor;
+        if (filterTier === 'maha') return (Number(d.amount) || 0) >= 5000;
+        if (filterTier === 'above1000') return (Number(d.amount) || 0) >= 1000;
+        if (filterTier === 'below1000') return (Number(d.amount) || 0) < 1000;
         return true;
       })
       .sort((a, b) => {
@@ -128,10 +174,18 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
   // Admin Edit Donor
   const handleOpenEdit = (donor) => {
     setEditingDonor(donor);
+    const pStatus = donor.paymentStatus || (donor.status === 'Verified' ? 'Paid' : 'Unpaid');
+    const amt = donor.amount || '';
+    const pAmt = donor.paidAmount !== undefined 
+      ? donor.paidAmount 
+      : (pStatus === 'Unpaid' ? 0 : amt);
+
     setEditForm({
       name: donor.name || '',
       phone: donor.phone || '',
-      amount: donor.amount || '',
+      amount: amt,
+      paidAmount: pAmt,
+      paymentStatus: pStatus,
       message: donor.message || '',
       status: donor.status || 'Verified',
       receiptUrl: donor.receiptUrl || '',
@@ -178,10 +232,20 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
     e.preventDefault();
     setIsUpdating(true);
     try {
+      const numAmount = Number(editForm.amount) || 0;
+      let numPaidAmount = Number(editForm.paidAmount) || 0;
+      if (editForm.paymentStatus === 'Paid') {
+        numPaidAmount = numAmount;
+      } else if (editForm.paymentStatus === 'Unpaid') {
+        numPaidAmount = 0;
+      }
+
       await api.updateDonor(editingDonor.id, {
         name: editForm.name.trim(),
         phone: editForm.phone.trim(),
-        amount: Number(editForm.amount),
+        amount: numAmount,
+        paidAmount: numPaidAmount,
+        paymentStatus: editForm.paymentStatus,
         message: editForm.message.trim(),
         status: editForm.status,
         receiptUrl: editForm.receiptUrl || null,
@@ -190,7 +254,7 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
       }, adminToken);
       setEditingDonor(null);
       if (selectedReceiptDonor?.id === editingDonor.id) {
-        setSelectedReceiptDonor(prev => ({ ...prev, ...editForm }));
+        setSelectedReceiptDonor(prev => ({ ...prev, ...editForm, paidAmount: numPaidAmount }));
       }
       if (onRefreshDonors) onRefreshDonors();
     } catch (err) {
@@ -433,53 +497,168 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
         </div>
       )}
 
+      {/* Ledger Financial Overview Cards: Pledged vs Paid vs Pending */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+        <div className="p-4 rounded-3xl bg-gradient-to-br from-[#2a1208] via-[#200b04] to-[#140502] border border-amber-500/40 shadow-lg relative overflow-hidden">
+          <div className="flex items-center justify-between text-xs text-amber-300/80 mb-1.5">
+            <span className="font-semibold">మొత్తం హామీ విరాళాలు (Total Expected)</span>
+            <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-bold">📋 అన్ని రికార్డులు</span>
+          </div>
+          <div className="text-2xl sm:text-3xl font-black text-amber-200 font-mono">
+            ₹{totalPledgedAmount.toLocaleString('en-IN')}
+          </div>
+          <p className="text-[11px] text-amber-400/60 mt-1">
+            చెల్లించినవి + రావలసిన బకాయిలు కలిపి ({realDonors.length} మంది దాతలు)
+          </p>
+        </div>
+
+        <div className="p-4 rounded-3xl bg-gradient-to-br from-emerald-950/70 via-[#162916] to-[#0a150a] border border-emerald-500/50 shadow-lg relative overflow-hidden">
+          <div className="flex items-center justify-between text-xs text-emerald-300/80 mb-1.5">
+            <span className="font-semibold">వసూలైన విరాళాలు (Collected Paid)</span>
+            <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-bold">✅ నగదు జమయింది</span>
+          </div>
+          <div className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono">
+            ₹{totalCollectedPaidAmount.toLocaleString('en-IN')}
+          </div>
+          <p className="text-[11px] text-emerald-300/70 mt-1">
+            ధృవీకరించిన వాస్తవ నగదు ({verifiedCount} రశీదులు)
+          </p>
+        </div>
+
+        <div className="p-4 rounded-3xl bg-gradient-to-br from-rose-950/70 via-[#2a0e12] to-[#150406] border border-rose-500/50 shadow-lg relative overflow-hidden">
+          <div className="flex items-center justify-between text-xs text-rose-300/80 mb-1.5">
+            <span className="font-semibold">రావలసిన బకాయిలు (Pending Balance)</span>
+            <span className="text-[10px] bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded-full font-bold">⏳ రావలసినవి</span>
+          </div>
+          <div className="text-2xl sm:text-3xl font-black text-rose-300 font-mono">
+            ₹{totalPendingBalance.toLocaleString('en-IN')}
+          </div>
+          <p className="text-[11px] text-rose-300/70 mt-1">
+            ఇంకా చెల్లించవలసిన విరాళాల బకాయి ({unpaidCount} మంది)
+          </p>
+        </div>
+      </div>
+
       {/* Donors Ledger Table / List Card */}
       <div className="temple-card p-4 sm:p-6 rounded-3xl shadow-xl space-y-4">
         
-        {/* Controls & Search */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-3">
-          <div className="relative flex-1 w-full">
-            <Search className="w-4 h-4 text-amber-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search by Donor name, Receipt No, Phone, Special contribution..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-[#1c0803] border border-amber-500/30 text-amber-100 text-xs sm:text-sm focus:outline-none focus:border-amber-400 placeholder:text-amber-400/40"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-amber-400/60 hover:text-white"
+        {/* Controls, Search & Filter Tabs */}
+        <div className="space-y-3">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+            <div className="relative flex-1 w-full">
+              <Search className="w-4 h-4 text-amber-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search by Donor name, Receipt No, Phone, Special contribution..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-[#1c0803] border border-amber-500/30 text-amber-100 text-xs sm:text-sm focus:outline-none focus:border-amber-400 placeholder:text-amber-400/40"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-amber-400/60 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 w-full md:w-auto">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="bg-[#1c0803] border border-amber-500/30 text-amber-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none flex-1 md:flex-none font-semibold"
               >
-                <X className="w-4 h-4" />
-              </button>
-            )}
+                <option value="newest">Newest First</option>
+                <option value="special">Special Donors First ⭐</option>
+                <option value="highest">Highest Amount</option>
+                <option value="lowest">Lowest Amount</option>
+              </select>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 w-full md:w-auto">
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="bg-[#1c0803] border border-amber-500/30 text-amber-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none flex-1 md:flex-none"
+          {/* Quick Filter Pill Buttons */}
+          <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-amber-500/20">
+            <button
+              type="button"
+              onClick={() => setFilterTier('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                filterTier === 'all'
+                  ? 'bg-amber-500 text-amber-950 shadow-md'
+                  : 'bg-[#1c0803] border border-amber-500/30 text-amber-200 hover:bg-amber-950/40'
+              }`}
             >
-              <option value="newest">Newest First</option>
-              <option value="special">Special Donors First ⭐</option>
-              <option value="highest">Highest Amount</option>
-              <option value="lowest">Lowest Amount</option>
-            </select>
+              అన్నీ (All Donors) ({realDonors.length})
+            </button>
 
-            <select
-              value={filterTier}
-              onChange={(e) => setFilterTier(e.target.value)}
-              className="bg-[#1c0803] border border-amber-500/30 text-amber-200 text-xs rounded-xl px-3 py-2.5 focus:outline-none flex-1 md:flex-none"
+            <button
+              type="button"
+              onClick={() => setFilterTier('unverified')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                filterTier === 'unverified'
+                  ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-amber-950 shadow-md ring-2 ring-orange-400'
+                  : unverifiedCount > 0
+                    ? 'bg-orange-950/80 border border-orange-500/60 text-orange-300 hover:bg-orange-900/60 animate-pulse'
+                    : 'bg-[#1c0803] border border-amber-500/30 text-amber-200 hover:bg-amber-950/40'
+              }`}
             >
-              <option value="all">All Donors</option>
-              <option value="special">🌟 Special Donors Only</option>
-              <option value="maha">Maha Daatas (₹5000+)</option>
-              <option value="above1000">₹1000 & Above</option>
-              <option value="below1000">Below ₹1000</option>
-            </select>
+              <span>⏳ ధృవీకరించని దాతలు (Unverified)</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-black/40 text-xs font-black">
+                {unverifiedCount}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilterTier('unpaid')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                filterTier === 'unpaid'
+                  ? 'bg-rose-600 text-white shadow-md'
+                  : 'bg-rose-950/50 border border-rose-500/40 text-rose-300 hover:bg-rose-900/50'
+              }`}
+            >
+              <span>❌ బకాయిలు (Unpaid / Partial)</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-black/40 text-xs font-black">
+                {unpaidCount}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilterTier('special')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                filterTier === 'special'
+                  ? 'bg-amber-500 text-amber-950 shadow-md'
+                  : 'bg-[#1c0803] border border-amber-500/30 text-amber-200 hover:bg-amber-950/40'
+              }`}
+            >
+              ⭐ విశిష్ట దాతలు (Special)
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilterTier('maha')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                filterTier === 'maha'
+                  ? 'bg-amber-500 text-amber-950 shadow-md'
+                  : 'bg-[#1c0803] border border-amber-500/30 text-amber-200 hover:bg-amber-950/40'
+              }`}
+            >
+              ₹5000+ మహా దాతలు
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilterTier('above1000')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                filterTier === 'above1000'
+                  ? 'bg-amber-500 text-amber-950 shadow-md'
+                  : 'bg-[#1c0803] border border-amber-500/30 text-amber-200 hover:bg-amber-950/40'
+              }`}
+            >
+              ₹1000 & Above
+            </button>
           </div>
         </div>
 
@@ -487,13 +666,26 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
         {filteredDonors.length === 0 ? (
           <div className="p-8 text-center bg-[#180702] rounded-2xl border border-amber-500/20 text-amber-300/60 space-y-2">
             <Heart className="w-10 h-10 mx-auto text-amber-500/30" />
-            <p className="text-sm font-semibold">No donor records found matching your query.</p>
+            <p className="text-sm font-semibold">
+              {filterTier === 'unverified'
+                ? '🎉 ధృవీకరించని దాతలు ఎవరూ లేరు! అన్ని రికార్డులు ధృవీకరించబడ్డాయి.'
+                : filterTier === 'unpaid'
+                  ? '🎉 బకాయిలు ఏవీ లేవు! అందరు దాతలు పూర్తి విరాళాలు చెల్లించారు.'
+                  : 'No donor records found matching your query.'}
+            </p>
           </div>
         ) : (
           <div className="space-y-3">
             {filteredDonors.map((donor) => {
-              const isVerified = donor.status === 'Verified';
+              const isVerified = donor.status === 'Verified' || donor.receiptNo;
               const isSpecial = isVerified && donor.isSpecialDonor;
+              const pStatus = donor.paymentStatus || (isVerified ? 'Paid' : 'Unpaid');
+              const promisedAmt = Number(donor.amount) || 0;
+              const actualPaidAmt = pStatus === 'Unpaid' 
+                ? 0 
+                : (donor.paidAmount !== undefined ? Number(donor.paidAmount) : promisedAmt);
+              const remainingBal = Math.max(0, promisedAmt - actualPaidAmt);
+
               const createdDateStr = new Date(donor.createdAt).toLocaleDateString('en-IN', {
                 day: 'numeric',
                 month: 'short'
@@ -509,9 +701,11 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
                 <div
                   key={donor.id}
                   className={`p-4 rounded-2xl transition-all shadow-md border ${
-                    isSpecial 
-                      ? 'bg-gradient-to-r from-[#2c1206] via-[#240b04] to-[#1c0803] border-amber-400/60 shadow-amber-950/40' 
-                      : 'bg-[#1c0803]/80 hover:bg-[#250b04] border-amber-500/30 hover:border-amber-500/60'
+                    !isVerified
+                      ? 'bg-gradient-to-r from-[#2c1505] via-[#200d03] to-[#160601] border-orange-500/60 shadow-orange-950/30'
+                      : isSpecial 
+                        ? 'bg-gradient-to-r from-[#2c1206] via-[#240b04] to-[#1c0803] border-amber-400/60 shadow-amber-950/40' 
+                        : 'bg-[#1c0803]/80 hover:bg-[#250b04] border-amber-500/30 hover:border-amber-500/60'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -525,7 +719,7 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
                           {donor.name}
                         </h4>
 
-                        {/* Special Donor Badge (Visible only after verification & admin assign) */}
+                        {/* Special Donor Badge */}
                         {isSpecial && (
                           <span className="text-[10px] sm:text-[11px] bg-gradient-to-r from-amber-500 to-yellow-400 text-amber-950 px-2 py-0.5 rounded-full font-black flex items-center gap-1 shadow-sm border border-amber-300">
                             <Star className="w-3 h-3 fill-amber-950" />
@@ -533,6 +727,7 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
                           </span>
                         )}
 
+                        {/* Verification Badge */}
                         {isVerified ? (
                           <div className="flex items-center gap-1.5">
                             <span className="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
@@ -551,18 +746,35 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
                               <button
                                 type="button"
                                 onClick={() => handleVerifyDonor(donor.id, donor.name)}
-                                className="text-[10px] bg-amber-500 hover:bg-amber-400 text-amber-950 font-extrabold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-sm active:scale-95 transition-all"
+                                className="text-[10px] bg-gradient-to-r from-orange-500 to-amber-500 hover:brightness-110 text-amber-950 font-extrabold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-md active:scale-95 transition-all"
                                 title="Click to Verify and Issue Official Receipt"
                               >
                                 <CheckCircle className="w-3 h-3" />
                                 <span>Verify (ధృవీకరించండి) ✓</span>
                               </button>
                             ) : (
-                              <span className="text-[10px] bg-amber-950/40 text-amber-400/70 border border-amber-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <span className="text-[10px] bg-orange-950/60 text-orange-300 border border-orange-500/40 px-2 py-0.5 rounded-full flex items-center gap-1">
                                 <span>Pending Verification ⏳</span>
                               </span>
                             )}
                           </div>
+                        )}
+
+                        {/* Payment Status Badge (Paid / Partially Paid / Unpaid) */}
+                        {pStatus === 'Paid' && (
+                          <span className="text-[10px] bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold">
+                            ✅ పూర్తిగా చెల్లించారు (Paid)
+                          </span>
+                        )}
+                        {pStatus === 'Partially Paid' && (
+                          <span className="text-[10px] bg-amber-950/80 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full font-bold">
+                            ⚠️ పాక్షిక చెల్లింపు (Paid: ₹{actualPaidAmt} | బకాయి: ₹{remainingBal})
+                          </span>
+                        )}
+                        {pStatus === 'Unpaid' && (
+                          <span className="text-[10px] bg-rose-950/80 text-rose-300 border border-rose-500/40 px-2 py-0.5 rounded-full font-bold">
+                            ❌ ఇంకా చెల్లించలేదు (Unpaid - ₹{promisedAmt})
+                          </span>
                         )}
                       </div>
 
@@ -640,11 +852,23 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
 
                     </div>
 
-                    {/* Right: Amount & Admin Controls */}
+                    {/* Right: Amount, Paid Breakdown & Admin Controls */}
                     <div className="text-right flex flex-col items-end justify-between self-stretch shrink-0">
-                      <p className="text-lg sm:text-xl font-extrabold gold-gradient-text font-mono">
-                        ₹{Number(donor.amount).toLocaleString('en-IN')}
-                      </p>
+                      <div>
+                        <p className="text-lg sm:text-xl font-extrabold gold-gradient-text font-mono">
+                          ₹{promisedAmt.toLocaleString('en-IN')}
+                        </p>
+                        {pStatus === 'Partially Paid' && (
+                          <p className="text-[11px] text-amber-300 font-mono font-semibold">
+                            జమ: ₹{actualPaidAmt.toLocaleString('en-IN')}
+                          </p>
+                        )}
+                        {pStatus === 'Unpaid' && (
+                          <p className="text-[11px] text-rose-400 font-mono font-semibold">
+                            బకాయి: ₹{promisedAmt.toLocaleString('en-IN')}
+                          </p>
+                        )}
+                      </div>
 
                       {/* Admin Controls */}
                       {isAdmin && (
@@ -652,7 +876,7 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
                           {!isVerified && (
                             <button
                               onClick={() => handleVerifyDonor(donor.id, donor.name)}
-                              className="px-2 py-1 rounded-lg bg-emerald-600/30 text-emerald-300 hover:bg-emerald-600 hover:text-white transition-all text-xs font-bold flex items-center gap-1"
+                              className="px-2.5 py-1 rounded-lg bg-emerald-600/30 text-emerald-300 hover:bg-emerald-600 hover:text-white transition-all text-xs font-bold flex items-center gap-1"
                               title="Verify Donor"
                             >
                               <CheckCircle className="w-3 h-3" />
@@ -662,7 +886,7 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
                           <button
                             onClick={() => handleOpenEdit(donor)}
                             className="p-1.5 rounded-lg bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-amber-950 transition-all text-xs"
-                            title="Edit Donor Details & Special Donor Status (Admin Only)"
+                            title="Edit Donor Details, Payment Status & Special Status"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>
@@ -810,6 +1034,50 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
                     onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl bg-[#170702] border border-amber-500/30 text-amber-100 focus:outline-none"
                   />
+                </div>
+              </div>
+
+              {/* Payment Status & Paid Amount Configuration */}
+              <div className="p-3 rounded-2xl bg-[#1e0b04] border border-amber-500/30 space-y-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-amber-300/80 mb-1 font-semibold">చెల్లింపు స్థితి (Payment Status) *</label>
+                    <select
+                      value={editForm.paymentStatus}
+                      onChange={(e) => {
+                        const newStatus = e.target.value;
+                        let newPaid = editForm.paidAmount;
+                        if (newStatus === 'Paid') newPaid = editForm.amount;
+                        if (newStatus === 'Unpaid') newPaid = 0;
+                        setEditForm({ ...editForm, paymentStatus: newStatus, paidAmount: newPaid });
+                      }}
+                      className="w-full px-3 py-2 rounded-xl bg-[#170702] border border-amber-500/40 text-amber-100 font-bold focus:outline-none"
+                    >
+                      <option value="Paid">✅ Paid (పూర్తిగా చెల్లించారు)</option>
+                      <option value="Partially Paid">⚠️ Partially Paid (పాక్షికంగా)</option>
+                      <option value="Unpaid">❌ Unpaid (ఇంకా చెల్లించలేదు)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-amber-300/80 mb-1 font-semibold">చెల్లించిన మొత్తం (Paid Amount ₹)</label>
+                    <input
+                      type="number"
+                      disabled={editForm.paymentStatus === 'Unpaid'}
+                      value={editForm.paymentStatus === 'Unpaid' ? 0 : editForm.paidAmount}
+                      onChange={(e) => setEditForm({ ...editForm, paidAmount: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-[#170702] border border-amber-500/40 text-amber-100 font-mono font-bold focus:outline-none disabled:opacity-50"
+                    />
+                  </div>
+                </div>
+
+                {/* Balance preview */}
+                <div className="flex items-center justify-between text-[11px] pt-1 px-1 text-amber-300/80 border-t border-amber-500/20">
+                  <span>మొత్తం హామీ: <strong className="text-amber-200">₹{Number(editForm.amount || 0).toLocaleString('en-IN')}</strong></span>
+                  <span>చెల్లించినది: <strong className="text-emerald-400">₹{Number(editForm.paymentStatus === 'Unpaid' ? 0 : (editForm.paidAmount || 0)).toLocaleString('en-IN')}</strong></span>
+                  <span className="font-bold text-rose-400">
+                    బకాయి: ₹{Math.max(0, (Number(editForm.amount || 0) - Number(editForm.paymentStatus === 'Unpaid' ? 0 : (editForm.paidAmount || 0)))).toLocaleString('en-IN')}
+                  </span>
                 </div>
               </div>
 

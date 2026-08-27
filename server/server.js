@@ -181,13 +181,34 @@ app.post('/api/admin/database/import', verifyAdmin, async (req, res) => {
   }
 });
 
-// Helper to calculate stats excluding sample records
+// Helper to calculate stats excluding sample records & considering ONLY VERIFIED PAID AMOUNTS everywhere
 function calculateStats(donors) {
-  const realDonors = donors.filter(d => !d.isSample);
-  const totalAmount = realDonors.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+  const realDonors = donors.filter(d => !d.isSample && d.status === 'Verified');
+  const totalAmount = realDonors.reduce((sum, d) => {
+    const pStatus = d.paymentStatus || 'Paid';
+    if (pStatus === 'Unpaid') return sum;
+    if (pStatus === 'Partially Paid') return sum + (Number(d.paidAmount) || 0);
+    return sum + (Number(d.paidAmount !== undefined ? d.paidAmount : d.amount) || 0);
+  }, 0);
+
+  // Overall ledger totals (for donors list)
+  const allRealDonors = donors.filter(d => !d.isSample);
+  const totalPledgedAmount = allRealDonors.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+  const totalUnpaidAmount = allRealDonors.reduce((sum, d) => {
+    const pStatus = d.paymentStatus || 'Paid';
+    if (pStatus === 'Unpaid') return sum + (Number(d.amount) || 0);
+    if (pStatus === 'Partially Paid') {
+      const remaining = Math.max(0, (Number(d.amount) || 0) - (Number(d.paidAmount) || 0));
+      return sum + remaining;
+    }
+    return sum;
+  }, 0);
+
   return {
     totalDonors: realDonors.length,
-    totalAmount,
+    totalAmount, // Verified Paid Amount (used across Home, Stats, Expense Manager)
+    totalPledgedAmount, // Combined Paid + Unpaid
+    totalUnpaidAmount, // Remaining balance
     targetAmount: db.getSettings().targetAmount || 70000
   };
 }
@@ -202,7 +223,21 @@ app.get('/api/donors', (req, res) => {
 });
 
 app.post('/api/donors', (req, res) => {
-  const { name, amount, gotram, phone, paymentMode, referenceNo, message, receiptUrl, status, isSpecialDonor, specialContribution } = req.body;
+  const { 
+    name, 
+    amount, 
+    gotram, 
+    phone, 
+    paymentMode, 
+    referenceNo, 
+    message, 
+    receiptUrl, 
+    status, 
+    isSpecialDonor, 
+    specialContribution,
+    paymentStatus,
+    paidAmount 
+  } = req.body;
   const numAmount = Number(amount);
 
   if (!name || isNaN(numAmount) || numAmount <= 0) {
@@ -219,10 +254,16 @@ app.post('/api/donors', (req, res) => {
   const isAdmin = (token === settings.adminPin || token === 'ganesh2026-admin-session-token');
 
   const initialStatus = isAdmin ? (status || 'Verified') : 'Pending Verification';
+  const initialPaymentStatus = paymentStatus || (paymentMode === 'Pledged' ? 'Unpaid' : 'Paid');
+  const initialPaidAmount = (initialPaymentStatus === 'Unpaid')
+    ? 0
+    : (paidAmount !== undefined ? Number(paidAmount) : Math.floor(numAmount));
 
   const newDonor = db.addDonor({
     name: name.trim(),
     amount: Math.floor(numAmount),
+    paidAmount: initialPaidAmount,
+    paymentStatus: initialPaymentStatus,
     gotram: gotram ? gotram.trim() : '',
     phone: phone ? phone.trim() : '',
     paymentMode: paymentMode || 'UPI',
@@ -675,13 +716,13 @@ io.on('connection', (socket) => {
 // App Version & Auto-Update Metadata Endpoint
 app.get('/api/app/version', (req, res) => {
   res.json({
-    latestVersion: '1.9',
-    versionCode: 10,
+    latestVersion: '2.0',
+    versionCode: 11,
     minSupportedVersion: '1.0',
     apkUrl: '/download/app',
     releaseDate: '2026-08-27',
-    releaseNotes: '🎉 సరికొత్త అప్‌డేట్ v1.9: మొత్తం దాతల లెడ్జర్ పూర్తి వీక్షణ (Complete Donors Ledger Modal), A4 ప్రింట్ & PDF సేవ్ సదుపాయం జోడించబడింది.',
-    title: 'విజయ కాలనీ గణేష్ డైరీస్ v1.9'
+    releaseNotes: '🎉 గ్రాండ్ అప్‌డేట్ v2.0: Paid, Unpaid & Partially Paid ట్రాకింగ్, లెడ్జర్ బకాయిల లెక్కలు, ధృవీకరించని దాతల ప్రత్యేక ఫిల్టర్ జోడించబడ్డాయి.',
+    title: 'విజయ కాలనీ గణేష్ డైరీస్ v2.0'
   });
 });
 

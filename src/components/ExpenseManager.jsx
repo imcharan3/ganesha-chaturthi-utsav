@@ -84,10 +84,15 @@ export const ExpenseManager = ({ donors = [], settings = {}, onRefresh }) => {
     loadExpenses();
   }, []);
 
-  // Compute Live Verified Donations
+  // Compute Live Verified Donations (Only Paid Amount Considered)
   const totalVerifiedDonations = donors
     .filter(d => d.status === 'Verified')
-    .reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+    .reduce((sum, d) => {
+      const pStatus = d.paymentStatus || 'Paid';
+      if (pStatus === 'Unpaid') return sum;
+      if (pStatus === 'Partially Paid') return sum + (Number(d.paidAmount) || 0);
+      return sum + (Number(d.paidAmount !== undefined ? d.paidAmount : d.amount) || 0);
+    }, 0);
 
   // Compute Live Expenses Summary
   const totalExpensesCost = expenses.reduce((sum, e) => sum + (Number(e.price) || 0), 0);

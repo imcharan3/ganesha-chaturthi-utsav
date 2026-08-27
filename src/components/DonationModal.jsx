@@ -74,10 +74,14 @@ export const DonationModal = ({ isOpen, onClose, settings, onDonationSuccess }) 
 
     setIsSubmitting(true);
     try {
+      const isPledged = paymentMode === 'Pledged';
+      const numAmount = Math.abs(Math.floor(validatedAmount));
       const payload = {
         name: name.trim(),
         phone: phone.trim(),
-        amount: Math.abs(Math.floor(validatedAmount)),
+        amount: numAmount,
+        paidAmount: isPledged ? 0 : numAmount,
+        paymentStatus: isPledged ? 'Unpaid' : 'Paid',
         paymentMode,
         referenceNo: referenceNo.trim() || `REF-${Math.floor(100000 + Math.random() * 900000)}`,
         message: message.trim(),
@@ -465,7 +469,8 @@ export const DonationModal = ({ isOpen, onClose, settings, onDonationSuccess }) 
                       className="w-full px-3 py-2 rounded-xl bg-[#2b1008] border border-amber-500/30 text-amber-100 text-sm focus:outline-none focus:border-amber-400"
                     >
                       <option value="UPI">UPI (GPay / PhonePe / Paytm)</option>
-                      <option value="Cash">Cash (Directly given at Mandapam)</option>
+                      <option value="Cash">Cash (మండపం వద్ద నగదు ఇచ్చారు)</option>
+                      <option value="Pledged">Pledged / Unpaid (తర్వాత చెల్లిస్తాను)</option>
                       <option value="Bank Transfer">Bank Transfer / NEFT</option>
                     </select>
                   </div>
