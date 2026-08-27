@@ -675,13 +675,13 @@ io.on('connection', (socket) => {
 // App Version & Auto-Update Metadata Endpoint
 app.get('/api/app/version', (req, res) => {
   res.json({
-    latestVersion: '1.7',
-    versionCode: 8,
+    latestVersion: '1.8',
+    versionCode: 9,
     minSupportedVersion: '1.0',
     apkUrl: '/download/app',
-    releaseDate: '2026-08-26',
-    releaseNotes: '🎉 తాజా అప్‌డేట్ v1.7: అధికారిక డిజిటల్ రశీదుల పూర్తి వీక్షణ (In-App Receipt Viewer), WhatsApp షేరింగ్ & PDF ప్రింట్ సదుపాయం జోడించబడింది.',
-    title: 'విజయ కాలనీ గణేష్ డైరీస్ v1.7'
+    releaseDate: '2026-08-27',
+    releaseNotes: '🎉 సరికొత్త అప్‌డేట్ v1.8: అధికారిక రశీదు వీక్షణ (Instant Receipt Viewer), A4 PDF Print / Save & WhatsApp షేరింగ్ సదుపాయం పూర్తిస్థాయిలో అందుబాటులోకి వచ్చింది.',
+    title: 'విజయ కాలనీ గణేష్ డైరీస్ v1.8'
   });
 });
 

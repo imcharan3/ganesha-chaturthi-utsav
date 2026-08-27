@@ -61,17 +61,17 @@ export const generateDonorReceiptCanvas = async (donor, settings) => {
   ctx.font = 'bold 28px "Noto Sans Telugu", Outfit, sans-serif';
   ctx.fillText('॥ శ్రీ వరసిద్ధి వినాయక ప్రసన్నః • గణపతి బప్పా మోరియా ॥', width / 2, 115);
 
-  // 5. Colony Logo
+  // 5. Colony Logo (Safe load with timeout)
   try {
     const logoImg = new Image();
-    logoImg.crossOrigin = 'anonymous';
     await new Promise((resolve) => {
-      logoImg.onload = resolve;
-      logoImg.onerror = resolve;
+      const timer = setTimeout(resolve, 600);
+      logoImg.onload = () => { clearTimeout(timer); resolve(); };
+      logoImg.onerror = () => { clearTimeout(timer); resolve(); };
       logoImg.src = '/colony_logo.png';
     });
 
-    if (logoImg.complete && logoImg.naturalWidth !== 0) {
+    if (logoImg.complete && logoImg.naturalWidth > 0) {
       ctx.save();
       ctx.beginPath();
       ctx.arc(width / 2, 215, 65, 0, Math.PI * 2);

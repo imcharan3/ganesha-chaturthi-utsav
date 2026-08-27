@@ -433,11 +433,35 @@ export const ReceiptsArchiveModal = ({ isOpen, onClose, donors = [], settings })
 
               <button
                 type="button"
-                onClick={() => handleDownloadPdf(previewDonor)}
-                className="py-2 px-3.5 rounded-xl bg-[#2b1008] hover:bg-[#3d170b] border border-amber-500/40 text-amber-200 font-semibold text-xs flex items-center gap-1.5 transition-all"
+                onClick={() => {
+                  if (!previewCanvasUrl) return;
+                  const printWin = window.open('', '_blank');
+                  if (printWin) {
+                    printWin.document.write(`
+                      <!DOCTYPE html>
+                      <html>
+                        <head>
+                          <title>రసీదు (${previewDonor.receiptNo || 'REC'})</title>
+                          <style>
+                            @page { size: A4 portrait; margin: 0; }
+                            body { margin: 0; display: flex; align-items: center; justify-content: center; background: #000; height: 100vh; }
+                            img { width: 100%; max-width: 210mm; height: auto; display: block; margin: auto; }
+                          </style>
+                        </head>
+                        <body>
+                          <img src="${previewCanvasUrl}" onload="window.print(); setTimeout(() => window.close(), 1000);" />
+                        </body>
+                      </html>
+                    `);
+                    printWin.document.close();
+                  } else {
+                    window.print();
+                  }
+                }}
+                className="py-2 px-3.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
               >
-                <FileText className="w-3.5 h-3.5 text-amber-400" />
-                <span>Download PDF</span>
+                <Printer className="w-3.5 h-3.5" />
+                <span>PDF / Print ⎙</span>
               </button>
 
               <button
@@ -446,7 +470,7 @@ export const ReceiptsArchiveModal = ({ isOpen, onClose, donors = [], settings })
                 className="py-2 px-3.5 rounded-xl bg-[#2b1008] hover:bg-[#3d170b] border border-amber-500/40 text-amber-200 font-semibold text-xs flex items-center gap-1.5 transition-all"
               >
                 <Download className="w-3.5 h-3.5 text-amber-400" />
-                <span>Download PNG</span>
+                <span>PNG Image 🖼️</span>
               </button>
             </div>
 

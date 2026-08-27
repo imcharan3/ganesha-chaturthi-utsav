@@ -617,22 +617,16 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
 
                             <button
                               type="button"
-                              onClick={() => downloadDonorReceiptPdf(donor, settings)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-[#2b1008] hover:bg-[#3d170b] border border-amber-500/40 text-amber-200 text-xs font-semibold transition-all"
-                              title="Download Official A4 PDF Bill"
+                              onClick={() => {
+                                window.dispatchEvent(new CustomEvent('open-receipt-preview-modal', {
+                                  detail: { donor, settings }
+                                }));
+                              }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white text-xs font-bold shadow-md active:scale-95 transition-all"
+                              title="రశీదు చూడండి, PDF డౌన్‌లోడ్ & WhatsApp షేర్ చేయండి"
                             >
-                              <FileText className="w-3.5 h-3.5 text-amber-400" />
-                              <span>PDF Bill</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => downloadDonorReceiptPng(donor, settings)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-[#2b1008] hover:bg-[#3d170b] border border-amber-500/40 text-amber-200 text-xs font-semibold transition-all"
-                              title="Download PNG Image Receipt"
-                            >
-                              <Download className="w-3.5 h-3.5 text-amber-400" />
-                              <span>PNG</span>
+                              <FileText className="w-3.5 h-3.5 text-amber-200" />
+                              <span>రశీదు (View Receipt) 🪔</span>
                             </button>
                           </>
                         )}
@@ -737,10 +731,14 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
                 <div className="flex gap-2 justify-center">
                   <button
                     type="button"
-                    onClick={() => downloadDonorReceiptPdf(verifySuccessDonor, settings)}
-                    className="py-1.5 px-3 rounded-lg bg-[#2b1008] border border-amber-500/40 text-amber-200 text-xs font-semibold"
+                    onClick={() => {
+                      window.dispatchEvent(new CustomEvent('open-receipt-preview-modal', {
+                        detail: { donor: verifySuccessDonor, settings }
+                      }));
+                    }}
+                    className="py-1.5 px-3 rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 text-white text-xs font-bold shadow-sm"
                   >
-                    Download PDF
+                    View Official Receipt 🪔
                   </button>
                 </div>
               </div>

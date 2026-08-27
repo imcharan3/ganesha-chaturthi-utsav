@@ -267,22 +267,16 @@ export const DonationModal = ({ isOpen, onClose, settings, onDonationSuccess }) 
 
                 <button
                   type="button"
-                  onClick={() => downloadDonorReceiptPdf(donationComplete, settings)}
-                  className="py-2.5 px-3 rounded-xl bg-[#2b1008] hover:bg-[#3d170b] border border-amber-500/40 text-amber-200 font-semibold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all"
-                  title="Download A4 PDF Official Bill"
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('open-receipt-preview-modal', {
+                      detail: { donor: donationComplete, settings }
+                    }));
+                  }}
+                  className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all"
+                  title="View & Download Official Receipt"
                 >
-                  <FileText className="w-4 h-4 text-amber-400" />
-                  <span>PDF Bill</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => downloadDonorReceiptPng(donationComplete, settings)}
-                  className="py-2.5 px-3 rounded-xl bg-[#2b1008] hover:bg-[#3d170b] border border-amber-500/40 text-amber-200 font-semibold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all"
-                  title="Download PNG Image Receipt"
-                >
-                  <Download className="w-4 h-4 text-amber-400" />
-                  <span>PNG</span>
+                  <FileText className="w-4 h-4 text-amber-200" />
+                  <span>రశీదు (View Receipt) 🪔</span>
                 </button>
               </div>
 
