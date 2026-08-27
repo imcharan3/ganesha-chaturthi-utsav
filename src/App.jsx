@@ -14,6 +14,7 @@ import { AppSplashScreen } from './components/AppSplashScreen';
 import { DevotionalNotificationToast } from './components/DevotionalNotificationToast';
 import { AppUpdateModal } from './components/AppUpdateModal';
 import { ReceiptPreviewModal } from './components/ReceiptPreviewModal';
+import { LedgerReportModal } from './components/LedgerReportModal';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SocketProvider, useSocket } from './context/SocketContext';
 import { api } from './services/api';
@@ -389,7 +390,7 @@ function MainApp() {
         <div className="pt-2 flex flex-wrap items-center justify-center gap-2 text-xs">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-[#240e06] border border-amber-500/30 text-amber-200 shadow-sm">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="font-bold">యాప్ వెర్షన్: v1.8</span>
+            <span className="font-bold">యాప్ వెర్షన్: v1.9</span>
             <span className="text-amber-500/50">•</span>
             <button
               type="button"
@@ -454,6 +455,9 @@ function MainApp() {
 
       {/* High-Definition Official Devotional Receipt Modal (Print / WhatsApp / PDF / Image) */}
       <ReceiptPreviewModal />
+
+      {/* Official Verified Donors Ledger Full Report Modal (View / Print / WhatsApp) */}
+      <LedgerReportModal />
 
       {/* In-App Auto-Updater Modal (1-Tap Package Upgrades) */}
       <AppUpdateModal />

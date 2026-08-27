@@ -204,6 +204,11 @@ export const DonorsList = ({ donors = [], stats, settings, onOpenDonation, onRef
   const handleDownloadPdfList = () => {
     setIsDownloadingPdfList(true);
     try {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('open-ledger-report-modal', {
+          detail: { type: 'donors', data: donors, settings }
+        }));
+      }
       downloadDonorsLedgerPdf(donors, settings);
     } finally {
       setIsDownloadingPdfList(false);
