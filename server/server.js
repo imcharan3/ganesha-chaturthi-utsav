@@ -92,14 +92,26 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 25 * 1024 * 1024 } // 25MB max
+  limits: { fileSize: 1024 * 1024 * 1024 } // 1GB max per file
 });
 
-// Middleware
+// Middleware with 1GB limits
 app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
-app.use('/uploads', express.static(UPLOADS_DIR));
+app.use(express.json({ limit: '1024mb' }));
+app.use(express.urlencoded({ limit: '1024mb', extended: true }));
+
+// Serve /uploads with HTTP 206 Range Request support for smooth video streaming
+app.use('/uploads', (req, res, next) => {
+  res.setHeader('Accept-Ranges', 'bytes');
+  next();
+}, express.static(UPLOADS_DIR, {
+  maxAge: '7d',
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.mp4') || filePath.endsWith('.mov') || filePath.endsWith('.webm')) {
+      res.setHeader('Content-Type', filePath.endsWith('.webm') ? 'video/webm' : 'video/mp4');
+    }
+  }
+}));
 
 // Admin Auth Middleware helper
 function verifyAdmin(req, res, next) {
@@ -687,6 +699,145 @@ app.post('/api/upload/image', upload.single('image'), (req, res) => {
   });
 });
 
+// ================= 6. MEMORIES GALLERY API (ఉత్సవ మధుర జ్ఞాపకాలు) =================
+
+// Direct 1GB Media (Photo / Video) Upload
+app.post('/api/memories/upload', upload.single('media'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No media file uploaded' });
+  }
+
+  const fileUrl = `/uploads/${req.file.filename}`;
+  const isVideo = req.file.mimetype.startsWith('video/');
+  
+  res.json({
+    success: true,
+    mediaUrl: fileUrl,
+    mediaType: isVideo ? 'video' : 'image',
+    filename: req.file.filename,
+    mimetype: req.file.mimetype,
+    size: req.file.size
+  });
+});
+
+app.get('/api/memories', (req, res) => {
+  res.json(db.getMemories());
+});
+
+app.post('/api/memories', (req, res) => {
+  const {
+    title,
+    description,
+    mediaUrl,
+    mediaType,
+    thumbnailUrl,
+    fileSize,
+    dimensions,
+    duration,
+    uploaderName,
+    uploaderRole,
+    uploaderId,
+    category,
+    day,
+    isPinned
+  } = req.body;
+
+  if (!mediaUrl) {
+    return res.status(400).json({ error: 'Media URL or file is required' });
+  }
+
+  const newMemory = db.addMemory({
+    title: title || 'ఉత్సవ మధుర జ్ఞాపకం',
+    description: description || '',
+    mediaUrl,
+    mediaType: mediaType || 'image',
+    thumbnailUrl: thumbnailUrl || mediaUrl,
+    fileSize: fileSize || 0,
+    dimensions: dimensions || null,
+    duration: duration || 0,
+    uploaderName: uploaderName || 'భక్తుడు',
+    uploaderRole: uploaderRole || 'Devotee',
+    uploaderId: uploaderId || '',
+    category: category || 'general',
+    day: day || 'All Days',
+    isPinned: Boolean(isPinned)
+  });
+
+  io.emit('memory:new', newMemory);
+
+  sendPushAlert({
+    title: `📸 కొత్త ఉత్సవ జ్ఞాపకం: ${newMemory.title}`,
+    body: `${newMemory.uploaderName} ${newMemory.mediaType === 'video' ? 'వీడియో' : 'ఫోటో'} పంచుకున్నారు! దర్శించండి 🙏`,
+    tab: 'memories',
+    actionData: { memoryId: newMemory.id }
+  });
+
+  res.status(201).json({ success: true, memory: newMemory });
+});
+
+app.put('/api/admin/memories/:id', verifyAdmin, (req, res) => {
+  const { id } = req.params;
+  const updated = db.updateMemory(id, req.body);
+  if (!updated) {
+    return res.status(404).json({ error: 'Memory not found' });
+  }
+  io.emit('memory:updated', updated);
+  res.json({ success: true, memory: updated });
+});
+
+app.delete('/api/memories/:id', (req, res) => {
+  const { id } = req.params;
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  const settings = db.getSettings();
+  const isAdmin = (token === settings.adminPin || token === 'ganesh2026-admin-session-token');
+
+  const uploaderIdHeader = req.headers['x-uploader-id'];
+
+  const memories = db.getMemories();
+  const memory = memories.find(m => m.id === id);
+  if (!memory) {
+    return res.status(404).json({ error: 'Memory not found' });
+  }
+
+  // Allow deletion if requester is Admin OR original uploader
+  if (!isAdmin && (!uploaderIdHeader || memory.uploaderId !== uploaderIdHeader)) {
+    return res.status(403).json({ error: 'Unauthorized. You can only delete your own uploads or need Admin PIN.' });
+  }
+
+  const success = db.deleteMemory(id);
+  if (success) {
+    io.emit('memory:deleted', id);
+    res.json({ success: true, message: 'Memory deleted successfully', id });
+  } else {
+    res.status(500).json({ error: 'Failed to delete memory' });
+  }
+});
+
+app.post('/api/memories/:id/react', (req, res) => {
+  const { id } = req.params;
+  const { emoji, userId } = req.body;
+  if (!emoji) return res.status(400).json({ error: 'Emoji is required' });
+
+  const updated = db.toggleMemoryReaction(id, emoji, userId || 'anon');
+  if (!updated) return res.status(404).json({ error: 'Memory not found' });
+
+  io.emit('memory:reaction', { id, reactions: updated.reactions, reactedUsers: updated.reactedUsers });
+  res.json({ success: true, reactions: updated.reactions, reactedUsers: updated.reactedUsers });
+});
+
+app.post('/api/memories/:id/view', (req, res) => {
+  const { id } = req.params;
+  const views = db.incrementMemoryViews(id);
+  res.json({ success: true, viewsCount: views });
+});
+
+app.delete('/api/admin/memories-all', verifyAdmin, async (req, res) => {
+  await db.clearAllMemories();
+  io.emit('memory:cleared');
+  res.json({ success: true, message: 'All memories cleared' });
+});
+
 // Register Push Device Endpoint
 app.post('/api/notifications/register-device', async (req, res) => {
   try {
@@ -716,13 +867,13 @@ io.on('connection', (socket) => {
 // App Version & Auto-Update Metadata Endpoint
 app.get('/api/app/version', (req, res) => {
   res.json({
-    latestVersion: '2.0',
-    versionCode: 11,
+    latestVersion: '2.1',
+    versionCode: 12,
     minSupportedVersion: '1.0',
     apkUrl: '/download/app',
-    releaseDate: '2026-08-27',
-    releaseNotes: '🎉 గ్రాండ్ అప్‌డేట్ v2.0: Paid, Unpaid & Partially Paid ట్రాకింగ్, లెడ్జర్ బకాయిల లెక్కలు, ధృవీకరించని దాతల ప్రత్యేక ఫిల్టర్ జోడించబడ్డాయి.',
-    title: 'విజయ కాలనీ గణేష్ డైరీస్ v2.0'
+    releaseDate: '2026-09-09',
+    releaseNotes: '🎉 గ్రాండ్ అప్‌డేట్ v2.1: ఉత్సవ మధుర జ్ఞాపకాల గ్యాలరీ (Ultra-HD Memories Gallery up to 1GB), ఫోటో/వీడియో అప్‌లోడ్స్, స్పాట్‌లైట్ & భక్తిపూర్వక హారతులు జోడించబడ్డాయి.',
+    title: 'విజయ కాలనీ గణేష్ డైరీస్ v2.1'
   });
 });
 

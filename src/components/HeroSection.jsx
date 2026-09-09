@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Heart, Calendar, MessageSquare, MapPin, Sparkles, Trophy, 
   Users, ShieldCheck, ChevronRight, Share2, Crown, Download, Flame, ArrowRight, FileText,
-  Instagram, QrCode, X, ExternalLink, Wallet
+  Instagram, QrCode, X, ExternalLink, Wallet, Camera
 } from 'lucide-react';
 import { generateAuctionPoster, downloadAuctionPoster, shareAuctionPoster } from '../utils/generateAuctionPoster';
 import { generateAuctionPdf } from '../utils/generateAuctionPdf';
@@ -254,6 +254,14 @@ export const HeroSection = ({ stats, settings, auction, onOpenDonation, setActiv
               >
                 <Users className="w-4 h-4 text-amber-400" />
                 <span>Donors List (దాతలు)</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('memories')}
+                className="w-full sm:w-auto px-5 py-3.5 rounded-2xl bg-gradient-to-r from-amber-700/60 to-orange-800/60 hover:from-amber-600/70 hover:to-orange-700/70 border border-amber-400/50 text-amber-200 font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-gold"
+              >
+                <Camera className="w-4 h-4 text-yellow-300" />
+                <span>Memories (జ్ఞాపకాలు 📸)</span>
               </button>
 
               <button

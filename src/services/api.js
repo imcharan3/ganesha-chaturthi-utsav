@@ -437,5 +437,125 @@ export const api = {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to clear all expenses');
     return data;
+  },
+
+  // ================= MEMORIES GALLERY API (ఉత్సవ మధుర జ్ఞాపకాలు) =================
+  getMemories: async () => {
+    const res = await fetch(`${API_BASE}/memories`);
+    if (!res.ok) throw new Error('Failed to fetch memories');
+    return res.json();
+  },
+
+  uploadMediaFileWithProgress: (file, onProgress) => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const formData = new FormData();
+      formData.append('media', file);
+
+      xhr.open('POST', `${API_BASE}/memories/upload`, true);
+
+      if (xhr.upload && onProgress) {
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            const percentComplete = Math.round((e.loaded / e.total) * 100);
+            onProgress({
+              loaded: e.loaded,
+              total: e.total,
+              percent: percentComplete
+            });
+          }
+        };
+      }
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const response = JSON.parse(xhr.responseText);
+            resolve(response);
+          } catch (err) {
+            resolve({ success: true, mediaUrl: xhr.responseText });
+          }
+        } else {
+          try {
+            const errResponse = JSON.parse(xhr.responseText);
+            reject(new Error(errResponse.error || 'Upload failed'));
+          } catch (e) {
+            reject(new Error(`Upload failed with status ${xhr.status}`));
+          }
+        }
+      };
+
+      xhr.onerror = () => reject(new Error('Network error during media upload. Check your internet connection.'));
+      xhr.ontimeout = () => reject(new Error('Upload timed out. Please try again.'));
+
+      xhr.send(formData);
+    });
+  },
+
+  createMemory: async (memoryData) => {
+    const res = await fetch(`${API_BASE}/memories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(memoryData)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to create memory');
+    return data;
+  },
+
+  updateMemory: async (id, memoryData, token) => {
+    const res = await fetch(`${API_BASE}/admin/memories/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(memoryData)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to update memory');
+    return data;
+  },
+
+  deleteMemory: async (id, token = null, uploaderId = null) => {
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (uploaderId) headers['x-uploader-id'] = uploaderId;
+
+    const res = await fetch(`${API_BASE}/memories/${id}`, {
+      method: 'DELETE',
+      headers
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to delete memory');
+    return data;
+  },
+
+  reactToMemory: async (id, emoji, userId) => {
+    const res = await fetch(`${API_BASE}/memories/${id}/react`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ emoji, userId })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to record reaction');
+    return data;
+  },
+
+  recordMemoryView: async (id) => {
+    try {
+      const res = await fetch(`${API_BASE}/memories/${id}/view`, { method: 'POST' });
+      return await res.json();
+    } catch {
+      return null;
+    }
+  },
+
+  clearAllMemories: async (token) => {
+    const res = await fetch(`${API_BASE}/admin/memories-all`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    return res.json();
   }
 };

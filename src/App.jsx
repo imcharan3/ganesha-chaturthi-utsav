@@ -15,6 +15,7 @@ import { DevotionalNotificationToast } from './components/DevotionalNotification
 import { AppUpdateModal } from './components/AppUpdateModal';
 import { ReceiptPreviewModal } from './components/ReceiptPreviewModal';
 import { LedgerReportModal } from './components/LedgerReportModal';
+import { MemoriesGallery } from './components/MemoriesGallery';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SocketProvider, useSocket } from './context/SocketContext';
 import { api } from './services/api';
@@ -35,6 +36,7 @@ function MainApp() {
   const [events, setEvents] = useState(() => getOfflineData('EVENTS', []));
   const [messages, setMessages] = useState(() => getOfflineData('MESSAGES', []));
   const [auction, setAuction] = useState(() => getOfflineData('AUCTION', null));
+  const [memories, setMemories] = useState(() => getOfflineData('MEMORIES', []));
   const [isLoading, setIsLoading] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [chatToast, setChatToast] = useState(null);
@@ -52,12 +54,13 @@ function MainApp() {
   // Fetch initial data & persist to offline cache
   const fetchData = async () => {
     try {
-      const [settingsRes, donorsRes, eventsRes, messagesRes, auctionRes] = await Promise.all([
+      const [settingsRes, donorsRes, eventsRes, messagesRes, auctionRes, memoriesRes] = await Promise.all([
         api.getSettings().catch(() => getOfflineData('SETTINGS', {})),
         api.getDonors().catch(() => ({ donors: getOfflineData('DONORS', []), stats: getOfflineData('STATS', {}) })),
         api.getEvents().catch(() => getOfflineData('EVENTS', [])),
         api.getMessages().catch(() => getOfflineData('MESSAGES', [])),
-        api.getAuction().catch(() => getOfflineData('AUCTION', null))
+        api.getAuction().catch(() => getOfflineData('AUCTION', null)),
+        api.getMemories().catch(() => getOfflineData('MEMORIES', []))
       ]);
 
       if (settingsRes) {
@@ -83,6 +86,10 @@ function MainApp() {
       if (auctionRes) {
         setAuction(auctionRes);
         saveOfflineData('AUCTION', auctionRes);
+      }
+      if (memoriesRes && Array.isArray(memoriesRes)) {
+        setMemories(memoriesRes);
+        saveOfflineData('MEMORIES', memoriesRes);
       }
     } catch (err) {
       console.warn('Network fetch error, running in offline mode:', err);
@@ -233,6 +240,48 @@ function MainApp() {
       });
     });
 
+    socket.on('memory:new', (newMem) => {
+      setMemories(prev => {
+        if (prev.some(m => m.id === newMem.id)) return prev;
+        const next = [newMem, ...prev];
+        saveOfflineData('MEMORIES', next);
+        return next;
+      });
+      window.dispatchEvent(new CustomEvent('socket-memory-new', { detail: newMem }));
+      showDevotionalNotification({
+        title: `📸 కొత్త ఉత్సవ జ్ఞాపకం: ${newMem.title}`,
+        body: `${newMem.uploaderName} గారు ${newMem.mediaType === 'video' ? 'వీడియో' : 'ఫోటో'} పంచుకున్నారు! దర్శించండి 🙏`,
+        tab: 'memories'
+      });
+    });
+
+    socket.on('memory:updated', (updatedMem) => {
+      setMemories(prev => {
+        const next = prev.map(m => m.id === updatedMem.id ? updatedMem : m);
+        saveOfflineData('MEMORIES', next);
+        return next;
+      });
+      window.dispatchEvent(new CustomEvent('socket-memory-updated', { detail: updatedMem }));
+    });
+
+    socket.on('memory:deleted', (id) => {
+      setMemories(prev => {
+        const next = prev.filter(m => m.id !== id);
+        saveOfflineData('MEMORIES', next);
+        return next;
+      });
+      window.dispatchEvent(new CustomEvent('socket-memory-deleted', { detail: id }));
+    });
+
+    socket.on('memory:reaction', (reactionData) => {
+      setMemories(prev => {
+        const next = prev.map(m => m.id === reactionData.id ? { ...m, reactions: reactionData.reactions, reactedUsers: reactionData.reactedUsers } : m);
+        saveOfflineData('MEMORIES', next);
+        return next;
+      });
+      window.dispatchEvent(new CustomEvent('socket-memory-reaction', { detail: reactionData }));
+    });
+
     return () => {
       socket.off('donor:created');
       socket.off('donor:updated');
@@ -245,6 +294,10 @@ function MainApp() {
       socket.off('auction:updated');
       socket.off('auction:newBid');
       socket.off('auction:winnerDeclared');
+      socket.off('memory:new');
+      socket.off('memory:updated');
+      socket.off('memory:deleted');
+      socket.off('memory:reaction');
     };
   }, [socket]);
 
@@ -330,6 +383,13 @@ function MainApp() {
           />
         )}
 
+        {activeTab === 'memories' && (
+          <MemoriesGallery
+            settings={settings}
+            initialMemories={memories}
+          />
+        )}
+
         {activeTab === 'events' && (
           <EventsTimeline
             events={events}
@@ -390,7 +450,7 @@ function MainApp() {
         <div className="pt-2 flex flex-wrap items-center justify-center gap-2 text-xs">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-[#240e06] border border-amber-500/30 text-amber-200 shadow-sm">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="font-bold">యాప్ వెర్షన్: v2.0</span>
+            <span className="font-bold">యాప్ వెర్షన్: v2.1</span>
             <span className="text-amber-500/50">•</span>
             <button
               type="button"

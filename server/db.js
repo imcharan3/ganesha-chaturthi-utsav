@@ -23,7 +23,88 @@ const MESSAGES_FILE = path.join(DATA_DIR, 'messages.json');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 const AUCTION_FILE = path.join(DATA_DIR, 'auction.json');
 const EXPENSES_FILE = path.join(DATA_DIR, 'expenses.json');
+const MEMORIES_FILE = path.join(DATA_DIR, 'memories.json');
 const CONFIG_FILE = path.join(DATA_DIR, 'db_config.json');
+
+// Default Seed Data for Memories Gallery (ఉత్సవ మధుర జ్ఞాపకాలు)
+const DEFAULT_MEMORIES = [
+  {
+    id: "mem-seed-1",
+    title: "శ్రీ వరసిద్ధి వినాయక ప్రతిష్టాపన & దివ్య అలంకరణ",
+    description: "మొదటి రోజు భక్తిశ్రద్ధలతో కొలువుదీరిన శ్రీ వరసిద్ధి వినాయక స్వామి వారు. ప్రత్యేక సుగంధ పుష్పాలంకరణతో దివ్య దర్శనం.",
+    mediaUrl: "/ganesh_idol.jpg",
+    mediaType: "image",
+    thumbnailUrl: "/ganesh_idol.jpg",
+    fileSize: 450000,
+    uploaderName: "విజయ కాలనీ యూత్ కమిటీ",
+    uploaderRole: "Committee Organizer",
+    uploaderId: "committee-admin",
+    category: "alankaram",
+    day: "Day 1",
+    reactions: { "🌺": 24, "🙏": 36, "🪔": 18, "🕉️": 15, "❤️": 20, "🎉": 12, "🌟": 14 },
+    reactedUsers: {},
+    isPinned: true,
+    viewsCount: 142,
+    createdAt: new Date(Date.now() - 3 * 86400000).toISOString()
+  },
+  {
+    id: "mem-seed-2",
+    title: "మహా అన్నదాన ప్రసాద వితరణ వేడుక",
+    description: "కాలనీ మరియు పరిసర ప్రాంతాల భక్తులకు వడ్డించిన మహా ప్రసాద వితరణ కార్యక్రమం.",
+    mediaUrl: "/mandapam_bg.jpg",
+    mediaType: "image",
+    thumbnailUrl: "/mandapam_bg.jpg",
+    fileSize: 520000,
+    uploaderName: "అన్నదాన సేవా సమితి",
+    uploaderRole: "Devotee",
+    uploaderId: "committee-admin",
+    category: "annadanam",
+    day: "Day 2",
+    reactions: { "🌺": 15, "🙏": 28, "🪔": 9, "🕉️": 11, "❤️": 16, "🎉": 10, "🌟": 8 },
+    reactedUsers: {},
+    isPinned: true,
+    viewsCount: 98,
+    createdAt: new Date(Date.now() - 2 * 86400000).toISOString()
+  },
+  {
+    id: "mem-seed-3",
+    title: "పవిత్ర మహా లడ్డూ వేలంపాట మహోత్సవం 🏆",
+    description: "ఉత్సాహపూరిత వాతావరణంలో జరిగిన 21 కేజీల పవిత్ర మహా లడ్డూ ప్రసాదం వేలంపాట దృశ్యం.",
+    mediaUrl: "/ganesh_idol.jpg",
+    mediaType: "image",
+    thumbnailUrl: "/ganesh_idol.jpg",
+    fileSize: 480000,
+    uploaderName: "చరణ్ తేజ & యూత్",
+    uploaderRole: "Committee Organizer",
+    uploaderId: "committee-admin",
+    category: "auction",
+    day: "Day 3",
+    reactions: { "🌺": 18, "🙏": 22, "🪔": 14, "🕉️": 9, "❤️": 19, "🎉": 30, "🌟": 16 },
+    reactedUsers: {},
+    isPinned: false,
+    viewsCount: 115,
+    createdAt: new Date(Date.now() - 86400000).toISOString()
+  },
+  {
+    id: "mem-seed-4",
+    title: "గ్రాండ్ శోభాయాత్ర & గణపతి నిమజ్జనం 🚩",
+    description: "తీన్మార్ డప్పులు, రంగుల కేరింతలు, భక్తుల జయజయధ్వానాల మధ్య సాగిన గంగమ్మ ఒడికి చేరిన గణపయ్య శోభాయాత్ర.",
+    mediaUrl: "/mandapam_bg.jpg",
+    mediaType: "image",
+    thumbnailUrl: "/mandapam_bg.jpg",
+    fileSize: 610000,
+    uploaderName: "విజయ కాలనీ గణేష్ యూత్",
+    uploaderRole: "Committee Organizer",
+    uploaderId: "committee-admin",
+    category: "shobhayatra",
+    day: "Day 4",
+    reactions: { "🌺": 32, "🙏": 45, "🪔": 21, "🕉️": 25, "❤️": 38, "🎉": 52, "🌟": 27 },
+    reactedUsers: {},
+    isPinned: true,
+    viewsCount: 230,
+    createdAt: new Date().toISOString()
+  }
+];
 
 // Default Seed Data for Expenses / Budget Tracker (Empty by default)
 const DEFAULT_EXPENSES = [];
@@ -254,12 +335,36 @@ const ExpenseSchema = new mongoose.Schema({
   updatedAt: { type: String, default: () => new Date().toISOString() }
 }, { collection: 'expenses', strict: false });
 
+const MemorySchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true, index: true },
+  title: { type: String, required: true },
+  description: { type: String, default: '' },
+  mediaUrl: { type: String, required: true },
+  mediaType: { type: String, default: 'image' }, // 'image' | 'video' | 'youtube'
+  thumbnailUrl: { type: String, default: '' },
+  fileSize: { type: Number, default: 0 },
+  dimensions: { type: Object, default: null },
+  duration: { type: Number, default: 0 },
+  uploaderName: { type: String, default: 'భక్తుడు (Devotee)' },
+  uploaderRole: { type: String, default: 'Devotee' },
+  uploaderId: { type: String, default: '' },
+  category: { type: String, default: 'general' }, // 'alankaram' | 'pooja' | 'annadanam' | 'auction' | 'shobhayatra' | 'youth' | 'general'
+  day: { type: String, default: 'All Days' },
+  reactions: { type: Object, default: { '🌺': 0, '🙏': 0, '🪔': 0, '🕉️': 0, '❤️': 0, '🎉': 0, '🌟': 0 } },
+  reactedUsers: { type: Object, default: {} },
+  isPinned: { type: Boolean, default: false },
+  viewsCount: { type: Number, default: 0 },
+  createdAt: { type: String, default: () => new Date().toISOString() },
+  updatedAt: { type: String, default: () => new Date().toISOString() }
+}, { collection: 'memories', strict: false });
+
 let DonorModel = null;
 let EventModel = null;
 let MessageModel = null;
 let SettingsModel = null;
 let AuctionModel = null;
 let ExpenseModel = null;
+let MemoryModel = null;
 
 try {
   DonorModel = mongoose.model('Donor', DonorSchema);
@@ -268,6 +373,7 @@ try {
   SettingsModel = mongoose.model('Settings', SettingsSchema);
   AuctionModel = mongoose.model('Auction', AuctionSchema);
   ExpenseModel = mongoose.model('Expense', ExpenseSchema);
+  MemoryModel = mongoose.model('Memory', MemorySchema);
 } catch (e) {
   DonorModel = mongoose.models.Donor;
   EventModel = mongoose.models.Event;
@@ -275,6 +381,7 @@ try {
   SettingsModel = mongoose.models.Settings;
   AuctionModel = mongoose.models.Auction;
   ExpenseModel = mongoose.models.Expense;
+  MemoryModel = mongoose.models.Memory;
 }
 
 // In-Memory Database Store for Instant 0ms Read Response
@@ -284,6 +391,7 @@ let memMessages = readJsonFile(MESSAGES_FILE, DEFAULT_MESSAGES);
 let memSettings = readJsonFile(SETTINGS_FILE, DEFAULT_SETTINGS);
 let memAuction = readJsonFile(AUCTION_FILE, DEFAULT_AUCTION);
 let memExpenses = readJsonFile(EXPENSES_FILE, DEFAULT_EXPENSES);
+let memMemories = readJsonFile(MEMORIES_FILE, DEFAULT_MEMORIES);
 
 let dbStatus = {
   connected: false,
@@ -375,6 +483,24 @@ async function deleteMongoExpense(id) {
   }
 }
 
+async function persistMongoMemory(memory) {
+  if (!dbStatus.connected || !MemoryModel) return;
+  try {
+    await MemoryModel.findOneAndUpdate({ id: memory.id }, memory, { upsert: true, new: true });
+  } catch (err) {
+    console.error('MongoDB Memory Save Error:', err.message);
+  }
+}
+
+async function deleteMongoMemory(id) {
+  if (!dbStatus.connected || !MemoryModel) return;
+  try {
+    await MemoryModel.deleteOne({ id });
+  } catch (err) {
+    console.error('MongoDB Memory Delete Error:', err.message);
+  }
+}
+
 // Connect to MongoDB & Auto-Sync
 async function connectDatabase(mongoUri) {
   if (!mongoUri) return false;
@@ -398,13 +524,14 @@ async function connectDatabase(mongoUri) {
     console.log(`✅ Connected to MongoDB Cloud Database: ${dbStatus.uriMasked}`);
 
     // Initial Data Sync: Load existing data from MongoDB into Memory
-    const [dbDonors, dbEvents, dbMessages, dbSettings, dbAuction, dbExpenses] = await Promise.all([
+    const [dbDonors, dbEvents, dbMessages, dbSettings, dbAuction, dbExpenses, dbMemories] = await Promise.all([
       DonorModel.find({}).sort({ createdAt: -1 }).lean(),
       EventModel.find({}).sort({ dayNumber: 1 }).lean(),
       MessageModel.find({}).sort({ createdAt: 1 }).lean(),
       SettingsModel.findById('global_settings').lean(),
       AuctionModel.findById('live_laddu_auction').lean(),
-      ExpenseModel.find({}).sort({ createdAt: 1 }).lean()
+      ExpenseModel.find({}).sort({ createdAt: 1 }).lean(),
+      MemoryModel.find({}).sort({ createdAt: -1 }).lean()
     ]);
 
     // 1. Settings
@@ -455,11 +582,21 @@ async function connectDatabase(mongoUri) {
       memExpenses = [];
     }
 
+    // 7. Memories Gallery
+    if (dbMemories && dbMemories.length > 0) {
+      memMemories = dbMemories;
+    } else if (memMemories && memMemories.length > 0) {
+      await MemoryModel.insertMany(memMemories);
+    }
+
     // Backup current synchronized data to local JSON
     writeJsonFile(DONORS_FILE, memDonors);
     writeJsonFile(EVENTS_FILE, memEvents);
     writeJsonFile(MESSAGES_FILE, memMessages);
     writeJsonFile(SETTINGS_FILE, memSettings);
+    writeJsonFile(AUCTION_FILE, memAuction);
+    writeJsonFile(EXPENSES_FILE, memExpenses);
+    writeJsonFile(MEMORIES_FILE, memMemories);
     writeJsonFile(AUCTION_FILE, memAuction);
     writeJsonFile(EXPENSES_FILE, memExpenses);
 
@@ -1024,5 +1161,126 @@ export const db = {
 
   getAllDeviceTokens: async () => {
     return readJsonFile(path.join(DATA_DIR, 'device_tokens.json')) || [];
+  },
+
+  // ================= MEMORIES GALLERY (ఉత్సవ మధుర జ్ఞాపకాలు) =================
+  getMemories: () => {
+    // Return pinned memories first, then newest first
+    return [...memMemories].sort((a, b) => {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+    });
+  },
+
+  addMemory: (data) => {
+    const newMemory = {
+      id: `mem-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      title: (data.title || '').trim() || 'శ్రీ వినాయక ఉత్సవ జ్ఞాపకం',
+      description: (data.description || '').trim(),
+      mediaUrl: data.mediaUrl,
+      mediaType: data.mediaType || 'image', // 'image' | 'video' | 'youtube'
+      thumbnailUrl: data.thumbnailUrl || data.mediaUrl,
+      fileSize: Number(data.fileSize) || 0,
+      dimensions: data.dimensions || null,
+      duration: Number(data.duration) || 0,
+      uploaderName: (data.uploaderName || '').trim() || 'భక్తుడు (Devotee)',
+      uploaderRole: data.uploaderRole || 'Devotee',
+      uploaderId: data.uploaderId || '',
+      category: data.category || 'general',
+      day: data.day || 'All Days',
+      reactions: data.reactions || { '🌺': 0, '🙏': 0, '🪔': 0, '🕉️': 0, '❤️': 0, '🎉': 0, '🌟': 0 },
+      reactedUsers: data.reactedUsers || {},
+      isPinned: Boolean(data.isPinned),
+      viewsCount: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    memMemories.unshift(newMemory);
+    writeJsonFile(MEMORIES_FILE, memMemories);
+    persistMongoMemory(newMemory);
+    return newMemory;
+  },
+
+  updateMemory: (id, updateData) => {
+    const index = memMemories.findIndex(m => m.id === id);
+    if (index === -1) return null;
+
+    const current = memMemories[index];
+    const updated = {
+      ...current,
+      ...updateData,
+      id: current.id, // Immutable
+      updatedAt: new Date().toISOString()
+    };
+
+    memMemories[index] = updated;
+    writeJsonFile(MEMORIES_FILE, memMemories);
+    persistMongoMemory(updated);
+    return updated;
+  },
+
+  deleteMemory: (id) => {
+    const index = memMemories.findIndex(m => m.id === id);
+    if (index === -1) return false;
+
+    memMemories.splice(index, 1);
+    writeJsonFile(MEMORIES_FILE, memMemories);
+    deleteMongoMemory(id);
+    return true;
+  },
+
+  toggleMemoryReaction: (id, emoji, userId = 'anon') => {
+    const memory = memMemories.find(m => m.id === id);
+    if (!memory) return null;
+
+    if (!memory.reactions) {
+      memory.reactions = { '🌺': 0, '🙏': 0, '🪔': 0, '🕉️': 0, '❤️': 0, '🎉': 0, '🌟': 0 };
+    }
+    if (!memory.reactedUsers) {
+      memory.reactedUsers = {};
+    }
+
+    const userEmojis = memory.reactedUsers[userId] || [];
+    const hasReacted = userEmojis.includes(emoji);
+
+    if (hasReacted) {
+      // Remove reaction
+      memory.reactions[emoji] = Math.max(0, (memory.reactions[emoji] || 1) - 1);
+      memory.reactedUsers[userId] = userEmojis.filter(e => e !== emoji);
+    } else {
+      // Add reaction
+      memory.reactions[emoji] = (memory.reactions[emoji] || 0) + 1;
+      memory.reactedUsers[userId] = [...userEmojis, emoji];
+    }
+
+    memory.updatedAt = new Date().toISOString();
+    writeJsonFile(MEMORIES_FILE, memMemories);
+    persistMongoMemory(memory);
+    return memory;
+  },
+
+  incrementMemoryViews: (id) => {
+    const memory = memMemories.find(m => m.id === id);
+    if (!memory) return null;
+
+    memory.viewsCount = (memory.viewsCount || 0) + 1;
+    writeJsonFile(MEMORIES_FILE, memMemories);
+    persistMongoMemory(memory);
+    return memory.viewsCount;
+  },
+
+  clearAllMemories: async () => {
+    memMemories = [];
+    writeJsonFile(MEMORIES_FILE, memMemories);
+    if (dbStatus.connected && MemoryModel) {
+      try {
+        await MemoryModel.deleteMany({});
+      } catch (err) {
+        console.error('Error clearing Mongo memories:', err.message);
+      }
+    }
+    return true;
   }
 };
