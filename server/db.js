@@ -26,85 +26,8 @@ const EXPENSES_FILE = path.join(DATA_DIR, 'expenses.json');
 const MEMORIES_FILE = path.join(DATA_DIR, 'memories.json');
 const CONFIG_FILE = path.join(DATA_DIR, 'db_config.json');
 
-// Default Seed Data for Memories Gallery (ఉత్సవ మధుర జ్ఞాపకాలు)
-const DEFAULT_MEMORIES = [
-  {
-    id: "mem-seed-1",
-    title: "శ్రీ వరసిద్ధి వినాయక ప్రతిష్టాపన & దివ్య అలంకరణ",
-    description: "మొదటి రోజు భక్తిశ్రద్ధలతో కొలువుదీరిన శ్రీ వరసిద్ధి వినాయక స్వామి వారు. ప్రత్యేక సుగంధ పుష్పాలంకరణతో దివ్య దర్శనం.",
-    mediaUrl: "/ganesh_idol.jpg",
-    mediaType: "image",
-    thumbnailUrl: "/ganesh_idol.jpg",
-    fileSize: 450000,
-    uploaderName: "విజయ కాలనీ యూత్ కమిటీ",
-    uploaderRole: "Committee Organizer",
-    uploaderId: "committee-admin",
-    category: "alankaram",
-    day: "Day 1",
-    reactions: { "🌺": 24, "🙏": 36, "🪔": 18, "🕉️": 15, "❤️": 20, "🎉": 12, "🌟": 14 },
-    reactedUsers: {},
-    isPinned: true,
-    viewsCount: 142,
-    createdAt: new Date(Date.now() - 3 * 86400000).toISOString()
-  },
-  {
-    id: "mem-seed-2",
-    title: "మహా అన్నదాన ప్రసాద వితరణ వేడుక",
-    description: "కాలనీ మరియు పరిసర ప్రాంతాల భక్తులకు వడ్డించిన మహా ప్రసాద వితరణ కార్యక్రమం.",
-    mediaUrl: "/mandapam_bg.jpg",
-    mediaType: "image",
-    thumbnailUrl: "/mandapam_bg.jpg",
-    fileSize: 520000,
-    uploaderName: "అన్నదాన సేవా సమితి",
-    uploaderRole: "Devotee",
-    uploaderId: "committee-admin",
-    category: "annadanam",
-    day: "Day 2",
-    reactions: { "🌺": 15, "🙏": 28, "🪔": 9, "🕉️": 11, "❤️": 16, "🎉": 10, "🌟": 8 },
-    reactedUsers: {},
-    isPinned: true,
-    viewsCount: 98,
-    createdAt: new Date(Date.now() - 2 * 86400000).toISOString()
-  },
-  {
-    id: "mem-seed-3",
-    title: "పవిత్ర మహా లడ్డూ వేలంపాట మహోత్సవం 🏆",
-    description: "ఉత్సాహపూరిత వాతావరణంలో జరిగిన 21 కేజీల పవిత్ర మహా లడ్డూ ప్రసాదం వేలంపాట దృశ్యం.",
-    mediaUrl: "/ganesh_idol.jpg",
-    mediaType: "image",
-    thumbnailUrl: "/ganesh_idol.jpg",
-    fileSize: 480000,
-    uploaderName: "చరణ్ తేజ & యూత్",
-    uploaderRole: "Committee Organizer",
-    uploaderId: "committee-admin",
-    category: "auction",
-    day: "Day 3",
-    reactions: { "🌺": 18, "🙏": 22, "🪔": 14, "🕉️": 9, "❤️": 19, "🎉": 30, "🌟": 16 },
-    reactedUsers: {},
-    isPinned: false,
-    viewsCount: 115,
-    createdAt: new Date(Date.now() - 86400000).toISOString()
-  },
-  {
-    id: "mem-seed-4",
-    title: "గ్రాండ్ శోభాయాత్ర & గణపతి నిమజ్జనం 🚩",
-    description: "తీన్మార్ డప్పులు, రంగుల కేరింతలు, భక్తుల జయజయధ్వానాల మధ్య సాగిన గంగమ్మ ఒడికి చేరిన గణపయ్య శోభాయాత్ర.",
-    mediaUrl: "/mandapam_bg.jpg",
-    mediaType: "image",
-    thumbnailUrl: "/mandapam_bg.jpg",
-    fileSize: 610000,
-    uploaderName: "విజయ కాలనీ గణేష్ యూత్",
-    uploaderRole: "Committee Organizer",
-    uploaderId: "committee-admin",
-    category: "shobhayatra",
-    day: "Day 4",
-    reactions: { "🌺": 32, "🙏": 45, "🪔": 21, "🕉️": 25, "❤️": 38, "🎉": 52, "🌟": 27 },
-    reactedUsers: {},
-    isPinned: true,
-    viewsCount: 230,
-    createdAt: new Date().toISOString()
-  }
-];
+// Default Seed Data for Memories Gallery (ఉత్సవ మధుర జ్ఞాపకాలు - Starts fresh & empty)
+const DEFAULT_MEMORIES = [];
 
 // Default Seed Data for Expenses / Budget Tracker (Empty by default)
 const DEFAULT_EXPENSES = [];
@@ -582,11 +505,15 @@ async function connectDatabase(mongoUri) {
       memExpenses = [];
     }
 
-    // 7. Memories Gallery
+    // 7. Memories Gallery (Purge pre-installed sample demo memories)
     if (dbMemories && dbMemories.length > 0) {
-      memMemories = dbMemories;
-    } else if (memMemories && memMemories.length > 0) {
-      await MemoryModel.insertMany(memMemories);
+      const userMemories = dbMemories.filter(m => !m.id.startsWith('mem-seed-'));
+      memMemories = userMemories;
+      if (userMemories.length !== dbMemories.length) {
+        await MemoryModel.deleteMany({ id: { $in: ['mem-seed-1','mem-seed-2','mem-seed-3','mem-seed-4'] } });
+      }
+    } else {
+      memMemories = [];
     }
 
     // Backup current synchronized data to local JSON
