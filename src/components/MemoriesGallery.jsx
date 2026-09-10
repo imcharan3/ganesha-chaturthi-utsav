@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Sparkles, Image as ImageIcon, Film, Upload, Search, Heart, Share2, Download, Eye, Pin, Plus, Filter, Play, Calendar, User, CheckCircle2 } from 'lucide-react';
-import { api } from '../services/api';
+import { api, getFullMediaUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { UploadMemoryModal } from './UploadMemoryModal';
 import { MemoryLightboxModal } from './MemoryLightboxModal';
@@ -221,7 +221,7 @@ export const MemoriesGallery = ({ settings, initialMemories = [] }) => {
             
             {pinnedMemories[pinnedIndex]?.mediaType === 'video' ? (
               <video
-                src={pinnedMemories[pinnedIndex]?.mediaUrl}
+                src={getFullMediaUrl(pinnedMemories[pinnedIndex]?.mediaUrl)}
                 autoPlay
                 muted
                 loop
@@ -231,7 +231,7 @@ export const MemoriesGallery = ({ settings, initialMemories = [] }) => {
               ></video>
             ) : (
               <img
-                src={pinnedMemories[pinnedIndex]?.mediaUrl}
+                src={getFullMediaUrl(pinnedMemories[pinnedIndex]?.mediaUrl)}
                 alt={pinnedMemories[pinnedIndex]?.title}
                 className="w-full h-full object-cover brightness-90 cursor-pointer hover:scale-105 transition-transform duration-700"
                 onClick={() => setActiveLightboxMemory(pinnedMemories[pinnedIndex])}
@@ -508,9 +508,14 @@ export const MemoriesGallery = ({ settings, initialMemories = [] }) => {
                   onClick={() => setActiveLightboxMemory(item)}
                 >
                   <img
-                    src={item.thumbnailUrl || item.mediaUrl}
+                    src={getFullMediaUrl(item.thumbnailUrl || item.mediaUrl)}
                     alt={item.title}
                     loading="lazy"
+                    onError={(e) => {
+                      if (item.mediaUrl && e.target.src !== getFullMediaUrl(item.mediaUrl)) {
+                        e.target.src = getFullMediaUrl(item.mediaUrl);
+                      }
+                    }}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
 

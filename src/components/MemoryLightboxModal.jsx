@@ -1,6 +1,6 @@
-﻿import React, { useState, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, Share2, Download, Heart, Eye, Sparkles, Pin, Trash2, Shield, Calendar, User, ExternalLink } from 'lucide-react';
-import { api } from '../services/api';
+import React, { useState, useEffect } from 'react';
+import { X, ChevronLeft, ChevronRight, Share2, Download, Heart, Eye, Sparkles, Pin, Trash2, Shield, Calendar, User, ExternalLink, Loader2 } from 'lucide-react';
+import { api, getFullMediaUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { playTempleBell } from '../utils/audio';
 
@@ -19,6 +19,8 @@ export const MemoryLightboxModal = ({
 }) => {
   const { isAdmin } = useAuth();
   const [currentMemory, setCurrentMemory] = useState(memory);
+  const [imageSrc, setImageSrc] = useState('');
+  const [isImageLoading, setIsImageLoading] = useState(true);
   const [activeReactionAnim, setActiveReactionAnim] = useState(null);
   const [copiedShare, setCopiedShare] = useState(false);
 
@@ -27,8 +29,12 @@ export const MemoryLightboxModal = ({
 
   useEffect(() => {
     setCurrentMemory(memory);
-    if (memory?.id) {
-      api.recordMemoryView(memory.id).catch(() => {});
+    if (memory) {
+      setImageSrc(getFullMediaUrl(memory.mediaUrl));
+      setIsImageLoading(true);
+      if (memory.id) {
+        api.recordMemoryView(memory.id).catch(() => {});
+      }
     }
   }, [memory]);
 
@@ -91,8 +97,9 @@ export const MemoryLightboxModal = ({
   };
 
   const handleDownload = () => {
+    const fullUrl = getFullMediaUrl(currentMemory.mediaUrl);
     const link = document.createElement('a');
-    link.href = currentMemory.mediaUrl;
+    link.href = fullUrl;
     link.download = `${currentMemory.title || 'ganesh_memory'}_${Date.now()}`;
     link.target = '_blank';
     document.body.appendChild(link);
@@ -224,7 +231,7 @@ export const MemoryLightboxModal = ({
         <div className="relative max-w-full max-h-full flex items-center justify-center">
           {currentMemory.mediaType === 'video' ? (
             <video
-              src={currentMemory.mediaUrl}
+              src={getFullMediaUrl(currentMemory.mediaUrl)}
               controls
               autoPlay
               playsInline
@@ -242,11 +249,27 @@ export const MemoryLightboxModal = ({
               ></iframe>
             </div>
           ) : (
-            <img
-              src={currentMemory.mediaUrl}
-              alt={currentMemory.title}
-              className="max-h-[72dvh] sm:max-h-[78dvh] max-w-full rounded-2xl shadow-2xl border border-amber-500/30 object-contain bg-black/40"
-            />
+            <div className="relative flex items-center justify-center max-w-full max-h-full">
+              {isImageLoading && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 z-10 bg-black/60 rounded-2xl min-h-[200px] min-w-[200px]">
+                  <Loader2 className="w-8 h-8 text-amber-400 animate-spin" />
+                  <span className="text-amber-200 text-xs font-semibold">HD చిత్రం లోడ్ అవుతోంది...</span>
+                </div>
+              )}
+              <img
+                src={imageSrc || getFullMediaUrl(currentMemory.mediaUrl)}
+                alt={currentMemory.title}
+                onLoad={() => setIsImageLoading(false)}
+                onError={() => {
+                  setIsImageLoading(false);
+                  const fallback = getFullMediaUrl(currentMemory.thumbnailUrl || '/colony_logo.png');
+                  if (imageSrc !== fallback) {
+                    setImageSrc(fallback);
+                  }
+                }}
+                className="max-h-[72dvh] sm:max-h-[78dvh] max-w-full rounded-2xl shadow-2xl border border-amber-500/30 object-contain bg-black/40 transition-opacity duration-300"
+              />
+            </div>
           )}
 
           {/* Animated Floating Reaction Chime Particle */}

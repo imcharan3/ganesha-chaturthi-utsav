@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
-import { api } from '../services/api';
+import { api, getFullMediaUrl } from '../services/api';
 import { ExpenseManager } from './ExpenseManager';
 import { enqueueOfflineAction } from '../utils/offlineStorage';
 
@@ -471,9 +471,9 @@ export const YouthChat = ({ messages, onRefreshMessages, donors, settings, onRef
 
                     {/* Image attachment */}
                     {msg.type === 'image' && msg.mediaUrl && (
-                      <div className="mt-1.5 rounded-xl overflow-hidden cursor-pointer" onClick={() => setImageModal(msg.mediaUrl)}>
+                      <div className="mt-1.5 rounded-xl overflow-hidden cursor-pointer" onClick={() => setImageModal(getFullMediaUrl(msg.mediaUrl))}>
                         <img
-                          src={msg.mediaUrl}
+                          src={getFullMediaUrl(msg.mediaUrl)}
                           alt="Uploaded attachment"
                           className="w-full max-h-60 object-cover rounded-xl hover:scale-102 transition-transform"
                         />
@@ -482,7 +482,7 @@ export const YouthChat = ({ messages, onRefreshMessages, donors, settings, onRef
 
                     {/* Voice message note */}
                     {msg.type === 'voice' && msg.mediaUrl && (
-                      <VoiceMessagePlayer audioUrl={msg.mediaUrl} duration={msg.duration} />
+                      <VoiceMessagePlayer audioUrl={getFullMediaUrl(msg.mediaUrl)} duration={msg.duration} />
                     )}
 
                     {/* Reactions Display */}

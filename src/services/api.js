@@ -4,6 +4,17 @@ export const BACKEND_BASE_URL = (typeof window !== 'undefined' && window.locatio
 
 const API_BASE = `${BACKEND_BASE_URL}/api`;
 
+// Resolve relative /uploads media paths to full backend URLs
+export const getFullMediaUrl = (url) => {
+  if (!url || typeof url !== 'string') return '';
+  if (url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')) {
+    return url;
+  }
+  const base = BACKEND_BASE_URL || 'https://ganesha-chaturthi-utsav.onrender.com';
+  const cleanPath = url.startsWith('/') ? url : `/${url}`;
+  return `${base}${cleanPath}`;
+};
+
 export const api = {
   // Push Notifications
   registerPushToken: async (tokenData) => {

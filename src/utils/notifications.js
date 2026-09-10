@@ -189,7 +189,32 @@ export const showDevotionalNotification = ({
     }));
   }
 
-  // 3. Status Bar Notification (Only for browser or non-push events)
+  // 3. Real Native Android Status Bar Notification if on Android/iOS
+  if (typeof window !== 'undefined' && Capacitor.isNativePlatform()) {
+    // If not triggered directly by incoming FCM push, schedule local notification
+    if (!isFromPush) {
+      try {
+        const notifId = hashStringToInt(notifKey);
+        LocalNotifications.schedule({
+          notifications: [
+            {
+              title,
+              body,
+              id: notifId,
+              schedule: { at: new Date(Date.now() + 100) },
+              channelId: 'ganesh_devotional_alerts',
+              smallIcon: 'ic_launcher',
+              extra: { tab, actionData }
+            }
+          ]
+        }).catch(err => console.warn('LocalNotifications schedule error:', err));
+      } catch (e) {
+        console.warn('Native notification trigger error:', e);
+      }
+    }
+  }
+
+  // 4. Status Bar Notification for Desktop/Mobile Web Browsers
   if (typeof window !== 'undefined' && !Capacitor.isNativePlatform() && 'Notification' in window && Notification.permission === 'granted') {
     try {
       const notification = new Notification(title, {

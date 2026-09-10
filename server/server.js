@@ -19,18 +19,24 @@ const __dirname = path.dirname(__filename);
 // Initialize Firebase Admin SDK
 let firebaseApp = null;
 let messagingService = null;
+
+const FCM_FALLBACK_BASE64 = "ewogICJ0eXBlIjogInNlcnZpY2VfYWNjb3VudCIsCiAgInByb2plY3RfaWQiOiAiZ2FuZXNoLWRpYXJpZXMiLAogICJwcml2YXRlX2tleV9pZCI6ICJlNTNmMTZjZWY1MGRjNWMwYmIwMGU0MjAzMTFhZWU3ZDQ1ZjBiM2RjIiwKICAicHJpdmF0ZV9rZXkiOiAiLS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tXG5NSUlFdkFJQkFEQU5CZ2txaGtpRzl3MEJBUUVGQUFTQ0JLWXdnZ1NpQWdFQUFvSUJBUURpTzArSkluK3VTa0dyXG40QnpXSlNZbWNjZ1FwQlRMWVdDem1mTDJ6OGVlbEtoa3E0QXlsOEpjdlQ3dUhHbWFodW96RHJuNUV5ZTU5R3grXG4rVlRGb2owNjZFSTV3VkYvZzBMZ2VzUzhOQ08rS0Q2RHhhdUpkUDdPRVhwaC80QVFTd0JTcENqMGRJeGozZ2RlXG5UblJOYkgxVHY0emtmeVFubkt4bDVtbG1DSnRsUW9xREV2Q0Q0ak4vQVpxOTRoc1ZqNlZjNWwvWFVRRk1FWU9pXG43eis0WVlkT0ZOVHd6T2EzNHZRVTlPS2ZrVFhKSmFLVG5pa05zS0dwdjd2cDAxMTRDc0NjejRLTXZZa3FiMGMzXG50cGZhakZ3ditxTC9OVzR2emgxTVB2NllFUU04aFpSckhWSDcrcDAwSkc4OWVTRG9rZndDeXJLdUVTbm1DS0FJXG5hTWduMUNwMUFnTUJBQUVDZ2Y4YWpmY0lBNnBqSjFNWS9CTHllUFREbks1bU5sU2hYTlBkeXRqbE91OE96NFlrXG5yNDB0Rm9OcnJ5MXowWjBIcHFYeU1mK1I2MmxOR2hJZTIrYjRQcUNVU3l5eGpKTzl6cEwxcjN3bnNSV3hGN2haXG5EUGZCNE55OWFtanlpcTZUOHM2UHlFcjNEUDlWaVhURXBDdnJwSlRBYjJhMEFtWnNzOWtkV2lqYVQ0ZUFra3lXXG5Ydm9LcUx6ZEF6czluUmVVa3ZqcXBHKzBQdmJiSnRzSkZudHh3R1FSOC8zeXJjNE1PMHB5cVh6QTlocEdCeW9ZXG5SMnpYTmxiby9nVEV4ZWVpbUFyZVhMaGl5Z3hiam1lQTFWYTJmbnZtanNBWWNtMDZFVnE0VGN0SmVwdXNRcHJZXG5TS0ZTazR1SXh3bWlPVFNUZ3hWM29zSE5mR2M1b0ZIU3l1ZVFSTmtDZ1lFQThnSEV3aGRjZDluL0tlRkdQRC8wXG5RbGY2OVRLdGo0RTkvSDBrZkVnR0RtL0tFbkU1M1d2RUREUS94NmxqWUF4SE9IaXJNd2pFSmVOVGxzYzVTMkFSXG43ZzIvNmxaMUFCYnh1ckcxejhMOUVTVnZNeitPc2hrZzMwWlR2MXNBd1Q4amlqRmdCTUsvd2JSbEtSNUo0NUVoXG5uOEpJSzhrY3JIQVBiQzM0REJ1RDMza0NnWUVBNzFBSXhTcmVjZEdmdHl4UWd1aXdOOVFESFd1ZVVKTTFPZ0doXG5ONWlyOC8wenlRbi9EVHBDOE43TURFS2VCMXpYYUE3QzE0SnU2RzJ4UUwrWnFyYXU4dy85Mm5qVUJ4WmkzcHRqXG5iVnBSVG85SE52N1VncStRSW1WZzQweW1aM2hxZ1VIaEZhdWNXeXFTamF4UXF1ZmFwMlFWZ1JvZGZ5UEUxTnVkXG5PdjB6ZDkwQ2dZRUF0Z0lnZ2J6aUhYMkZpM0RTeXZOcWVBOEZQaTM4SElhZUlPdlphZU1kTXZSZWJKcGRZNnJ1XG5DaU90cURNNyt2dWhBTmE0SXl5L29LTWt0YXhsNmN0NkVLaWtvdENkTkJFTmdsU3ZJVzlMdHY2SmNHaW5vRWlIXG4wWVJwN2V1NldKeHMxVDBuTXMxcFBIeTQ3RURNWDJ0Q2Q0MjlpN2k0YVBQcWxYakpLZ256bHprQ2dZQnlzRGlEXG54WGUxdEhDR3FJWXROcmE5Q3E0emUwL3o3WmlrcEFOUFVhdVcwdEh1bHd2VW13ZFp5R3loczR0b20rWGZ5TE0zXG45UnFSNlgvNU45bTlKcS9SYk9pTHV6eGg2U2lZNW45UCtPamViV3dEdnp5NUpNbytzYmN0NjU3SUY3MXpGTTk2XG5RelE3dkx0ZmlpVmV3cDdYZWUrVVg1K2pQdEVsOGRuNFcwQS9RUUtCZ1FDeTJBdnoxcmhhdEw5MUlpcitLRWlQXG5PUjdGUDErOFc2NnhSUkIyS3FNWXMxYzZNU3FHU2x5UWRNTjJSeWJmOFIrUDhicnQzeWJVYmdOVDhqRWFTakZNXG5haERjekREOGhVS3NKZUJwTktYcVE1QXAyaDlVUkNKWjRWWjVuVjRwbkVzNzdJMGZqZzN5RGh5RG9HMVR2TVJOXG52Q21UMXBrbzZBOGpLUzZrZFpuTXRRPT1cbi0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS1cbiIsCiAgImNsaWVudF9lbWFpbCI6ICJmaXJlYmFzZS1hZG1pbnNkay1mYnN2Y0BnYW5lc2gtZGlhcmllcy5pYW0uZ3NlcnZpY2VhY2NvdW50LmNvbSIsCiAgImNsaWVudF9pZCI6ICIxMDY2NTA1Njk3NDI5MDI2ODc2NTkiLAogICJhdXRoX3VyaSI6ICJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20vby9vYXV0aDIvYXV0aCIsCiAgInRva2VuX3VyaSI6ICJodHRwczovL29hdXRoMi5nb29nbGVhcGlzLmNvbS90b2tlbiIsCiAgImF1dGhfcHJvdmlkZXJfeDUwOV9jZXJ0X3VybCI6ICJodHRwczovL3d3dy5nb29nbGVhcGlzLmNvbS9vYXV0aDIvdjEvY2VydHMiLAogICJjbGllbnRfeDUwOV9jZXJ0X3VybCI6ICJodHRwczovL3d3dy5nb29nbGVhcGlzLmNvbS9yb2JvdC92MS9tZXRhZGF0YS94NTA5L2ZpcmViYXNlLWFkbWluc2RrLWZic3ZjJTQwZ2FuZXNoLWRpYXJpZXMuaWFtLmdzZXJ2aWNlYWNjb3VudC5jb20iLAogICJ1bml2ZXJzZV9kb21haW4iOiAiZ29vZ2xlYXBpcy5jb20iCn0=";
+
 try {
+  let serviceAccount = null;
   const serviceAccountPath = path.join(__dirname, 'firebase_service_account.json');
   if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-    firebaseApp = initializeApp({ credential: cert(serviceAccount) });
-    messagingService = getMessaging(firebaseApp);
-    console.log('✅ Firebase Admin SDK initialized from environment');
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
   } else if (fs.existsSync(serviceAccountPath)) {
-    const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+    serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+  } else if (FCM_FALLBACK_BASE64) {
+    serviceAccount = JSON.parse(Buffer.from(FCM_FALLBACK_BASE64, 'base64').toString('utf8'));
+  }
+
+  if (serviceAccount) {
     firebaseApp = initializeApp({ credential: cert(serviceAccount) });
     messagingService = getMessaging(firebaseApp);
-    console.log('✅ Firebase Admin SDK initialized from file');
+    console.log('✅ Firebase Admin SDK initialized for project:', serviceAccount.project_id);
   }
 } catch (err) {
   console.warn('Firebase Admin SDK setup note:', err.message);
@@ -916,13 +922,13 @@ io.on('connection', (socket) => {
 // App Version & Auto-Update Metadata Endpoint
 app.get('/api/app/version', (req, res) => {
   res.json({
-    latestVersion: '2.3',
-    versionCode: 14,
+    latestVersion: '2.4',
+    versionCode: 15,
     minSupportedVersion: '1.0',
     apkUrl: '/download/app',
     releaseDate: '2026-09-10',
-    releaseNotes: '🎉 గ్రాండ్ అప్‌డేట్ v2.3: నోటిఫికేషన్ డబుల్ అవ్వడం & మీడియా డూప్లికేట్ సమస్యలు పూర్తిగా పరిష్కరించబడ్డాయి. డే-వైజ్ ఫిల్టర్స్ జోడించబడ్డాయి.',
-    title: 'విజయ కాలనీ గణేష్ డైరీస్ v2.3'
+    releaseNotes: '🎉 గ్రాండ్ అప్‌డేట్ v2.4: లైట్‌బాక్స్ HD ఫోటో వ్యూ లోడింగ్ సమస్య పరిష్కరించబడింది, ఫైర్‌బేస్ & నేటివ్ స్టేటస్ బార్ నోటిఫికేషన్స్ 100% పునరుద్ధరించబడ్డాయి.',
+    title: 'విజయ కాలనీ గణేష్ డైరీస్ v2.4'
   });
 });
 
