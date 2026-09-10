@@ -453,6 +453,8 @@ export const api = {
       formData.append('media', file);
 
       xhr.open('POST', `${API_BASE}/memories/upload`, true);
+      xhr.timeout = 300000; // 5 minutes timeout for 1GB files
+      xhr.withCredentials = false;
 
       if (xhr.upload && onProgress) {
         xhr.upload.onprogress = (e) => {
@@ -478,15 +480,18 @@ export const api = {
         } else {
           try {
             const errResponse = JSON.parse(xhr.responseText);
-            reject(new Error(errResponse.error || 'Upload failed'));
+            reject(new Error(errResponse.error || `Upload failed (Status ${xhr.status})`));
           } catch (e) {
             reject(new Error(`Upload failed with status ${xhr.status}`));
           }
         }
       };
 
-      xhr.onerror = () => reject(new Error('Network error during media upload. Check your internet connection.'));
-      xhr.ontimeout = () => reject(new Error('Upload timed out. Please try again.'));
+      xhr.onerror = (ev) => {
+        console.error('XHR Upload Error Event:', ev);
+        reject(new Error('నెట్‌వర్క్ సమస్య లేదా సర్వర్ కనెక్షన్ లోపం. మళ్లీ ప్రయత్నించండి. (Network connection error during media upload)'));
+      };
+      xhr.ontimeout = () => reject(new Error('అప్‌లోడ్ సమయం మించిపోయింది (Upload timed out after 5 minutes). దయచేసి మళ్లీ ప్రయత్నించండి.'));
 
       xhr.send(formData);
     });

@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { X, Upload, Film, Image as ImageIcon, Sparkles, CheckCircle2, AlertCircle, Link as LinkIcon, Loader2, Play } from 'lucide-react';
 import { api } from '../services/api';
 import { playTempleBell } from '../utils/audio';
@@ -130,13 +130,40 @@ export const UploadMemoryModal = ({ isOpen, onClose, onUploadSuccess, settings }
 
       if (activeMode === 'file') {
         calculatedSize = selectedFile.size;
-        // Upload with real-time percentage progress
-        const uploadRes = await api.uploadMediaFileWithProgress(selectedFile, (prog) => {
-          setUploadProgress(prog);
-        });
 
-        finalMediaUrl = uploadRes.mediaUrl;
-        finalThumbUrl = videoThumbnail || finalMediaUrl;
+        // 1. Ensure server is awake
+        try {
+          await api.getSettings();
+        } catch (e) {
+          console.warn('Server warmup ping:', e);
+        }
+
+        try {
+          // 2. Primary: Upload with real-time percentage progress
+          const uploadRes = await api.uploadMediaFileWithProgress(selectedFile, (prog) => {
+            setUploadProgress(prog);
+          });
+
+          finalMediaUrl = uploadRes.mediaUrl;
+          finalThumbUrl = videoThumbnail || finalMediaUrl;
+        } catch (uploadErr) {
+          console.warn('Multipart upload failed, attempting smart direct fallback...', uploadErr);
+          
+          // 3. Fallback: Convert to Data URL and send directly in JSON payload
+          if (filePreview && typeof filePreview === 'string' && filePreview.startsWith('data:')) {
+            finalMediaUrl = filePreview;
+            finalThumbUrl = videoThumbnail || filePreview;
+          } else {
+            const dataUrl = await new Promise((res, rej) => {
+              const reader = new FileReader();
+              reader.onload = () => res(reader.result);
+              reader.onerror = rej;
+              reader.readAsDataURL(selectedFile);
+            });
+            finalMediaUrl = dataUrl;
+            finalThumbUrl = videoThumbnail || (mediaType === 'video' ? '/mandapam_bg.jpg' : dataUrl);
+          }
+        }
       } else {
         // Link mode (e.g. YouTube / Cloud storage)
         finalMediaUrl = externalUrl.trim();

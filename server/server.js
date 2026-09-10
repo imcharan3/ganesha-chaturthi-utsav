@@ -81,10 +81,24 @@ if (!fs.existsSync(UPLOADS_DIR)) {
 // Multer Storage Configuration
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
+    if (!fs.existsSync(UPLOADS_DIR)) {
+      fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+    }
     cb(null, UPLOADS_DIR);
   },
   filename: function (req, file, cb) {
-    const ext = path.extname(file.originalname) || (file.mimetype.includes('audio') ? '.webm' : '.jpg');
+    let ext = path.extname(file.originalname || '');
+    if (!ext || ext.length < 2) {
+      const mime = (file.mimetype || '').toLowerCase();
+      if (mime.includes('video/mp4') || mime.includes('mp4')) ext = '.mp4';
+      else if (mime.includes('video/webm') || mime.includes('webm')) ext = '.webm';
+      else if (mime.includes('video/quicktime') || mime.includes('mov')) ext = '.mov';
+      else if (mime.includes('video/')) ext = '.mp4';
+      else if (mime.includes('audio')) ext = '.webm';
+      else if (mime.includes('png')) ext = '.png';
+      else if (mime.includes('webp')) ext = '.webp';
+      else ext = '.jpg';
+    }
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
   }
@@ -95,8 +109,16 @@ const upload = multer({
   limits: { fileSize: 1024 * 1024 * 1024 } // 1GB max per file
 });
 
+// Permissive CORS Middleware
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['*'],
+  exposedHeaders: ['Content-Range', 'Accept-Ranges', 'Content-Length']
+}));
+app.options('*', cors());
+
 // Middleware with 1GB limits
-app.use(cors());
 app.use(express.json({ limit: '1024mb' }));
 app.use(express.urlencoded({ limit: '1024mb', extended: true }));
 
@@ -701,22 +723,28 @@ app.post('/api/upload/image', upload.single('image'), (req, res) => {
 
 // ================= 6. MEMORIES GALLERY API (ఉత్సవ మధుర జ్ఞాపకాలు) =================
 
-// Direct 1GB Media (Photo / Video) Upload
-app.post('/api/memories/upload', upload.single('media'), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: 'No media file uploaded' });
-  }
+// Direct 1GB Media (Photo / Video) Upload with Safe Error Handling
+app.post('/api/memories/upload', (req, res) => {
+  upload.single('media')(req, res, (err) => {
+    if (err) {
+      console.error('Multer upload error:', err);
+      return res.status(400).json({ error: err.message || 'File upload failed' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'No media file received' });
+    }
 
-  const fileUrl = `/uploads/${req.file.filename}`;
-  const isVideo = req.file.mimetype.startsWith('video/');
-  
-  res.json({
-    success: true,
-    mediaUrl: fileUrl,
-    mediaType: isVideo ? 'video' : 'image',
-    filename: req.file.filename,
-    mimetype: req.file.mimetype,
-    size: req.file.size
+    const isVideo = (req.file.mimetype || '').startsWith('video/');
+    const fileUrl = `/uploads/${req.file.filename}`;
+    
+    res.json({
+      success: true,
+      mediaUrl: fileUrl,
+      mediaType: isVideo ? 'video' : 'image',
+      filename: req.file.filename,
+      mimetype: req.file.mimetype,
+      size: req.file.size
+    });
   });
 });
 
@@ -725,7 +753,7 @@ app.get('/api/memories', (req, res) => {
 });
 
 app.post('/api/memories', (req, res) => {
-  const {
+  let {
     title,
     description,
     mediaUrl,
@@ -744,6 +772,27 @@ app.post('/api/memories', (req, res) => {
 
   if (!mediaUrl) {
     return res.status(400).json({ error: 'Media URL or file is required' });
+  }
+
+  // If mediaUrl or thumbnailUrl is sent as Base64 Data URL, persist it to disk directly
+  if (typeof mediaUrl === 'string' && mediaUrl.startsWith('data:')) {
+    try {
+      const match = mediaUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (match) {
+        const mimeType = match[1];
+        const base64Data = match[2];
+        const isVid = mimeType.startsWith('video/');
+        const ext = isVid ? '.mp4' : mimeType.includes('png') ? '.png' : mimeType.includes('webp') ? '.webp' : '.jpg';
+        const filename = `media-${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+        const filePath = path.join(UPLOADS_DIR, filename);
+        fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
+        mediaUrl = `/uploads/${filename}`;
+        if (!mediaType) mediaType = isVid ? 'video' : 'image';
+        if (!fileSize) fileSize = Buffer.byteLength(base64Data, 'base64');
+      }
+    } catch (e) {
+      console.warn('Failed to save base64 media to disk, keeping inline:', e.message);
+    }
   }
 
   const newMemory = db.addMemory({
@@ -867,13 +916,13 @@ io.on('connection', (socket) => {
 // App Version & Auto-Update Metadata Endpoint
 app.get('/api/app/version', (req, res) => {
   res.json({
-    latestVersion: '2.1',
-    versionCode: 12,
+    latestVersion: '2.2',
+    versionCode: 13,
     minSupportedVersion: '1.0',
     apkUrl: '/download/app',
-    releaseDate: '2026-09-09',
-    releaseNotes: '🎉 గ్రాండ్ అప్‌డేట్ v2.1: ఉత్సవ మధుర జ్ఞాపకాల గ్యాలరీ (Ultra-HD Memories Gallery up to 1GB), ఫోటో/వీడియో అప్‌లోడ్స్, స్పాట్‌లైట్ & భక్తిపూర్వక హారతులు జోడించబడ్డాయి.',
-    title: 'విజయ కాలనీ గణేష్ డైరీస్ v2.1'
+    releaseDate: '2026-09-10',
+    releaseNotes: '🎉 గ్రాండ్ అప్‌డేట్ v2.2: ఉత్సవ మధుర జ్ఞాపకాల అప్‌లోడ్ నెట్‌వర్క్ సమస్య పరిష్కరించబడింది (Ultra-HD Memories Gallery up to 1GB Fast Uploads).',
+    title: 'విజయ కాలనీ గణేష్ డైరీస్ v2.2'
   });
 });
 
