@@ -1092,8 +1092,14 @@ export const db = {
 
   // ================= MEMORIES GALLERY (ఉత్సవ మధుర జ్ఞాపకాలు) =================
   getMemories: () => {
-    // Return pinned memories first, then newest first
-    return [...memMemories].sort((a, b) => {
+    // Return deduplicated memories, pinned first, then newest first
+    const map = new Map();
+    for (const m of memMemories) {
+      if (m && m.id && !map.has(m.id)) {
+        map.set(m.id, m);
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => {
       if (a.isPinned && !b.isPinned) return -1;
       if (!a.isPinned && b.isPinned) return 1;
       return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
@@ -1101,6 +1107,16 @@ export const db = {
   },
 
   addMemory: (data) => {
+    // Check if memory with same mediaUrl and uploaderId already uploaded within last 10 seconds (prevent duplicate rapid clicks)
+    const existing = memMemories.find(m => 
+      m.mediaUrl === data.mediaUrl && 
+      m.uploaderId === data.uploaderId && 
+      (Date.now() - new Date(m.createdAt || 0).getTime() < 10000)
+    );
+    if (existing) {
+      return existing;
+    }
+
     const newMemory = {
       id: `mem-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       title: (data.title || '').trim() || 'శ్రీ వినాయక ఉత్సవ జ్ఞాపకం',

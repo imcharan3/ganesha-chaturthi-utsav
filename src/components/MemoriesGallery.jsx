@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Sparkles, Image as ImageIcon, Film, Upload, Search, Heart, Share2, Download, Eye, Pin, Plus, Filter, Play, Calendar, User, CheckCircle2 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -7,7 +7,7 @@ import { MemoryLightboxModal } from './MemoryLightboxModal';
 import { playTempleBell } from '../utils/audio';
 
 const CATEGORIES = [
-  { id: 'all', label: 'అన్నీ (All)', icon: '🌟' },
+  { id: 'all', label: 'అన్ని విభాగాలు (All Categories)', icon: '🌟' },
   { id: 'alankaram', label: 'స్వామి అలంకరణ', icon: '🪔' },
   { id: 'pooja', label: 'పూజలు & హారతులు', icon: '🌺' },
   { id: 'annadanam', label: 'మహా అన్నదానం', icon: '🍲' },
@@ -17,11 +17,41 @@ const CATEGORIES = [
   { id: 'general', label: 'ఇతర జ్ఞాపకాలు', icon: '📸' }
 ];
 
+const DAYS_FILTER = [
+  { id: 'all', label: 'అన్ని రోజులు (All Days)', icon: '🗓️' },
+  { id: 'Day 1', label: 'Day 1 (ప్రారంభం)', icon: '🚩' },
+  { id: 'Day 2', label: 'Day 2', icon: '🪔' },
+  { id: 'Day 3', label: 'Day 3', icon: '🌺' },
+  { id: 'Day 4', label: 'Day 4', icon: '✨' },
+  { id: 'నిమజ్జనం (Nimajjanam)', label: 'నిమజ్జనం (Nimajjanam)', icon: '🌊' }
+];
+
 const EMOJIS = ['🌺', '🙏', '🪔', '🕉️', '❤️', '🎉', '🌟'];
+
+// Robust memory deduplication helper by unique ID
+export const deduplicateMemories = (list) => {
+  if (!Array.isArray(list)) return [];
+  const map = new Map();
+  for (const item of list) {
+    if (item && item.id) {
+      if (!map.has(item.id)) {
+        map.set(item.id, item);
+      } else {
+        const existing = map.get(item.id);
+        const existingTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
+        const itemTime = new Date(item.updatedAt || item.createdAt || 0).getTime();
+        if (itemTime >= existingTime) {
+          map.set(item.id, { ...existing, ...item });
+        }
+      }
+    }
+  }
+  return Array.from(map.values());
+};
 
 export const MemoriesGallery = ({ settings, initialMemories = [] }) => {
   const { isAdmin } = useAuth();
-  const [memories, setMemories] = useState(initialMemories);
+  const [memories, setMemories] = useState(() => deduplicateMemories(initialMemories));
   const [isLoading, setIsLoading] = useState(false);
   
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -40,7 +70,7 @@ export const MemoriesGallery = ({ settings, initialMemories = [] }) => {
     try {
       const data = await api.getMemories();
       if (Array.isArray(data)) {
-        setMemories(data);
+        setMemories(deduplicateMemories(data));
       }
     } catch (err) {
       console.warn('Failed to fetch memories:', err);
@@ -49,26 +79,37 @@ export const MemoriesGallery = ({ settings, initialMemories = [] }) => {
     }
   };
 
+  // Sync when initialMemories prop updates
+  useEffect(() => {
+    if (Array.isArray(initialMemories) && initialMemories.length > 0) {
+      setMemories(prev => deduplicateMemories([...prev, ...initialMemories]));
+    }
+  }, [initialMemories]);
+
   useEffect(() => {
     fetchMemories();
 
-    // Listen to Socket.IO real-time memory broadcasts
-    const handleNewMemory = (newMem) => {
-      setMemories(prev => {
-        if (prev.some(m => m.id === newMem.id)) return prev;
-        return [newMem, ...prev];
-      });
+    // Named handler functions for reliable event listener removal (prevents listener stacking & duplicates)
+    const handleNewMemory = (e) => {
+      const newMem = e.detail;
+      if (!newMem || !newMem.id) return;
+      setMemories(prev => deduplicateMemories([newMem, ...prev]));
     };
 
-    const handleUpdatedMemory = (updatedMem) => {
-      setMemories(prev => prev.map(m => m.id === updatedMem.id ? updatedMem : m));
+    const handleUpdatedMemory = (e) => {
+      const updatedMem = e.detail;
+      if (!updatedMem || !updatedMem.id) return;
+      setMemories(prev => deduplicateMemories(prev.map(m => m.id === updatedMem.id ? { ...m, ...updatedMem } : m)));
     };
 
-    const handleDeleteMemory = (id) => {
+    const handleDeleteMemory = (e) => {
+      const id = e.detail;
       setMemories(prev => prev.filter(m => m.id !== id));
     };
 
-    const handleReaction = ({ id, reactions, reactedUsers }) => {
+    const handleReaction = (e) => {
+      const { id, reactions, reactedUsers } = e.detail || {};
+      if (!id) return;
       setMemories(prev => prev.map(m => {
         if (m.id === id) {
           return { ...m, reactions, reactedUsers };
@@ -77,28 +118,31 @@ export const MemoriesGallery = ({ settings, initialMemories = [] }) => {
       }));
     };
 
-    window.addEventListener('socket-memory-new', (e) => handleNewMemory(e.detail));
-    window.addEventListener('socket-memory-updated', (e) => handleUpdatedMemory(e.detail));
-    window.addEventListener('socket-memory-deleted', (e) => handleDeleteMemory(e.detail));
-    window.addEventListener('socket-memory-reaction', (e) => handleReaction(e.detail));
+    window.addEventListener('socket-memory-new', handleNewMemory);
+    window.addEventListener('socket-memory-updated', handleUpdatedMemory);
+    window.addEventListener('socket-memory-deleted', handleDeleteMemory);
+    window.addEventListener('socket-memory-reaction', handleReaction);
 
     return () => {
-      window.removeEventListener('socket-memory-new', (e) => handleNewMemory(e.detail));
-      window.removeEventListener('socket-memory-updated', (e) => handleUpdatedMemory(e.detail));
-      window.removeEventListener('socket-memory-deleted', (e) => handleDeleteMemory(e.detail));
-      window.removeEventListener('socket-memory-reaction', (e) => handleReaction(e.detail));
+      window.removeEventListener('socket-memory-new', handleNewMemory);
+      window.removeEventListener('socket-memory-updated', handleUpdatedMemory);
+      window.removeEventListener('socket-memory-deleted', handleDeleteMemory);
+      window.removeEventListener('socket-memory-reaction', handleReaction);
     };
   }, []);
 
-  // Filtered Memories
+  // Filtered Memories with complete deduplication & multi-criteria filtering
   const filteredMemories = useMemo(() => {
-    return memories.filter(m => {
+    const cleanList = deduplicateMemories(memories);
+    return cleanList.filter(m => {
       if (selectedCategory !== 'all' && m.category !== selectedCategory) return false;
       if (selectedMediaType !== 'all') {
         if (selectedMediaType === 'video' && m.mediaType !== 'video' && m.mediaType !== 'youtube') return false;
         if (selectedMediaType === 'image' && m.mediaType !== 'image') return false;
       }
-      if (selectedDay !== 'all' && m.day !== selectedDay) return false;
+      if (selectedDay !== 'all') {
+        if (m.day !== selectedDay && m.day !== 'All Days') return false;
+      }
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
         const matchesTitle = (m.title || '').toLowerCase().includes(query);
@@ -299,26 +343,76 @@ export const MemoriesGallery = ({ settings, initialMemories = [] }) => {
       {/* Filter & Search Bar */}
       <div className="space-y-3">
         
+        {/* Day Filter Pills */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-[11px] font-bold text-amber-300/80 px-1">
+            <span className="flex items-center gap-1">
+              <Calendar className="w-3.5 h-3.5 text-amber-400" />
+              <span>ఉత్సవ రోజులు (Festival Days):</span>
+            </span>
+            {selectedDay !== 'all' && (
+              <button
+                onClick={() => setSelectedDay('all')}
+                className="text-amber-400 hover:text-amber-200 underline text-[10px]"
+              >
+                అన్ని రోజులు చూపించు
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1 text-xs">
+            {DAYS_FILTER.map((d) => (
+              <button
+                key={d.id}
+                onClick={() => setSelectedDay(d.id)}
+                className={`px-3 py-1.5 rounded-2xl font-bold whitespace-nowrap flex items-center gap-1.5 transition-all shrink-0 ${
+                  selectedDay === d.id
+                    ? 'bg-gradient-to-r from-amber-500 to-saffron-600 text-amber-950 font-black shadow-gold border border-amber-300 scale-105'
+                    : 'bg-[#1a0702] text-amber-300/70 hover:text-amber-100 border border-amber-500/20'
+                }`}
+              >
+                <span>{d.icon}</span>
+                <span>{d.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Category Filter Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1 text-xs">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.id)}
-              className={`px-3.5 py-2 rounded-2xl font-bold whitespace-nowrap flex items-center gap-1.5 transition-all shrink-0 ${
-                selectedCategory === cat.id
-                  ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-gold border border-amber-300/40 scale-105'
-                  : 'bg-[#1e0a04] text-amber-300/70 hover:text-amber-100 border border-amber-500/20'
-              }`}
-            >
-              <span>{cat.icon}</span>
-              <span>{cat.label}</span>
-            </button>
-          ))}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-[11px] font-bold text-amber-300/80 px-1">
+            <span className="flex items-center gap-1">
+              <Filter className="w-3.5 h-3.5 text-amber-400" />
+              <span>కార్యక్రమ విభాగాలు (Categories):</span>
+            </span>
+            {selectedCategory !== 'all' && (
+              <button
+                onClick={() => setSelectedCategory('all')}
+                className="text-amber-400 hover:text-amber-200 underline text-[10px]"
+              >
+                అన్నీ చూపించు
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1 text-xs">
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.id)}
+                className={`px-3.5 py-1.5 rounded-2xl font-bold whitespace-nowrap flex items-center gap-1.5 transition-all shrink-0 ${
+                  selectedCategory === cat.id
+                    ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-gold border border-amber-300/40 scale-105'
+                    : 'bg-[#1e0a04] text-amber-300/70 hover:text-amber-100 border border-amber-500/20'
+                }`}
+              >
+                <span>{cat.icon}</span>
+                <span>{cat.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Media Type & Search Filter Controls */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 pt-1">
           
           {/* Media Type Switcher */}
           <div className="flex bg-[#180702] p-1 rounded-2xl border border-amber-500/30 text-xs w-full sm:w-auto">
@@ -539,7 +633,7 @@ export const MemoriesGallery = ({ settings, initialMemories = [] }) => {
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}
         onUploadSuccess={(newMem) => {
-          setMemories(prev => [newMem, ...prev]);
+          setMemories(prev => deduplicateMemories([newMem, ...prev]));
         }}
         settings={settings}
       />

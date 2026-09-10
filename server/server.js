@@ -916,13 +916,13 @@ io.on('connection', (socket) => {
 // App Version & Auto-Update Metadata Endpoint
 app.get('/api/app/version', (req, res) => {
   res.json({
-    latestVersion: '2.2',
-    versionCode: 13,
+    latestVersion: '2.3',
+    versionCode: 14,
     minSupportedVersion: '1.0',
     apkUrl: '/download/app',
     releaseDate: '2026-09-10',
-    releaseNotes: '🎉 గ్రాండ్ అప్‌డేట్ v2.2: ఉత్సవ మధుర జ్ఞాపకాల అప్‌లోడ్ నెట్‌వర్క్ సమస్య పరిష్కరించబడింది (Ultra-HD Memories Gallery up to 1GB Fast Uploads).',
-    title: 'విజయ కాలనీ గణేష్ డైరీస్ v2.2'
+    releaseNotes: '🎉 గ్రాండ్ అప్‌డేట్ v2.3: నోటిఫికేషన్ డబుల్ అవ్వడం & మీడియా డూప్లికేట్ సమస్యలు పూర్తిగా పరిష్కరించబడ్డాయి. డే-వైజ్ ఫిల్టర్స్ జోడించబడ్డాయి.',
+    title: 'విజయ కాలనీ గణేష్ డైరీస్ v2.3'
   });
 });
 

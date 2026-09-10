@@ -15,7 +15,7 @@ import { DevotionalNotificationToast } from './components/DevotionalNotification
 import { AppUpdateModal } from './components/AppUpdateModal';
 import { ReceiptPreviewModal } from './components/ReceiptPreviewModal';
 import { LedgerReportModal } from './components/LedgerReportModal';
-import { MemoriesGallery } from './components/MemoriesGallery';
+import { MemoriesGallery, deduplicateMemories } from './components/MemoriesGallery';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SocketProvider, useSocket } from './context/SocketContext';
 import { api } from './services/api';
@@ -88,8 +88,9 @@ function MainApp() {
         saveOfflineData('AUCTION', auctionRes);
       }
       if (memoriesRes && Array.isArray(memoriesRes)) {
-        setMemories(memoriesRes);
-        saveOfflineData('MEMORIES', memoriesRes);
+        const cleanMemories = deduplicateMemories(memoriesRes);
+        setMemories(cleanMemories);
+        saveOfflineData('MEMORIES', cleanMemories);
       }
     } catch (err) {
       console.warn('Network fetch error, running in offline mode:', err);
@@ -241,9 +242,9 @@ function MainApp() {
     });
 
     socket.on('memory:new', (newMem) => {
+      if (!newMem || !newMem.id) return;
       setMemories(prev => {
-        if (prev.some(m => m.id === newMem.id)) return prev;
-        const next = [newMem, ...prev];
+        const next = deduplicateMemories([newMem, ...prev]);
         saveOfflineData('MEMORIES', next);
         return next;
       });

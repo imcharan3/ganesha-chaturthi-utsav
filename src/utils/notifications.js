@@ -5,6 +5,19 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
 import { api } from '../services/api';
 
+// Recent notification deduplication cache with 5-second TTL
+const recentNotifications = new Map();
+
+// Helper to generate deterministic numeric ID from string
+const hashStringToInt = (str) => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash % 1000000) + 1;
+};
+
 // Initialize Native Push Notifications & FCM Token Registration
 export const initPushNotifications = async () => {
   if (typeof window !== 'undefined' && Capacitor.isNativePlatform()) {
@@ -65,14 +78,15 @@ export const initPushNotifications = async () => {
         console.warn('Error on push registration: ', error);
       });
 
-      // Show notification when received in foreground
+      // Show notification when received in foreground without duplicating
       PushNotifications.addListener('pushNotificationReceived', (notification) => {
-        playTempleBell();
         showDevotionalNotification({
-          title: notification.title || 'గణేష్ ఉత్సవ సమాచారం',
-          body: notification.body || '',
+          title: notification.title || notification.data?.title || 'గణేష్ ఉత్సవ సమాచారం',
+          body: notification.body || notification.data?.body || '',
           tab: notification.data?.tab || 'home',
-          playSound: false
+          actionData: notification.data,
+          playSound: true,
+          isFromPush: true
         });
       });
 
@@ -125,7 +139,7 @@ export const hasNotificationPermission = () => {
   return Notification.permission === 'granted';
 };
 
-// Send Devotional Notification Alert
+// Send Devotional Notification Alert with strict de-duplication
 export const showDevotionalNotification = ({
   title = 'గణేష్ ఉత్సవ సమాచారం (Ganesha Utsav Alert)',
   body = '',
@@ -133,14 +147,34 @@ export const showDevotionalNotification = ({
   tag = 'ganesh-alert',
   tab = null,
   playSound = true,
-  actionData = null
+  actionData = null,
+  isFromPush = false
 }) => {
+  // 0. Strict 5-Second Debounce & Deduplication
+  const notifKey = `${title}_${body}`.trim();
+  const now = Date.now();
+  if (recentNotifications.has(notifKey)) {
+    const lastTime = recentNotifications.get(notifKey);
+    if (now - lastTime < 5000) {
+      // Duplicate alert within 5 seconds - ignore cleanly
+      return;
+    }
+  }
+  recentNotifications.set(notifKey, now);
+
+  // Clean stale deduplication keys
+  if (recentNotifications.size > 50) {
+    for (const [k, t] of recentNotifications.entries()) {
+      if (now - t > 15000) recentNotifications.delete(k);
+    }
+  }
+
   // 1. Play Devotional Temple Bell Chime
   if (playSound) {
     playTempleBell();
   }
 
-  // 2. Trigger In-App Floating Toast Event (Works 100% everywhere including offline and background tabs)
+  // 2. Trigger In-App Floating Toast Event (Shows inside app in real time)
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('devotional-toast-alert', {
       detail: {
@@ -155,35 +189,14 @@ export const showDevotionalNotification = ({
     }));
   }
 
-  // 3. Trigger Real Native Android Status Bar Notification if on Android/iOS
-  if (typeof window !== 'undefined' && Capacitor.isNativePlatform()) {
-    try {
-      LocalNotifications.schedule({
-        notifications: [
-          {
-            title,
-            body,
-            id: Math.floor(Math.random() * 1000000),
-            schedule: { at: new Date(Date.now() + 100) },
-            channelId: 'ganesh_devotional_alerts',
-            smallIcon: 'ic_launcher',
-            extra: { tab, actionData }
-          }
-        ]
-      });
-    } catch (e) {
-      console.warn('Local notification trigger error:', e);
-    }
-  }
-
-  // 4. Trigger HTML5 Notification in desktop/mobile web browsers
+  // 3. Status Bar Notification (Only for browser or non-push events)
   if (typeof window !== 'undefined' && !Capacitor.isNativePlatform() && 'Notification' in window && Notification.permission === 'granted') {
     try {
       const notification = new Notification(title, {
         body,
         icon: icon || '/colony_logo.png',
         badge: '/icon-192.png',
-        tag: tag || 'ganesh-alert-' + Date.now(),
+        tag: tag || 'ganesh-alert-' + hashStringToInt(notifKey),
         vibrate: [200, 100, 200],
         requireInteraction: false
       });
@@ -196,7 +209,7 @@ export const showDevotionalNotification = ({
         }
       };
     } catch (e) {
-      console.warn('Native notification trigger error:', e);
+      console.warn('Browser notification trigger error:', e);
     }
   }
 };
