@@ -21,6 +21,8 @@ export const MemoryLightboxModal = ({
   const [currentMemory, setCurrentMemory] = useState(memory);
   const [imageSrc, setImageSrc] = useState('');
   const [isImageLoading, setIsImageLoading] = useState(true);
+  const [imageError, setImageError] = useState(false);
+  const [fallbackAttempt, setFallbackAttempt] = useState(0);
   const [activeReactionAnim, setActiveReactionAnim] = useState(null);
   const [copiedShare, setCopiedShare] = useState(false);
 
@@ -29,8 +31,15 @@ export const MemoryLightboxModal = ({
 
   useEffect(() => {
     setCurrentMemory(memory);
+    setImageError(false);
+    setFallbackAttempt(0);
     if (memory) {
-      setImageSrc(getFullMediaUrl(memory.mediaUrl));
+      const initial = (memory.mediaData && typeof memory.mediaData === 'string' && memory.mediaData.startsWith('data:'))
+        ? memory.mediaData
+        : (memory.thumbnailData && typeof memory.thumbnailData === 'string' && memory.thumbnailData.startsWith('data:'))
+          ? memory.thumbnailData
+          : getFullMediaUrl(memory.mediaUrl);
+      setImageSrc(initial);
       setIsImageLoading(true);
       if (memory.id) {
         api.recordMemoryView(memory.id).catch(() => {});
@@ -249,26 +258,81 @@ export const MemoryLightboxModal = ({
               ></iframe>
             </div>
           ) : (
-            <div className="relative flex items-center justify-center max-w-full max-h-full">
-              {isImageLoading && (
+            <div className="relative flex items-center justify-center max-w-full max-h-full min-h-[260px] min-w-[280px]">
+              {isImageLoading && !imageError && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 z-10 bg-black/60 rounded-2xl min-h-[200px] min-w-[200px]">
                   <Loader2 className="w-8 h-8 text-amber-400 animate-spin" />
                   <span className="text-amber-200 text-xs font-semibold">HD చిత్రం లోడ్ అవుతోంది...</span>
                 </div>
               )}
-              <img
-                src={imageSrc || getFullMediaUrl(currentMemory.mediaUrl)}
-                alt={currentMemory.title}
-                onLoad={() => setIsImageLoading(false)}
-                onError={() => {
-                  setIsImageLoading(false);
-                  const fallback = getFullMediaUrl(currentMemory.thumbnailUrl || '/colony_logo.png');
-                  if (imageSrc !== fallback) {
-                    setImageSrc(fallback);
-                  }
-                }}
-                className="max-h-[72dvh] sm:max-h-[78dvh] max-w-full rounded-2xl shadow-2xl border border-amber-500/30 object-contain bg-black/40 transition-opacity duration-300"
-              />
+
+              {imageError ? (
+                <div className="flex flex-col items-center justify-center p-6 sm:p-8 bg-[#1a0702]/95 border border-amber-500/40 rounded-3xl text-center max-w-md mx-auto space-y-3 shadow-2xl animate-in zoom-in-95">
+                  <div className="w-16 h-16 rounded-full bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-3xl">
+                    🪔
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="font-devotional text-base sm:text-lg font-bold gold-gradient-text">
+                      {currentMemory.title || 'శ్రీ వినాయక ఉత్సవ జ్ఞాపకం'}
+                    </h4>
+                    <p className="text-xs text-amber-200/80">
+                      చిత్రం క్లౌడ్ సర్వర్‌లో నిక్షిప్తమై ఉంది. దర్శించడానికి క్రింది బటన్ నొక్కండి.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setImageError(false);
+                      setFallbackAttempt(0);
+                      setIsImageLoading(true);
+                      setImageSrc(getFullMediaUrl(`/api/memories/${currentMemory.id}/media?t=${Date.now()}`));
+                    }}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-xs shadow-md hover:scale-105 active:scale-95 transition-all"
+                  >
+                    🔄 ఫోటో రీలోడ్ చేయండి (Reload)
+                  </button>
+                </div>
+              ) : (
+                <img
+                  src={imageSrc || getFullMediaUrl(currentMemory.mediaUrl)}
+                  alt={currentMemory.title}
+                  onLoad={() => {
+                    setIsImageLoading(false);
+                    setImageError(false);
+                  }}
+                  onError={() => {
+                    setIsImageLoading(false);
+                    if (fallbackAttempt === 0) {
+                      setFallbackAttempt(1);
+                      if (currentMemory.thumbnailData && typeof currentMemory.thumbnailData === 'string' && currentMemory.thumbnailData.startsWith('data:')) {
+                        setImageSrc(currentMemory.thumbnailData);
+                        return;
+                      }
+                      if (currentMemory.thumbnailUrl && getFullMediaUrl(currentMemory.thumbnailUrl) !== imageSrc) {
+                        setImageSrc(getFullMediaUrl(currentMemory.thumbnailUrl));
+                        return;
+                      }
+                    }
+                    if (fallbackAttempt <= 1) {
+                      setFallbackAttempt(2);
+                      const dynUrl = getFullMediaUrl(`/api/memories/${currentMemory.id}/media`);
+                      if (dynUrl !== imageSrc) {
+                        setImageSrc(dynUrl);
+                        return;
+                      }
+                    }
+                    if (fallbackAttempt <= 2) {
+                      setFallbackAttempt(3);
+                      const thumbUrl = getFullMediaUrl(`/api/memories/${currentMemory.id}/thumbnail`);
+                      if (thumbUrl !== imageSrc) {
+                        setImageSrc(thumbUrl);
+                        return;
+                      }
+                    }
+                    setImageError(true);
+                  }}
+                  className="max-h-[72dvh] sm:max-h-[78dvh] max-w-full rounded-2xl shadow-2xl border border-amber-500/30 object-contain bg-black/40 transition-opacity duration-300"
+                />
+              )}
             </div>
           )}
 

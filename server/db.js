@@ -265,6 +265,8 @@ const MemorySchema = new mongoose.Schema({
   mediaUrl: { type: String, required: true },
   mediaType: { type: String, default: 'image' }, // 'image' | 'video' | 'youtube'
   thumbnailUrl: { type: String, default: '' },
+  mediaData: { type: String, default: null }, // Persistent Base64 HD / original media data
+  thumbnailData: { type: String, default: null }, // Persistent Base64 preview thumbnail data
   fileSize: { type: Number, default: 0 },
   dimensions: { type: Object, default: null },
   duration: { type: Number, default: 0 },
@@ -1124,6 +1126,8 @@ export const db = {
       mediaUrl: data.mediaUrl,
       mediaType: data.mediaType || 'image', // 'image' | 'video' | 'youtube'
       thumbnailUrl: data.thumbnailUrl || data.mediaUrl,
+      mediaData: data.mediaData || (typeof data.mediaUrl === 'string' && data.mediaUrl.startsWith('data:') ? data.mediaUrl : null),
+      thumbnailData: data.thumbnailData || (typeof data.thumbnailUrl === 'string' && data.thumbnailUrl.startsWith('data:') ? data.thumbnailUrl : null),
       fileSize: Number(data.fileSize) || 0,
       dimensions: data.dimensions || null,
       duration: Number(data.duration) || 0,
@@ -1144,6 +1148,41 @@ export const db = {
     writeJsonFile(MEMORIES_FILE, memMemories);
     persistMongoMemory(newMemory);
     return newMemory;
+  },
+
+  getMemoryById: (id) => {
+    return memMemories.find(m => m.id === id) || null;
+  },
+
+  findMemoryForFile: async (filename) => {
+    if (!filename) return null;
+    const cleanFilename = path.basename(filename);
+    
+    // 1. Check in-memory list
+    const inMem = memMemories.find(m => 
+      (m.mediaUrl && m.mediaUrl.includes(cleanFilename)) || 
+      (m.thumbnailUrl && m.thumbnailUrl.includes(cleanFilename)) ||
+      (m.mediaData && m.mediaData.includes(cleanFilename))
+    );
+    if (inMem && (inMem.mediaData || inMem.thumbnailData || inMem.thumbnailUrl?.startsWith('data:') || inMem.mediaUrl?.startsWith('data:'))) {
+      return inMem;
+    }
+
+    // 2. Check MongoDB Atlas if connected
+    if (dbStatus.connected && MemoryModel) {
+      try {
+        const doc = await MemoryModel.findOne({
+          $or: [
+            { mediaUrl: { $regex: cleanFilename, $options: 'i' } },
+            { thumbnailUrl: { $regex: cleanFilename, $options: 'i' } }
+          ]
+        }).lean();
+        if (doc) return doc;
+      } catch (err) {
+        console.error('findMemoryForFile Mongo lookup note:', err.message);
+      }
+    }
+    return inMem || null;
   },
 
   updateMemory: (id, updateData) => {

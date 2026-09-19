@@ -128,7 +128,7 @@ app.options('*', cors());
 app.use(express.json({ limit: '1024mb' }));
 app.use(express.urlencoded({ limit: '1024mb', extended: true }));
 
-// Serve /uploads with HTTP 206 Range Request support for smooth video streaming
+// Serve /uploads with HTTP 206 Range Request support & dynamic cloud re-hydration
 app.use('/uploads', (req, res, next) => {
   res.setHeader('Accept-Ranges', 'bytes');
   next();
@@ -140,6 +140,49 @@ app.use('/uploads', (req, res, next) => {
     }
   }
 }));
+
+// Ephemeral Disk Re-hydration Fallback for /uploads/:filename (survives Render restarts)
+app.get('/uploads/:filename', async (req, res) => {
+  const { filename } = req.params;
+  const filePath = path.join(UPLOADS_DIR, filename);
+
+  if (fs.existsSync(filePath)) {
+    return res.sendFile(filePath);
+  }
+
+  try {
+    const memory = await db.findMemoryForFile(filename);
+    const dataToServe = memory?.mediaData || memory?.thumbnailData || 
+      (memory?.mediaUrl?.startsWith('data:') ? memory.mediaUrl : null) || 
+      (memory?.thumbnailUrl?.startsWith('data:') ? memory.thumbnailUrl : null);
+
+    if (dataToServe && typeof dataToServe === 'string' && dataToServe.startsWith('data:')) {
+      const match = dataToServe.match(/^data:([^;]+);base64,(.+)$/);
+      if (match) {
+        const mimeType = match[1];
+        const buffer = Buffer.from(match[2], 'base64');
+        
+        try {
+          fs.writeFileSync(filePath, buffer);
+        } catch (e) {
+          console.warn('Failed to re-write file to uploads:', e.message);
+        }
+
+        res.setHeader('Content-Type', mimeType);
+        res.setHeader('Cache-Control', 'public, max-age=604800');
+        return res.send(buffer);
+      }
+    }
+  } catch (err) {
+    console.error('Dynamic image re-hydration error for', filename, err.message);
+  }
+
+  const defaultFallback = path.join(__dirname, '../public/colony_logo.png');
+  if (fs.existsSync(defaultFallback)) {
+    return res.sendFile(defaultFallback);
+  }
+  res.status(404).send('Media not found');
+});
 
 // Admin Auth Middleware helper
 function verifyAdmin(req, res, next) {
@@ -743,19 +786,113 @@ app.post('/api/memories/upload', (req, res) => {
     const isVideo = (req.file.mimetype || '').startsWith('video/');
     const fileUrl = `/uploads/${req.file.filename}`;
     
+    let base64Preview = null;
+    // For images under 12MB, create persistent Base64 payload for MongoDB cloud backup
+    if (!isVideo && req.file.size <= 12 * 1024 * 1024) {
+      try {
+        const fileBuf = fs.readFileSync(req.file.path);
+        base64Preview = `data:${req.file.mimetype};base64,${fileBuf.toString('base64')}`;
+      } catch (e) {
+        console.warn('Base64 preview generation note:', e.message);
+      }
+    }
+
     res.json({
       success: true,
       mediaUrl: fileUrl,
       mediaType: isVideo ? 'video' : 'image',
       filename: req.file.filename,
       mimetype: req.file.mimetype,
-      size: req.file.size
+      size: req.file.size,
+      mediaData: base64Preview,
+      thumbnailUrl: base64Preview || fileUrl
     });
   });
 });
 
 app.get('/api/memories', (req, res) => {
   res.json(db.getMemories());
+});
+
+// Dedicated persistent media stream endpoint
+app.get('/api/memories/:id/media', async (req, res) => {
+  const { id } = req.params;
+  const memory = db.getMemoryById(id) || (await db.findMemoryForFile(id));
+  if (!memory) {
+    return res.status(404).send('Memory not found');
+  }
+
+  // 1. Check if media file exists on disk
+  if (memory.mediaUrl && memory.mediaUrl.startsWith('/uploads/')) {
+    const filename = path.basename(memory.mediaUrl);
+    const localPath = path.join(UPLOADS_DIR, filename);
+    if (fs.existsSync(localPath)) {
+      return res.sendFile(localPath);
+    }
+  }
+
+  // 2. Check if persistent Data URL exists
+  const dataUrl = memory.mediaData || (memory.mediaUrl?.startsWith('data:') ? memory.mediaUrl : null) || memory.thumbnailData || (memory.thumbnailUrl?.startsWith('data:') ? memory.thumbnailUrl : null);
+  if (dataUrl && typeof dataUrl === 'string' && dataUrl.startsWith('data:')) {
+    const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+    if (match) {
+      const mimeType = match[1];
+      const buffer = Buffer.from(match[2], 'base64');
+      res.setHeader('Content-Type', mimeType);
+      res.setHeader('Cache-Control', 'public, max-age=604800');
+      return res.send(buffer);
+    }
+  }
+
+  // 3. Fallback to external redirect
+  if (memory.mediaUrl && (memory.mediaUrl.startsWith('http://') || memory.mediaUrl.startsWith('https://'))) {
+    return res.redirect(memory.mediaUrl);
+  }
+
+  const defaultFallback = path.join(__dirname, '../public/colony_logo.png');
+  if (fs.existsSync(defaultFallback)) {
+    return res.sendFile(defaultFallback);
+  }
+  res.status(404).send('Media unavailable');
+});
+
+// Dedicated persistent thumbnail stream endpoint
+app.get('/api/memories/:id/thumbnail', async (req, res) => {
+  const { id } = req.params;
+  const memory = db.getMemoryById(id) || (await db.findMemoryForFile(id));
+  if (!memory) {
+    return res.status(404).send('Memory not found');
+  }
+
+  const dataUrl = memory.thumbnailData || (memory.thumbnailUrl?.startsWith('data:') ? memory.thumbnailUrl : null) || memory.mediaData || (memory.mediaUrl?.startsWith('data:') ? memory.mediaUrl : null);
+  if (dataUrl && typeof dataUrl === 'string' && dataUrl.startsWith('data:')) {
+    const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+    if (match) {
+      const mimeType = match[1];
+      const buffer = Buffer.from(match[2], 'base64');
+      res.setHeader('Content-Type', mimeType);
+      res.setHeader('Cache-Control', 'public, max-age=604800');
+      return res.send(buffer);
+    }
+  }
+
+  if (memory.thumbnailUrl && memory.thumbnailUrl.startsWith('/uploads/')) {
+    const filename = path.basename(memory.thumbnailUrl);
+    const localPath = path.join(UPLOADS_DIR, filename);
+    if (fs.existsSync(localPath)) {
+      return res.sendFile(localPath);
+    }
+  }
+
+  if (memory.thumbnailUrl && (memory.thumbnailUrl.startsWith('http://') || memory.thumbnailUrl.startsWith('https://'))) {
+    return res.redirect(memory.thumbnailUrl);
+  }
+
+  const defaultFallback = path.join(__dirname, '../public/colony_logo.png');
+  if (fs.existsSync(defaultFallback)) {
+    return res.sendFile(defaultFallback);
+  }
+  res.status(404).send('Thumbnail unavailable');
 });
 
 app.post('/api/memories', (req, res) => {
@@ -765,6 +902,8 @@ app.post('/api/memories', (req, res) => {
     mediaUrl,
     mediaType,
     thumbnailUrl,
+    mediaData,
+    thumbnailData,
     fileSize,
     dimensions,
     duration,
@@ -780,25 +919,30 @@ app.post('/api/memories', (req, res) => {
     return res.status(400).json({ error: 'Media URL or file is required' });
   }
 
-  // If mediaUrl or thumbnailUrl is sent as Base64 Data URL, persist it to disk directly
+  // If mediaUrl is sent as Base64 Data URL, persist it to disk and keep in mediaData
   if (typeof mediaUrl === 'string' && mediaUrl.startsWith('data:')) {
+    mediaData = mediaUrl;
     try {
       const match = mediaUrl.match(/^data:([^;]+);base64,(.+)$/);
       if (match) {
         const mimeType = match[1];
-        const base64Data = match[2];
+        const base64Content = match[2];
         const isVid = mimeType.startsWith('video/');
         const ext = isVid ? '.mp4' : mimeType.includes('png') ? '.png' : mimeType.includes('webp') ? '.webp' : '.jpg';
         const filename = `media-${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
         const filePath = path.join(UPLOADS_DIR, filename);
-        fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
+        fs.writeFileSync(filePath, Buffer.from(base64Content, 'base64'));
         mediaUrl = `/uploads/${filename}`;
         if (!mediaType) mediaType = isVid ? 'video' : 'image';
-        if (!fileSize) fileSize = Buffer.byteLength(base64Data, 'base64');
+        if (!fileSize) fileSize = Buffer.byteLength(base64Content, 'base64');
       }
     } catch (e) {
       console.warn('Failed to save base64 media to disk, keeping inline:', e.message);
     }
+  }
+
+  if (typeof thumbnailUrl === 'string' && thumbnailUrl.startsWith('data:')) {
+    thumbnailData = thumbnailUrl;
   }
 
   const newMemory = db.addMemory({
@@ -807,6 +951,8 @@ app.post('/api/memories', (req, res) => {
     mediaUrl,
     mediaType: mediaType || 'image',
     thumbnailUrl: thumbnailUrl || mediaUrl,
+    mediaData: mediaData || null,
+    thumbnailData: thumbnailData || null,
     fileSize: fileSize || 0,
     dimensions: dimensions || null,
     duration: duration || 0,
@@ -922,13 +1068,13 @@ io.on('connection', (socket) => {
 // App Version & Auto-Update Metadata Endpoint
 app.get('/api/app/version', (req, res) => {
   res.json({
-    latestVersion: '2.4',
-    versionCode: 15,
+    latestVersion: '2.5',
+    versionCode: 16,
     minSupportedVersion: '1.0',
     apkUrl: '/download/app',
-    releaseDate: '2026-09-10',
-    releaseNotes: '🎉 గ్రాండ్ అప్‌డేట్ v2.4: లైట్‌బాక్స్ HD ఫోటో వ్యూ లోడింగ్ సమస్య పరిష్కరించబడింది, ఫైర్‌బేస్ & నేటివ్ స్టేటస్ బార్ నోటిఫికేషన్స్ 100% పునరుద్ధరించబడ్డాయి.',
-    title: 'విజయ కాలనీ గణేష్ డైరీస్ v2.4'
+    releaseDate: '2026-09-19',
+    releaseNotes: '🎉 గ్రాండ్ అప్‌డేట్ v2.5: ఉత్సవ జ్ఞాపకాలు (Memories) క్లౌడ్ పర్సిస్టెన్స్ & ప్రివ్యూ ఇమేజ్ వ్యూయర్ లోడింగ్ 100% పర్ఫెక్ట్‌గా పునరుద్ధరించబడ్డాయి.',
+    title: 'విజయ కాలనీ గణేష్ డైరీస్ v2.5'
   });
 });
 

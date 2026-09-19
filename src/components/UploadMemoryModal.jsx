@@ -37,6 +37,50 @@ export const UploadMemoryModal = ({ isOpen, onClose, onUploadSuccess, settings }
 
   if (!isOpen) return null;
 
+  // Generate compressed HD JPEG thumbnail for image persistence
+  const generateImageThumbnail = (file) => {
+    return new Promise((resolve) => {
+      try {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const MAX_WIDTH = 1280;
+            const MAX_HEIGHT = 1280;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > height) {
+              if (width > MAX_WIDTH) {
+                height = Math.round((height * MAX_WIDTH) / width);
+                width = MAX_WIDTH;
+              }
+            } else {
+              if (height > MAX_HEIGHT) {
+                width = Math.round((width * MAX_HEIGHT) / height);
+                height = MAX_HEIGHT;
+              }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            const thumbUrl = canvas.toDataURL('image/jpeg', 0.82);
+            resolve(thumbUrl);
+          };
+          img.onerror = () => resolve(e.target.result);
+          img.src = e.target.result;
+        };
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(file);
+      } catch {
+        resolve(null);
+      }
+    });
+  };
+
   // Extract first frame of video as high-quality preview thumbnail
   const extractVideoFrame = (file) => {
     return new Promise((resolve) => {
@@ -89,11 +133,9 @@ export const UploadMemoryModal = ({ isOpen, onClose, onUploadSuccess, settings }
       const thumb = await extractVideoFrame(file);
       setVideoThumbnail(thumb);
     } else {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setFilePreview(ev.target.result);
-      };
-      reader.readAsDataURL(file);
+      const thumbData = await generateImageThumbnail(file);
+      setFilePreview(thumbData);
+      setVideoThumbnail(thumbData);
     }
   };
 
@@ -126,6 +168,7 @@ export const UploadMemoryModal = ({ isOpen, onClose, onUploadSuccess, settings }
     try {
       let finalMediaUrl = '';
       let finalThumbUrl = '';
+      let persistentMediaData = null;
       let calculatedSize = 0;
 
       if (activeMode === 'file') {
@@ -145,7 +188,8 @@ export const UploadMemoryModal = ({ isOpen, onClose, onUploadSuccess, settings }
           });
 
           finalMediaUrl = uploadRes.mediaUrl;
-          finalThumbUrl = videoThumbnail || finalMediaUrl;
+          finalThumbUrl = videoThumbnail || uploadRes.thumbnailUrl || finalMediaUrl;
+          persistentMediaData = uploadRes.mediaData || (mediaType === 'image' ? (videoThumbnail || filePreview) : null);
         } catch (uploadErr) {
           console.warn('Multipart upload failed, attempting smart direct fallback...', uploadErr);
           
@@ -153,6 +197,7 @@ export const UploadMemoryModal = ({ isOpen, onClose, onUploadSuccess, settings }
           if (filePreview && typeof filePreview === 'string' && filePreview.startsWith('data:')) {
             finalMediaUrl = filePreview;
             finalThumbUrl = videoThumbnail || filePreview;
+            persistentMediaData = filePreview;
           } else {
             const dataUrl = await new Promise((res, rej) => {
               const reader = new FileReader();
@@ -162,6 +207,7 @@ export const UploadMemoryModal = ({ isOpen, onClose, onUploadSuccess, settings }
             });
             finalMediaUrl = dataUrl;
             finalThumbUrl = videoThumbnail || (mediaType === 'video' ? '/mandapam_bg.jpg' : dataUrl);
+            persistentMediaData = dataUrl;
           }
         }
       } else {
@@ -172,13 +218,15 @@ export const UploadMemoryModal = ({ isOpen, onClose, onUploadSuccess, settings }
         finalThumbUrl = isYt ? '/mandapam_bg.jpg' : finalMediaUrl;
       }
 
-      // Create Memory record
+      // Create Memory record with cloud persistent backup fields
       const memoryPayload = {
         title: title.trim() || 'శ్రీ వినాయక ఉత్సవ జ్ఞాపకం',
         description: description.trim(),
         mediaUrl: finalMediaUrl,
         mediaType,
-        thumbnailUrl: finalThumbUrl,
+        thumbnailUrl: finalThumbUrl || (videoThumbnail || finalMediaUrl),
+        mediaData: persistentMediaData,
+        thumbnailData: videoThumbnail || finalThumbUrl,
         fileSize: calculatedSize,
         uploaderName: savedUploader,
         uploaderRole: 'Devotee',

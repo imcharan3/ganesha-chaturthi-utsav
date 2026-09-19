@@ -231,8 +231,20 @@ export const MemoriesGallery = ({ settings, initialMemories = [] }) => {
               ></video>
             ) : (
               <img
-                src={getFullMediaUrl(pinnedMemories[pinnedIndex]?.mediaUrl)}
+                src={
+                  (pinnedMemories[pinnedIndex]?.mediaData && typeof pinnedMemories[pinnedIndex]?.mediaData === 'string' && pinnedMemories[pinnedIndex]?.mediaData.startsWith('data:'))
+                    ? pinnedMemories[pinnedIndex]?.mediaData
+                    : getFullMediaUrl(pinnedMemories[pinnedIndex]?.mediaUrl)
+                }
                 alt={pinnedMemories[pinnedIndex]?.title}
+                onError={(e) => {
+                  const dyn = getFullMediaUrl(`/api/memories/${pinnedMemories[pinnedIndex]?.id}/media`);
+                  if (e.target.src !== dyn) {
+                    e.target.src = dyn;
+                  } else {
+                    e.target.src = '/colony_logo.png';
+                  }
+                }}
                 className="w-full h-full object-cover brightness-90 cursor-pointer hover:scale-105 transition-transform duration-700"
                 onClick={() => setActiveLightboxMemory(pinnedMemories[pinnedIndex])}
               />
@@ -508,12 +520,31 @@ export const MemoriesGallery = ({ settings, initialMemories = [] }) => {
                   onClick={() => setActiveLightboxMemory(item)}
                 >
                   <img
-                    src={getFullMediaUrl(item.thumbnailUrl || item.mediaUrl)}
+                    src={
+                      (item.thumbnailData && typeof item.thumbnailData === 'string' && item.thumbnailData.startsWith('data:'))
+                        ? item.thumbnailData
+                        : (item.mediaData && typeof item.mediaData === 'string' && item.mediaData.startsWith('data:'))
+                          ? item.mediaData
+                          : getFullMediaUrl(item.thumbnailUrl || item.mediaUrl)
+                    }
                     alt={item.title}
                     loading="lazy"
                     onError={(e) => {
+                      if (item.thumbnailData && typeof item.thumbnailData === 'string' && item.thumbnailData.startsWith('data:') && e.target.src !== item.thumbnailData) {
+                        e.target.src = item.thumbnailData;
+                        return;
+                      }
                       if (item.mediaUrl && e.target.src !== getFullMediaUrl(item.mediaUrl)) {
                         e.target.src = getFullMediaUrl(item.mediaUrl);
+                        return;
+                      }
+                      const dynThumb = getFullMediaUrl(`/api/memories/${item.id}/thumbnail`);
+                      if (e.target.src !== dynThumb) {
+                        e.target.src = dynThumb;
+                        return;
+                      }
+                      if (e.target.src !== '/colony_logo.png') {
+                        e.target.src = '/colony_logo.png';
                       }
                     }}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
