@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Sparkles, Image as ImageIcon, Film, Upload, Search, Heart, Share2, Download, Eye, Pin, Plus, Filter, Play, Calendar, User, CheckCircle2 } from 'lucide-react';
+import { Sparkles, Image as ImageIcon, Film, Upload, Search, Heart, Share2, Download, Eye, Pin, Plus, Filter, Play, Calendar, User, CheckCircle2, Trash2 } from 'lucide-react';
 import { api, getFullMediaUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { UploadMemoryModal } from './UploadMemoryModal';
@@ -234,7 +234,13 @@ export const MemoriesGallery = ({ settings, initialMemories = [] }) => {
                 src={
                   (pinnedMemories[pinnedIndex]?.mediaData && typeof pinnedMemories[pinnedIndex]?.mediaData === 'string' && pinnedMemories[pinnedIndex]?.mediaData.startsWith('data:'))
                     ? pinnedMemories[pinnedIndex]?.mediaData
-                    : getFullMediaUrl(pinnedMemories[pinnedIndex]?.mediaUrl)
+                    : (pinnedMemories[pinnedIndex]?.mediaUrl && typeof pinnedMemories[pinnedIndex]?.mediaUrl === 'string' && pinnedMemories[pinnedIndex]?.mediaUrl.startsWith('data:'))
+                      ? pinnedMemories[pinnedIndex]?.mediaUrl
+                      : (pinnedMemories[pinnedIndex]?.thumbnailData && typeof pinnedMemories[pinnedIndex]?.thumbnailData === 'string' && pinnedMemories[pinnedIndex]?.thumbnailData.startsWith('data:'))
+                        ? pinnedMemories[pinnedIndex]?.thumbnailData
+                        : (pinnedMemories[pinnedIndex]?.thumbnailUrl && typeof pinnedMemories[pinnedIndex]?.thumbnailUrl === 'string' && pinnedMemories[pinnedIndex]?.thumbnailUrl.startsWith('data:'))
+                          ? pinnedMemories[pinnedIndex]?.thumbnailUrl
+                          : getFullMediaUrl(pinnedMemories[pinnedIndex]?.mediaUrl)
                 }
                 alt={pinnedMemories[pinnedIndex]?.title}
                 onError={(e) => {
@@ -523,9 +529,13 @@ export const MemoriesGallery = ({ settings, initialMemories = [] }) => {
                     src={
                       (item.thumbnailData && typeof item.thumbnailData === 'string' && item.thumbnailData.startsWith('data:'))
                         ? item.thumbnailData
-                        : (item.mediaData && typeof item.mediaData === 'string' && item.mediaData.startsWith('data:'))
-                          ? item.mediaData
-                          : getFullMediaUrl(item.thumbnailUrl || item.mediaUrl)
+                        : (item.thumbnailUrl && typeof item.thumbnailUrl === 'string' && item.thumbnailUrl.startsWith('data:'))
+                          ? item.thumbnailUrl
+                          : (item.mediaData && typeof item.mediaData === 'string' && item.mediaData.startsWith('data:'))
+                            ? item.mediaData
+                            : (item.mediaUrl && typeof item.mediaUrl === 'string' && item.mediaUrl.startsWith('data:'))
+                              ? item.mediaUrl
+                              : getFullMediaUrl(item.thumbnailUrl || item.mediaUrl)
                     }
                     alt={item.title}
                     loading="lazy"
@@ -534,13 +544,22 @@ export const MemoriesGallery = ({ settings, initialMemories = [] }) => {
                         e.target.src = item.thumbnailData;
                         return;
                       }
-                      if (item.mediaUrl && e.target.src !== getFullMediaUrl(item.mediaUrl)) {
-                        e.target.src = getFullMediaUrl(item.mediaUrl);
+                      if (item.thumbnailUrl && typeof item.thumbnailUrl === 'string' && item.thumbnailUrl.startsWith('data:') && e.target.src !== item.thumbnailUrl) {
+                        e.target.src = item.thumbnailUrl;
+                        return;
+                      }
+                      if (item.mediaData && typeof item.mediaData === 'string' && item.mediaData.startsWith('data:') && e.target.src !== item.mediaData) {
+                        e.target.src = item.mediaData;
                         return;
                       }
                       const dynThumb = getFullMediaUrl(`/api/memories/${item.id}/thumbnail`);
                       if (e.target.src !== dynThumb) {
                         e.target.src = dynThumb;
+                        return;
+                      }
+                      const dynMedia = getFullMediaUrl(`/api/memories/${item.id}/media`);
+                      if (e.target.src !== dynMedia) {
+                        e.target.src = dynMedia;
                         return;
                       }
                       if (e.target.src !== '/colony_logo.png') {
@@ -560,16 +579,33 @@ export const MemoriesGallery = ({ settings, initialMemories = [] }) => {
                   )}
 
                   {/* Badges Top Bar */}
-                  <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between">
-                    <span className="px-2.5 py-0.5 rounded-full bg-black/70 backdrop-blur-md border border-amber-500/30 text-amber-200 text-[10px] font-bold">
-                      {item.day}
-                    </span>
-
-                    {item.isPinned && (
-                      <span className="px-2 py-0.5 rounded-full bg-yellow-500 text-yellow-950 text-[10px] font-extrabold flex items-center gap-1 shadow-md">
-                        <Pin className="w-3 h-3" />
-                        <span>Spotlight</span>
+                  <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none">
+                    <div className="flex items-center gap-1.5 pointer-events-auto">
+                      <span className="px-2.5 py-0.5 rounded-full bg-black/70 backdrop-blur-md border border-amber-500/30 text-amber-200 text-[10px] font-bold">
+                        {item.day}
                       </span>
+
+                      {item.isPinned && (
+                        <span className="px-2 py-0.5 rounded-full bg-yellow-500 text-yellow-950 text-[10px] font-extrabold flex items-center gap-1 shadow-md">
+                          <Pin className="w-3 h-3" />
+                          <span>Spotlight</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {(isAdmin || (uploaderId && item.uploaderId === uploaderId)) && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm('ఈ ఉత్సవ జ్ఞాపకాన్ని తొలగించాలనుకుంటున్నారా? (Delete this memory?)')) {
+                            handleDelete(item.id);
+                          }
+                        }}
+                        className="pointer-events-auto p-1.5 rounded-full bg-black/75 hover:bg-red-900 text-red-300 border border-red-500/40 transition-all active:scale-95 shadow-md"
+                        title="Delete Memory"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     )}
                   </div>
 

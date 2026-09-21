@@ -1068,13 +1068,13 @@ io.on('connection', (socket) => {
 // App Version & Auto-Update Metadata Endpoint
 app.get('/api/app/version', (req, res) => {
   res.json({
-    latestVersion: '2.5',
-    versionCode: 16,
+    latestVersion: '2.6',
+    versionCode: 17,
     minSupportedVersion: '1.0',
     apkUrl: '/download/app',
-    releaseDate: '2026-09-19',
-    releaseNotes: '🎉 గ్రాండ్ అప్‌డేట్ v2.5: ఉత్సవ జ్ఞాపకాలు (Memories) క్లౌడ్ పర్సిస్టెన్స్ & ప్రివ్యూ ఇమేజ్ వ్యూయర్ లోడింగ్ 100% పర్ఫెక్ట్‌గా పునరుద్ధరించబడ్డాయి.',
-    title: 'విజయ కాలనీ గణేష్ డైరీస్ v2.5'
+    releaseDate: '2026-09-21',
+    releaseNotes: '🎉 గ్రాండ్ అప్‌డేట్ v2.6: ఉత్సవ జ్ఞాపకాలు (Memories) అల్ట్రా-హెచ్‌డీ కంప్రెషన్ & తక్షణ 0ms ప్రివ్యూ లోడింగ్ పూర్తి నాణ్యతతో సిద్ధం చేయబడ్డాయి.',
+    title: 'విజయ కాలనీ గణేష్ డైరీస్ v2.6'
   });
 });
 

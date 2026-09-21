@@ -35,10 +35,25 @@ export const UploadMemoryModal = ({ isOpen, onClose, onUploadSuccess, settings }
   
   const fileInputRef = useRef(null);
 
-  if (!isOpen) return null;
+  // Helper: Convert Data URL to a real File object for fast multipart upload
+  const dataURLtoFile = (dataurl, filename) => {
+    try {
+      const arr = dataurl.split(',');
+      const mime = arr[0].match(/:(.*?);/)[1];
+      const bstr = atob(arr[1]);
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+      }
+      return new File([u8arr], filename, { type: mime });
+    } catch {
+      return null;
+    }
+  };
 
-  // Generate compressed HD JPEG thumbnail for image persistence
-  const generateImageThumbnail = (file) => {
+  // High-performance image compression helper (Preserves HD clarity with small file size)
+  const compressImage = (file, maxWidth = 1600, maxHeight = 1600, quality = 0.82) => {
     return new Promise((resolve) => {
       try {
         const reader = new FileReader();
@@ -46,20 +61,18 @@ export const UploadMemoryModal = ({ isOpen, onClose, onUploadSuccess, settings }
           const img = new Image();
           img.onload = () => {
             const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 1280;
-            const MAX_HEIGHT = 1280;
             let width = img.width;
             let height = img.height;
 
             if (width > height) {
-              if (width > MAX_WIDTH) {
-                height = Math.round((height * MAX_WIDTH) / width);
-                width = MAX_WIDTH;
+              if (width > maxWidth) {
+                height = Math.round((height * maxWidth) / width);
+                width = maxWidth;
               }
             } else {
-              if (height > MAX_HEIGHT) {
-                width = Math.round((width * MAX_HEIGHT) / height);
-                height = MAX_HEIGHT;
+              if (height > maxHeight) {
+                width = Math.round((width * maxHeight) / height);
+                height = maxHeight;
               }
             }
 
@@ -67,16 +80,20 @@ export const UploadMemoryModal = ({ isOpen, onClose, onUploadSuccess, settings }
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, width, height);
-            const thumbUrl = canvas.toDataURL('image/jpeg', 0.82);
-            resolve(thumbUrl);
+            const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+            resolve({
+              dataUrl: compressedDataUrl,
+              width,
+              height
+            });
           };
-          img.onerror = () => resolve(e.target.result);
+          img.onerror = () => resolve({ dataUrl: e.target.result, width: 0, height: 0 });
           img.src = e.target.result;
         };
-        reader.onerror = () => resolve(null);
+        reader.onerror = () => resolve({ dataUrl: null, width: 0, height: 0 });
         reader.readAsDataURL(file);
       } catch {
-        resolve(null);
+        resolve({ dataUrl: null, width: 0, height: 0 });
       }
     });
   };
@@ -101,7 +118,7 @@ export const UploadMemoryModal = ({ isOpen, onClose, onUploadSuccess, settings }
           canvas.height = video.videoHeight || 360;
           const ctx = canvas.getContext('2d');
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const thumbDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          const thumbDataUrl = canvas.toDataURL('image/jpeg', 0.80);
           resolve(thumbDataUrl);
         };
 
@@ -123,19 +140,28 @@ export const UploadMemoryModal = ({ isOpen, onClose, onUploadSuccess, settings }
       return;
     }
 
-    setSelectedFile(file);
     const isVid = file.type.startsWith('video/');
     setMediaType(isVid ? 'video' : 'image');
 
     if (isVid) {
+      setSelectedFile(file);
       const objUrl = URL.createObjectURL(file);
       setFilePreview(objUrl);
       const thumb = await extractVideoFrame(file);
       setVideoThumbnail(thumb);
     } else {
-      const thumbData = await generateImageThumbnail(file);
-      setFilePreview(thumbData);
-      setVideoThumbnail(thumbData);
+      // Generate crisp HD Compressed Image (1600px, 82% quality) & lightweight Thumbnail (480px)
+      const [hdResult, thumbResult] = await Promise.all([
+        compressImage(file, 1600, 1600, 0.82),
+        compressImage(file, 480, 480, 0.75)
+      ]);
+
+      const baseName = (file.name || 'photo').replace(/\.[^/.]+$/, "");
+      const compressedFile = dataURLtoFile(hdResult.dataUrl, `${baseName}.jpg`) || file;
+      
+      setSelectedFile(compressedFile);
+      setFilePreview(hdResult.dataUrl);
+      setVideoThumbnail(thumbResult.dataUrl);
     }
   };
 
@@ -182,14 +208,14 @@ export const UploadMemoryModal = ({ isOpen, onClose, onUploadSuccess, settings }
         }
 
         try {
-          // 2. Primary: Upload with real-time percentage progress
+          // 2. Primary: Upload compressed file with real-time percentage progress
           const uploadRes = await api.uploadMediaFileWithProgress(selectedFile, (prog) => {
             setUploadProgress(prog);
           });
 
           finalMediaUrl = uploadRes.mediaUrl;
           finalThumbUrl = videoThumbnail || uploadRes.thumbnailUrl || finalMediaUrl;
-          persistentMediaData = uploadRes.mediaData || (mediaType === 'image' ? (videoThumbnail || filePreview) : null);
+          persistentMediaData = uploadRes.mediaData || (mediaType === 'image' ? (filePreview || videoThumbnail) : null);
         } catch (uploadErr) {
           console.warn('Multipart upload failed, attempting smart direct fallback...', uploadErr);
           
@@ -206,7 +232,7 @@ export const UploadMemoryModal = ({ isOpen, onClose, onUploadSuccess, settings }
               reader.readAsDataURL(selectedFile);
             });
             finalMediaUrl = dataUrl;
-            finalThumbUrl = videoThumbnail || (mediaType === 'video' ? '/mandapam_bg.jpg' : dataUrl);
+            finalThumbUrl = videoThumbnail || (mediaType === 'video' ? '/colony_logo.png' : dataUrl);
             persistentMediaData = dataUrl;
           }
         }
@@ -215,7 +241,7 @@ export const UploadMemoryModal = ({ isOpen, onClose, onUploadSuccess, settings }
         finalMediaUrl = externalUrl.trim();
         const isYt = finalMediaUrl.includes('youtube.com') || finalMediaUrl.includes('youtu.be');
         setMediaType(isYt ? 'youtube' : 'video');
-        finalThumbUrl = isYt ? '/mandapam_bg.jpg' : finalMediaUrl;
+        finalThumbUrl = isYt ? '/colony_logo.png' : finalMediaUrl;
       }
 
       // Create Memory record with cloud persistent backup fields
@@ -225,7 +251,7 @@ export const UploadMemoryModal = ({ isOpen, onClose, onUploadSuccess, settings }
         mediaUrl: finalMediaUrl,
         mediaType,
         thumbnailUrl: finalThumbUrl || (videoThumbnail || finalMediaUrl),
-        mediaData: persistentMediaData,
+        mediaData: persistentMediaData || (mediaType === 'image' ? (filePreview || videoThumbnail) : null),
         thumbnailData: videoThumbnail || finalThumbUrl,
         fileSize: calculatedSize,
         uploaderName: savedUploader,
@@ -271,6 +297,8 @@ export const UploadMemoryModal = ({ isOpen, onClose, onUploadSuccess, settings }
     if (mb < 1024) return `${mb.toFixed(1)} MB`;
     return `${(mb / 1024).toFixed(2)} GB`;
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">

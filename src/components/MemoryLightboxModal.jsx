@@ -36,9 +36,13 @@ export const MemoryLightboxModal = ({
     if (memory) {
       const initial = (memory.mediaData && typeof memory.mediaData === 'string' && memory.mediaData.startsWith('data:'))
         ? memory.mediaData
-        : (memory.thumbnailData && typeof memory.thumbnailData === 'string' && memory.thumbnailData.startsWith('data:'))
-          ? memory.thumbnailData
-          : getFullMediaUrl(memory.mediaUrl);
+        : (memory.mediaUrl && typeof memory.mediaUrl === 'string' && memory.mediaUrl.startsWith('data:'))
+          ? memory.mediaUrl
+          : (memory.thumbnailData && typeof memory.thumbnailData === 'string' && memory.thumbnailData.startsWith('data:'))
+            ? memory.thumbnailData
+            : (memory.thumbnailUrl && typeof memory.thumbnailUrl === 'string' && memory.thumbnailUrl.startsWith('data:'))
+              ? memory.thumbnailUrl
+              : getFullMediaUrl(memory.mediaUrl);
       setImageSrc(initial);
       setIsImageLoading(true);
       if (memory.id) {
@@ -241,6 +245,13 @@ export const MemoryLightboxModal = ({
           {currentMemory.mediaType === 'video' ? (
             <video
               src={getFullMediaUrl(currentMemory.mediaUrl)}
+              poster={
+                (currentMemory.thumbnailData && typeof currentMemory.thumbnailData === 'string' && currentMemory.thumbnailData.startsWith('data:'))
+                  ? currentMemory.thumbnailData
+                  : (currentMemory.thumbnailUrl && typeof currentMemory.thumbnailUrl === 'string' && currentMemory.thumbnailUrl.startsWith('data:'))
+                    ? currentMemory.thumbnailUrl
+                    : getFullMediaUrl(currentMemory.thumbnailUrl || '/colony_logo.png')
+              }
               controls
               autoPlay
               playsInline
@@ -305,6 +316,10 @@ export const MemoryLightboxModal = ({
                       setFallbackAttempt(1);
                       if (currentMemory.thumbnailData && typeof currentMemory.thumbnailData === 'string' && currentMemory.thumbnailData.startsWith('data:')) {
                         setImageSrc(currentMemory.thumbnailData);
+                        return;
+                      }
+                      if (currentMemory.thumbnailUrl && typeof currentMemory.thumbnailUrl === 'string' && currentMemory.thumbnailUrl.startsWith('data:')) {
+                        setImageSrc(currentMemory.thumbnailUrl);
                         return;
                       }
                       if (currentMemory.thumbnailUrl && getFullMediaUrl(currentMemory.thumbnailUrl) !== imageSrc) {
